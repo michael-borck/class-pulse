@@ -1,0 +1,2160 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the ClassPulse real-time audience interaction tool">
+      
+      
+        <meta name="author" content="ClassPulse Team">
+      
+      
+      
+        <link rel="prev" href="../ARCHITECTURE/">
+      
+      
+        <link rel="next" href="../DEVELOPER_GUIDE/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>Technical Specification - ClassPulse Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#classpulse-technical-specification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ClassPulse Documentation" class="md-header__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ClassPulse Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Technical Specification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ClassPulse Documentation" class="md-nav__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ClassPulse Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Introduction
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Introduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1 Purpose
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2 Scope
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Functional Requirements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-authentication-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1 Authentication System
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2 Session Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-question-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3 Question Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-response-collection" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4 Response Collection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-real-time-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5 Real-time Updates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-data-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.6 Data Export
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Data Models
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Data Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 User
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 Session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 Response
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. API Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. API Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1 Authentication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-presenter-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2 Presenter Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-question-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3 Question Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.4 API Endpoints
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-audience-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.5 Audience Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-websocket-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.6 WebSocket Endpoints
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-user-interface-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. User Interface Specifications
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. User Interface Specifications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-layout-and-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.1 Layout and Components
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-presenter-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.2 Presenter Interfaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-audience-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.3 Audience Interfaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.4 Visualizations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-non-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Non-Functional Requirements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Non-Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.1 Performance
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.2 Security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.3 Reliability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.4 Compatibility
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Implementation Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Implementation Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-technology-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      7.1 Technology Stack
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-directory-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      7.2 Directory Structure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Testing Strategy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Testing Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-unit-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.1 Unit Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-integration-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.2 Integration Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-user-acceptance-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.3 User Acceptance Testing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-deployment-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Deployment Considerations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Deployment Considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      9.1 Development Environment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-production-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      9.2 Production Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-future-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Future Enhancements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Future Enhancements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-potential-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.1 Potential Features
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_FLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Data Flow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-introduction" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Introduction
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Introduction">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1 Purpose
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2 Scope
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Functional Requirements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-authentication-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1 Authentication System
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2 Session Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-question-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3 Question Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-response-collection" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4 Response Collection
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-real-time-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5 Real-time Updates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-data-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.6 Data Export
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Data Models
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Data Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1 User
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2 Session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.3 Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.4 Response
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. API Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. API Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.1 Authentication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-presenter-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.2 Presenter Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-question-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.3 Question Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.4 API Endpoints
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-audience-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.5 Audience Routes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-websocket-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      4.6 WebSocket Endpoints
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-user-interface-specifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. User Interface Specifications
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. User Interface Specifications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-layout-and-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.1 Layout and Components
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-presenter-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.2 Presenter Interfaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-audience-interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.3 Audience Interfaces
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      5.4 Visualizations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-non-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Non-Functional Requirements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Non-Functional Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.1 Performance
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.2 Security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-reliability" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.3 Reliability
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      6.4 Compatibility
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-implementation-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Implementation Details
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Implementation Details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-technology-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      7.1 Technology Stack
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-directory-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      7.2 Directory Structure
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Testing Strategy
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Testing Strategy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-unit-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.1 Unit Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-integration-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.2 Integration Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-user-acceptance-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.3 User Acceptance Testing
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-deployment-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Deployment Considerations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Deployment Considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      9.1 Development Environment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-production-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      9.2 Production Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-future-enhancements" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Future Enhancements
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Future Enhancements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-potential-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.1 Potential Features
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="classpulse-technical-specification">ClassPulse Technical Specification<a class="headerlink" href="#classpulse-technical-specification" title="Permanent link">&para;</a></h1>
+<h2 id="1-introduction">1. Introduction<a class="headerlink" href="#1-introduction" title="Permanent link">&para;</a></h2>
+<p>ClassPulse is a real-time audience interaction system designed for presenters to engage their audience through interactive questions and visualize responses in real-time.</p>
+<h3 id="11-purpose">1.1 Purpose<a class="headerlink" href="#11-purpose" title="Permanent link">&para;</a></h3>
+<p>This document defines the technical specifications for ClassPulse, including functional requirements, data models, APIs, and user interfaces.</p>
+<h3 id="12-scope">1.2 Scope<a class="headerlink" href="#12-scope" title="Permanent link">&para;</a></h3>
+<p>ClassPulse enables presenters to:
+- Create interactive sessions with unique join codes
+- Add different types of questions (multiple choice, word cloud, rating scale)
+- View real-time responses through visualizations
+- Export results for analysis</p>
+<p>Audience members can:
+- Join sessions using a code or QR scan
+- Respond to active questions
+- See confirmation of submitted responses</p>
+<h2 id="2-functional-requirements">2. Functional Requirements<a class="headerlink" href="#2-functional-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="21-authentication-system">2.1 Authentication System<a class="headerlink" href="#21-authentication-system" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AUTH-1</td>
+<td>System shall provide login functionality for presenters</td>
+<td>High</td>
+</tr>
+<tr>
+<td>AUTH-2</td>
+<td>System shall support password hashing for security</td>
+<td>High</td>
+</tr>
+<tr>
+<td>AUTH-3</td>
+<td>System shall provide session-based authentication</td>
+<td>High</td>
+</tr>
+<tr>
+<td>AUTH-4</td>
+<td>System shall redirect unauthenticated users to login page</td>
+<td>High</td>
+</tr>
+<tr>
+<td>AUTH-5</td>
+<td>System shall support anonymous access for audience members</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-session-management">2.2 Session Management<a class="headerlink" href="#22-session-management" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SESS-1</td>
+<td>System shall generate unique 6-digit session codes</td>
+<td>High</td>
+</tr>
+<tr>
+<td>SESS-2</td>
+<td>System shall support session activation/deactivation</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>SESS-3</td>
+<td>System shall associate sessions with creator</td>
+<td>High</td>
+</tr>
+<tr>
+<td>SESS-4</td>
+<td>System shall generate QR codes for session joining</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>SESS-5</td>
+<td>System shall list all sessions for a presenter</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-question-management">2.3 Question Management<a class="headerlink" href="#23-question-management" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QUES-1</td>
+<td>System shall support multiple choice questions</td>
+<td>High</td>
+</tr>
+<tr>
+<td>QUES-2</td>
+<td>System shall support word cloud questions</td>
+<td>High</td>
+</tr>
+<tr>
+<td>QUES-3</td>
+<td>System shall support rating scale questions</td>
+<td>High</td>
+</tr>
+<tr>
+<td>QUES-4</td>
+<td>System shall allow questions to be activated/deactivated</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>QUES-5</td>
+<td>System shall store question configuration (options, max ratings)</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-response-collection">2.4 Response Collection<a class="headerlink" href="#24-response-collection" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RESP-1</td>
+<td>System shall collect and store audience responses</td>
+<td>High</td>
+</tr>
+<tr>
+<td>RESP-2</td>
+<td>System shall associate responses with respondent IDs</td>
+<td>High</td>
+</tr>
+<tr>
+<td>RESP-3</td>
+<td>System shall update response if respondent submits again</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>RESP-4</td>
+<td>System shall validate responses against question type</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>RESP-5</td>
+<td>System shall provide confirmation on submission</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h3 id="25-real-time-updates">2.5 Real-time Updates<a class="headerlink" href="#25-real-time-updates" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REAL-1</td>
+<td>System shall update presenters in real-time as responses arrive</td>
+<td>High</td>
+</tr>
+<tr>
+<td>REAL-2</td>
+<td>System shall use WebSockets for real-time communication</td>
+<td>High</td>
+</tr>
+<tr>
+<td>REAL-3</td>
+<td>System shall handle connection management gracefully</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>REAL-4</td>
+<td>System shall update visualizations without page reload</td>
+<td>High</td>
+</tr>
+</tbody>
+</table>
+<h3 id="26-data-export">2.6 Data Export<a class="headerlink" href="#26-data-export" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Requirement ID</th>
+<th>Description</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EXP-1</td>
+<td>System shall allow export of individual question results</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>EXP-2</td>
+<td>System shall allow export of entire session data</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>EXP-3</td>
+<td>System shall export data in CSV format</td>
+<td>Medium</td>
+</tr>
+</tbody>
+</table>
+<h2 id="3-data-models">3. Data Models<a class="headerlink" href="#3-data-models" title="Permanent link">&para;</a></h2>
+<h3 id="31-user">3.1 User<a class="headerlink" href="#31-user" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td>username</td>
+<td>String</td>
+<td>Unique username</td>
+</tr>
+<tr>
+<td>password_hash</td>
+<td>String</td>
+<td>Hashed password with salt</td>
+</tr>
+<tr>
+<td>email</td>
+<td>String</td>
+<td>User email</td>
+</tr>
+<tr>
+<td>display_name</td>
+<td>String</td>
+<td>Display name for UI</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-session">3.2 Session<a class="headerlink" href="#32-session" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td>code</td>
+<td>String</td>
+<td>Unique 6-digit join code</td>
+</tr>
+<tr>
+<td>name</td>
+<td>String</td>
+<td>Session name</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>String</td>
+<td>ISO timestamp of creation</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>Integer</td>
+<td>Foreign key to User</td>
+</tr>
+<tr>
+<td>active</td>
+<td>Boolean</td>
+<td>Session active status</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-question">3.3 Question<a class="headerlink" href="#33-question" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td>session_id</td>
+<td>Integer</td>
+<td>Foreign key to Session</td>
+</tr>
+<tr>
+<td>type</td>
+<td>String</td>
+<td>Question type (multiple_choice, word_cloud, rating)</td>
+</tr>
+<tr>
+<td>title</td>
+<td>String</td>
+<td>Question text</td>
+</tr>
+<tr>
+<td>options</td>
+<td>String</td>
+<td>JSON string of options or configuration</td>
+</tr>
+<tr>
+<td>active</td>
+<td>Boolean</td>
+<td>Question active status</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>String</td>
+<td>ISO timestamp of creation</td>
+</tr>
+<tr>
+<td>order</td>
+<td>Integer</td>
+<td>Display order in session</td>
+</tr>
+</tbody>
+</table>
+<h3 id="34-response">3.4 Response<a class="headerlink" href="#34-response" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>Integer</td>
+<td>Primary key</td>
+</tr>
+<tr>
+<td>question_id</td>
+<td>Integer</td>
+<td>Foreign key to Question</td>
+</tr>
+<tr>
+<td>session_id</td>
+<td>Integer</td>
+<td>Foreign key to Session</td>
+</tr>
+<tr>
+<td>response_value</td>
+<td>String</td>
+<td>Response content</td>
+</tr>
+<tr>
+<td>respondent_id</td>
+<td>String</td>
+<td>Anonymous UUID for audience member</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>String</td>
+<td>ISO timestamp of response</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4-api-endpoints">4. API Endpoints<a class="headerlink" href="#4-api-endpoints" title="Permanent link">&para;</a></h2>
+<h3 id="41-authentication">4.1 Authentication<a class="headerlink" href="#41-authentication" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/login</td>
+<td>GET</td>
+<td>Show login page</td>
+</tr>
+<tr>
+<td>/login</td>
+<td>POST</td>
+<td>Process login credentials</td>
+</tr>
+<tr>
+<td>/logout</td>
+<td>GET</td>
+<td>Log out current user</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-presenter-routes">4.2 Presenter Routes<a class="headerlink" href="#42-presenter-routes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/</td>
+<td>GET</td>
+<td>Dashboard with active sessions</td>
+</tr>
+<tr>
+<td>/sessions</td>
+<td>GET</td>
+<td>List all sessions</td>
+</tr>
+<tr>
+<td>/sessions/new</td>
+<td>GET</td>
+<td>Form to create new session</td>
+</tr>
+<tr>
+<td>/sessions/new</td>
+<td>POST</td>
+<td>Create a new session</td>
+</tr>
+<tr>
+<td>/sessions/{id}</td>
+<td>GET</td>
+<td>Manage specific session</td>
+</tr>
+<tr>
+<td>/present/{id}</td>
+<td>GET</td>
+<td>Present mode for session</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-question-routes">4.3 Question Routes<a class="headerlink" href="#43-question-routes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/sessions/{session_id}/questions/new/{type}</td>
+<td>GET</td>
+<td>Form for new question</td>
+</tr>
+<tr>
+<td>/sessions/{session_id}/questions/new/{type}</td>
+<td>POST</td>
+<td>Create new question</td>
+</tr>
+<tr>
+<td>/questions/{id}/results</td>
+<td>GET</td>
+<td>View question results</td>
+</tr>
+<tr>
+<td>/questions/{id}/export</td>
+<td>GET</td>
+<td>Export question results as CSV</td>
+</tr>
+<tr>
+<td>/sessions/{id}/export</td>
+<td>GET</td>
+<td>Export session results as CSV</td>
+</tr>
+</tbody>
+</table>
+<h3 id="44-api-endpoints">4.4 API Endpoints<a class="headerlink" href="#44-api-endpoints" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/api/sessions/{id}/toggle</td>
+<td>POST</td>
+<td>Toggle session status</td>
+</tr>
+<tr>
+<td>/api/questions/{id}/toggle</td>
+<td>POST</td>
+<td>Toggle question status</td>
+</tr>
+</tbody>
+</table>
+<h3 id="45-audience-routes">4.5 Audience Routes<a class="headerlink" href="#45-audience-routes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/join</td>
+<td>GET</td>
+<td>Show join form</td>
+</tr>
+<tr>
+<td>/join</td>
+<td>POST</td>
+<td>Process join request</td>
+</tr>
+<tr>
+<td>/audience/{code}</td>
+<td>GET</td>
+<td>Audience view for answering</td>
+</tr>
+<tr>
+<td>/audience/respond/{question_id}</td>
+<td>POST</td>
+<td>Submit response</td>
+</tr>
+</tbody>
+</table>
+<h3 id="46-websocket-endpoints">4.6 WebSocket Endpoints<a class="headerlink" href="#46-websocket-endpoints" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>/ws/results/{question_id}</td>
+<td>Real-time updates for question results</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-user-interface-specifications">5. User Interface Specifications<a class="headerlink" href="#5-user-interface-specifications" title="Permanent link">&para;</a></h2>
+<h3 id="51-layout-and-components">5.1 Layout and Components<a class="headerlink" href="#51-layout-and-components" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Main layout with header, content area, and footer</li>
+<li>Responsive design for mobile and desktop</li>
+<li>Consistent styling and color scheme</li>
+</ul>
+<h3 id="52-presenter-interfaces">5.2 Presenter Interfaces<a class="headerlink" href="#52-presenter-interfaces" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Dashboard with session cards</li>
+<li>Session management with question list</li>
+<li>Present mode with real-time results</li>
+<li>Result visualizations based on question type</li>
+</ul>
+<h3 id="53-audience-interfaces">5.3 Audience Interfaces<a class="headerlink" href="#53-audience-interfaces" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Simple join page with code input</li>
+<li>Question display based on type</li>
+<li>Confirmation messages after submission</li>
+</ul>
+<h3 id="54-visualizations">5.4 Visualizations<a class="headerlink" href="#54-visualizations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Bar charts for multiple choice questions</li>
+<li>Word clouds for word cloud questions</li>
+<li>Bar charts for rating scales</li>
+</ul>
+<h2 id="6-non-functional-requirements">6. Non-Functional Requirements<a class="headerlink" href="#6-non-functional-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="61-performance">6.1 Performance<a class="headerlink" href="#61-performance" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Response time &lt; 500ms for standard operations</li>
+<li>Real-time updates within 2 seconds of submission</li>
+<li>Support for at least 100 concurrent audience members</li>
+</ul>
+<h3 id="62-security">6.2 Security<a class="headerlink" href="#62-security" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Password hashing with PBKDF2</li>
+<li>Session-based authentication</li>
+<li>Input validation and sanitization</li>
+</ul>
+<h3 id="63-reliability">6.3 Reliability<a class="headerlink" href="#63-reliability" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Graceful handling of disconnections</li>
+<li>Data persistence for responses</li>
+<li>Error handling for all operations</li>
+</ul>
+<h3 id="64-compatibility">6.4 Compatibility<a class="headerlink" href="#64-compatibility" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Support for modern browsers (Chrome, Firefox, Safari, Edge)</li>
+<li>Responsive design for mobile devices</li>
+</ul>
+<h2 id="7-implementation-details">7. Implementation Details<a class="headerlink" href="#7-implementation-details" title="Permanent link">&para;</a></h2>
+<h3 id="71-technology-stack">7.1 Technology Stack<a class="headerlink" href="#71-technology-stack" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Backend: Python with FastHTML framework</li>
+<li>Frontend: HTML, CSS, JavaScript</li>
+<li>Database: SQLite with FastLite ORM</li>
+<li>Real-time: WebSockets</li>
+<li>Visualizations: Chart.js and jQCloud</li>
+</ul>
+<h3 id="72-directory-structure">7.2 Directory Structure<a class="headerlink" href="#72-directory-structure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>~/projects/classpulse/
+├── app.py                  # Main application entry point
+├── models/
+│   └── schema.py           # Database schema definitions
+├── controllers/
+│   ├── auth_routes.py      # Authentication routes
+│   ├── audience_routes.py  # Audience participation routes
+│   ├── presenter_routes.py # Presenter dashboard routes 
+│   ├── question_routes.py  # Question management routes
+│   └── websocket_routes.py # Real-time WebSocket routes
+├── utils/
+│   ├── auth.py             # Authentication utilities
+│   ├── components.py       # Reusable UI components
+│   ├── qrcode.py           # QR code generation
+│   └── session_manager.py  # Session management utilities
+├── static/
+│   ├── css/
+│   │   └── styles.css      # Custom styling
+│   ├── js/
+│   │   └── main.js         # JavaScript functionality
+│   └── img/                # Image assets
+└── templates/
+    ├── audience/           # Audience view templates 
+    └── presenter/          # Presenter view templates
+</code></pre></div>
+<h2 id="8-testing-strategy">8. Testing Strategy<a class="headerlink" href="#8-testing-strategy" title="Permanent link">&para;</a></h2>
+<h3 id="81-unit-testing">8.1 Unit Testing<a class="headerlink" href="#81-unit-testing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Test utility functions for auth, session management</li>
+<li>Test database operations and queries</li>
+<li>Test API endpoints</li>
+</ul>
+<h3 id="82-integration-testing">8.2 Integration Testing<a class="headerlink" href="#82-integration-testing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Test workflows (create session, add questions, join, respond)</li>
+<li>Test WebSocket communication</li>
+<li>Test data consistency across components</li>
+</ul>
+<h3 id="83-user-acceptance-testing">8.3 User Acceptance Testing<a class="headerlink" href="#83-user-acceptance-testing" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Test with actual presenters and audience scenarios</li>
+<li>Verify real-time updates work as expected</li>
+<li>Validate visualization accuracy</li>
+</ul>
+<h2 id="9-deployment-considerations">9. Deployment Considerations<a class="headerlink" href="#9-deployment-considerations" title="Permanent link">&para;</a></h2>
+<h3 id="91-development-environment">9.1 Development Environment<a class="headerlink" href="#91-development-environment" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Local development with SQLite database</li>
+<li>Development server on port 5002</li>
+</ul>
+<h3 id="92-production-deployment">9.2 Production Deployment<a class="headerlink" href="#92-production-deployment" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Consider using PostgreSQL for larger deployments</li>
+<li>Deploy with Gunicorn and Nginx</li>
+<li>Implement proper logging and monitoring</li>
+<li>Consider containerization with Docker</li>
+</ul>
+<h2 id="10-future-enhancements">10. Future Enhancements<a class="headerlink" href="#10-future-enhancements" title="Permanent link">&para;</a></h2>
+<h3 id="101-potential-features">10.1 Potential Features<a class="headerlink" href="#101-potential-features" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Additional question types (open-ended, polls)</li>
+<li>User registration system</li>
+<li>Theme customization</li>
+<li>Timer functionality for questions</li>
+<li>More visualization options</li>
+<li>Integration with LMS platforms</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/yourusername/classpulse" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "content.code.copy"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>

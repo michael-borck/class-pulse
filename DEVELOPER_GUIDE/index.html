@@ -1,0 +1,1404 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the ClassPulse real-time audience interaction tool">
+      
+      
+        <meta name="author" content="ClassPulse Team">
+      
+      
+      
+        <link rel="prev" href="../SPECIFICATION/">
+      
+      
+        <link rel="next" href="../DATA_FLOW/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>Developer Guide - ClassPulse Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#classpulse-developer-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ClassPulse Documentation" class="md-header__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ClassPulse Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Developer Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ClassPulse Documentation" class="md-nav__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ClassPulse Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SPECIFICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table of Contents
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#development-environment-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Environment Setup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Components
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fasthtml-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      FastHTML Framework
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#route-controllers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Route Controllers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#utility-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utility Modules
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebSocket Implementation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-question-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding a New Question Type
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing Visualizations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-development-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Development Tasks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Development Tasks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-new-route" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding a New Route
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-new-ui-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a New UI Component
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extending-the-database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extending the Database Schema
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Tips
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_FLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Data Flow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table of Contents
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Started">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#development-environment-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Environment Setup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Workflow
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Components
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Key Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fasthtml-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      FastHTML Framework
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#route-controllers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Route Controllers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#utility-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utility Modules
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Flow
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebSocket Implementation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-question-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding a New Question Type
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing Visualizations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-development-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Development Tasks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Development Tasks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-new-route" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding a New Route
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-a-new-ui-component" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a New UI Component
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extending-the-database-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extending the Database Schema
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#development-tips" class="md-nav__link">
+    <span class="md-ellipsis">
+      Development Tips
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="classpulse-developer-guide">ClassPulse Developer Guide<a class="headerlink" href="#classpulse-developer-guide" title="Permanent link">&para;</a></h1>
+<p>This guide is intended for developers who want to understand, modify, or extend the ClassPulse application. It provides detailed information about the codebase, key components, and how to implement common changes.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#getting-started">Getting Started</a></li>
+<li><a href="#project-structure">Project Structure</a></li>
+<li><a href="#key-components">Key Components</a></li>
+<li><a href="#database-schema">Database Schema</a></li>
+<li><a href="#authentication-flow">Authentication Flow</a></li>
+<li><a href="#session-management">Session Management</a></li>
+<li><a href="#websocket-implementation">WebSocket Implementation</a></li>
+<li><a href="#adding-a-new-question-type">Adding a New Question Type</a></li>
+<li><a href="#customizing-visualizations">Customizing Visualizations</a></li>
+<li><a href="#common-development-tasks">Common Development Tasks</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ol>
+<h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
+<h3 id="development-environment-setup">Development Environment Setup<a class="headerlink" href="#development-environment-setup" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p><strong>Clone the repository</strong>
+   <div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>&lt;repository-url&gt;
+<span class="nb">cd</span><span class="w"> </span>classpulse
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Create and activate a virtual environment</strong>
+   <div class="highlight"><pre><span></span><code>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+<span class="nb">source</span><span class="w"> </span>venv/bin/activate<span class="w">  </span><span class="c1"># On Windows: venv\Scripts\activate</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Install dependencies</strong>
+   <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>python-fasthtml
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Run the development server</strong>
+   <div class="highlight"><pre><span></span><code>python<span class="w"> </span>app.py
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Access the application</strong>
+   Open your browser and navigate to http://localhost:5002</p>
+</li>
+</ol>
+<h3 id="development-workflow">Development Workflow<a class="headerlink" href="#development-workflow" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Create a feature branch for your changes</li>
+<li>Make your code changes</li>
+<li>Test your changes locally</li>
+<li>Create a pull request for review</li>
+</ol>
+<h2 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
+<p>ClassPulse follows a modular structure:</p>
+<div class="highlight"><pre><span></span><code>~/projects/classpulse/
+├── app.py                  # Main application entry point
+├── models/
+│   └── schema.py           # Database schema definitions
+├── controllers/
+│   ├── auth_routes.py      # Authentication routes
+│   ├── audience_routes.py  # Audience participation routes
+│   ├── presenter_routes.py # Presenter dashboard routes 
+│   ├── question_routes.py  # Question management routes
+│   └── websocket_routes.py # Real-time WebSocket routes
+├── utils/
+│   ├── auth.py             # Authentication utilities
+│   ├── components.py       # Reusable UI components
+│   ├── qrcode.py           # QR code generation
+│   └── session_manager.py  # Session management utilities
+├── static/
+│   ├── css/
+│   │   └── styles.css      # Custom styling
+│   ├── js/
+│   │   └── main.js         # JavaScript functionality
+│   └── img/                # Image assets
+└── templates/
+    ├── audience/           # Audience view templates 
+    └── presenter/          # Presenter view templates
+</code></pre></div>
+<h2 id="key-components">Key Components<a class="headerlink" href="#key-components" title="Permanent link">&para;</a></h2>
+<h3 id="fasthtml-framework">FastHTML Framework<a class="headerlink" href="#fasthtml-framework" title="Permanent link">&para;</a></h3>
+<p>ClassPulse uses the FastHTML framework, which is built on top of Starlette. FastHTML provides a convenient way to generate HTML using Python syntax.</p>
+<p>Key concepts:
+- HTML tags are represented as Python functions (e.g., <code>Div()</code>, <code>P()</code>)
+- Route handlers are defined with the <code>@rt</code> decorator
+- Components can be created as Python functions that return HTML elements</p>
+<p>Example of a FastHTML component:
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">layout</span><span class="p">(</span><span class="o">*</span><span class="n">content</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;ClassPulse&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main layout component&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Titled</span><span class="p">(</span>
+        <span class="n">title</span><span class="p">,</span>
+        <span class="n">Header</span><span class="p">(</span>
+            <span class="c1"># Header content...</span>
+        <span class="p">),</span>
+        <span class="n">Main</span><span class="p">(</span>
+            <span class="n">Div</span><span class="p">(</span><span class="o">*</span><span class="n">content</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="s2">&quot;container&quot;</span><span class="p">),</span>
+            <span class="bp">cls</span><span class="o">=</span><span class="s2">&quot;content&quot;</span>
+        <span class="p">),</span>
+        <span class="n">Footer</span><span class="p">(</span>
+            <span class="c1"># Footer content...</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+</code></pre></div></p>
+<h3 id="route-controllers">Route Controllers<a class="headerlink" href="#route-controllers" title="Permanent link">&para;</a></h3>
+<p>Route controllers are organized by feature area:</p>
+<ol>
+<li><strong>auth_routes.py</strong>: Handles login/logout functionality</li>
+<li><strong>audience_routes.py</strong>: Manages audience-facing views and responses</li>
+<li><strong>presenter_routes.py</strong>: Provides presenter dashboard and management</li>
+<li><strong>question_routes.py</strong>: Handles question creation and results</li>
+<li><strong>websocket_routes.py</strong>: Manages real-time updates</li>
+</ol>
+<p>Each controller module follows a similar pattern:
+- A main setup function that takes the route decorator (<code>rt</code>)
+- Route handler functions for GET/POST requests
+- Returns HTML content or redirects as appropriate</p>
+<p>Example:
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">setup_auth_routes</span><span class="p">(</span><span class="n">rt</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up authentication related routes&quot;&quot;&quot;</span>
+
+    <span class="nd">@rt</span><span class="p">(</span><span class="s2">&quot;/login&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">():</span>
+        <span class="c1"># Route implementation...</span>
+
+    <span class="nd">@rt</span><span class="p">(</span><span class="s2">&quot;/login&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">post</span><span class="p">(</span><span class="n">username</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">password</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="c1"># Route implementation...</span>
+
+    <span class="k">return</span> <span class="n">rt</span>
+</code></pre></div></p>
+<h3 id="utility-modules">Utility Modules<a class="headerlink" href="#utility-modules" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>auth.py</strong>: Handles password hashing, user authentication</li>
+<li><strong>components.py</strong>: Provides reusable UI components</li>
+<li><strong>qrcode.py</strong>: Generates QR codes for session joining</li>
+<li><strong>session_manager.py</strong>: Manages sessions, questions, and responses</li>
+</ol>
+<h2 id="database-schema">Database Schema<a class="headerlink" href="#database-schema" title="Permanent link">&para;</a></h2>
+<p>ClassPulse uses SQLite with the FastLite ORM. Tables are defined in <code>models/schema.py</code>:</p>
+<ol>
+<li><strong>users</strong>: Stores presenter accounts</li>
+<li><strong>sessions</strong>: Stores presentation sessions</li>
+<li><strong>questions</strong>: Stores questions of different types</li>
+<li><strong>responses</strong>: Stores audience responses</li>
+</ol>
+<p>Example query patterns:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get a specific record by ID</span>
+<span class="n">user</span> <span class="o">=</span> <span class="n">users</span><span class="p">[</span><span class="n">user_id</span><span class="p">]</span>
+
+<span class="c1"># Query with conditions</span>
+<span class="n">session_list</span> <span class="o">=</span> <span class="n">sessions</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;code = ?&quot;</span><span class="p">,</span> <span class="n">where_args</span><span class="o">=</span><span class="p">[</span><span class="n">code</span><span class="p">])</span>
+
+<span class="c1"># Insert a record</span>
+<span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">&quot;example&quot;</span><span class="p">,</span> <span class="n">password_hash</span><span class="o">=</span><span class="s2">&quot;hash&quot;</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s2">&quot;email&quot;</span><span class="p">)</span>
+<span class="n">users</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+
+<span class="c1"># Update a record</span>
+<span class="n">user</span><span class="o">.</span><span class="n">display_name</span> <span class="o">=</span> <span class="s2">&quot;New Name&quot;</span>
+<span class="n">users</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="authentication-flow">Authentication Flow<a class="headerlink" href="#authentication-flow" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Login Process</strong>:</li>
+<li>User submits username/password to <code>/login</code> (POST)</li>
+<li><code>authenticate_user()</code> verifies credentials</li>
+<li>On success, user ID is stored in session</li>
+<li>
+<p>User is redirected to dashboard</p>
+</li>
+<li>
+<p><strong>Authentication Middleware</strong>:</p>
+</li>
+<li>Checks for user_id in session</li>
+<li>Allows public routes (/login, /join, /audience/*)</li>
+<li>
+<p>Redirects to login for protected routes if not authenticated</p>
+</li>
+<li>
+<p><strong>Password Security</strong>:</p>
+</li>
+<li>Passwords are hashed using PBKDF2 with salt</li>
+<li>Verification compares hashed passwords</li>
+</ol>
+<h2 id="session-management">Session Management<a class="headerlink" href="#session-management" title="Permanent link">&para;</a></h2>
+<p>Sessions in ClassPulse refer to presentation sessions, not web sessions:</p>
+<ol>
+<li><strong>Creation</strong>:</li>
+<li>Presenter creates a session with a name</li>
+<li>System generates a unique 6-digit code</li>
+<li>
+<p>Session is associated with the creator</p>
+</li>
+<li>
+<p><strong>Question Management</strong>:</p>
+</li>
+<li>Presenter can add questions of different types</li>
+<li>Questions can be activated/deactivated</li>
+<li>
+<p>Questions are ordered within the session</p>
+</li>
+<li>
+<p><strong>Audience Joining</strong>:</p>
+</li>
+<li>Audience members join using the session code</li>
+<li>They receive a unique respondent ID (UUID)</li>
+<li>They can view and answer active questions</li>
+</ol>
+<h2 id="websocket-implementation">WebSocket Implementation<a class="headerlink" href="#websocket-implementation" title="Permanent link">&para;</a></h2>
+<p>Real-time updates use WebSockets:</p>
+<ol>
+<li><strong>Connection Setup</strong>:</li>
+<li>Presenter connects to <code>/ws/results/{question_id}</code></li>
+<li>
+<p>Connection is stored in a dictionary by question ID</p>
+</li>
+<li>
+<p><strong>Update Process</strong>:</p>
+</li>
+<li>When responses arrive, stats are calculated</li>
+<li>Updates are sent to all connections for that question</li>
+<li>
+<p>Updates include formatted HTML with result information</p>
+</li>
+<li>
+<p><strong>Client-Side Handling</strong>:</p>
+</li>
+<li>HTMX handles WebSocket connections and updates</li>
+<li>Charts are re-rendered when data changes</li>
+</ol>
+<h2 id="adding-a-new-question-type">Adding a New Question Type<a class="headerlink" href="#adding-a-new-question-type" title="Permanent link">&para;</a></h2>
+<p>To add a new question type (e.g., "Ranking"):</p>
+<ol>
+<li><strong>Update Schema</strong>:</li>
+<li>No schema change needed, as the <code>type</code> field is a string</li>
+<li>Add a new creation function in <code>session_manager.py</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_ranking_question</span><span class="p">(</span><span class="n">session_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">items</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Question</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a ranking question&quot;&quot;&quot;</span>
+    <span class="n">question</span> <span class="o">=</span> <span class="n">Question</span><span class="p">(</span>
+        <span class="n">session_id</span><span class="o">=</span><span class="n">session_id</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;ranking&#39;</span><span class="p">,</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">title</span><span class="p">,</span>
+        <span class="n">options</span><span class="o">=</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">items</span><span class="p">),</span>
+        <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">created_at</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+        <span class="n">order</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">questions</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">question</span><span class="p">)</span>
+</code></pre></div>
+<ol>
+<li><strong>Add Result Processing</strong>:</li>
+<li>Add a function to process results in <code>session_manager.py</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_ranking_results</span><span class="p">(</span><span class="n">question_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get results for a ranking question&quot;&quot;&quot;</span>
+    <span class="c1"># Implementation...</span>
+</code></pre></div>
+<ol>
+<li><strong>Update Controllers</strong>:</li>
+<li>Add a new route in <code>question_routes.py</code> for creation</li>
+<li>Extend <code>audience_routes.py</code> to handle the new question type</li>
+<li>
+<p>Update visualization in <code>questions/{id}/results</code></p>
+</li>
+<li>
+<p><strong>Add UI Components</strong>:</p>
+</li>
+<li>Create audience interface for ranking questions</li>
+<li>Add visualization code for ranking results</li>
+</ol>
+<h2 id="customizing-visualizations">Customizing Visualizations<a class="headerlink" href="#customizing-visualizations" title="Permanent link">&para;</a></h2>
+<p>Visualizations are handled through Chart.js:</p>
+<ol>
+<li><strong>Chart Configuration</strong>:</li>
+<li>Chart options are in <code>question_routes.py</code> in the results route</li>
+<li>
+<p>Different configurations are used based on question type</p>
+</li>
+<li>
+<p><strong>Customizing Charts</strong>:</p>
+</li>
+<li>Modify the chart configuration in <code>question_routes.py</code></li>
+<li>Update the initialization code in <code>static/js/main.js</code></li>
+</ol>
+<p>Example for changing chart colors:
+<div class="highlight"><pre><span></span><code><span class="ow">new</span><span class="w"> </span><span class="nx">Chart</span><span class="p">(</span><span class="nx">ctx</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">type</span><span class="o">:</span><span class="w"> </span><span class="nx">chartType</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">data</span><span class="o">:</span><span class="w"> </span><span class="nx">chartData</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">options</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// ...existing options</span>
+<span class="w">        </span><span class="nx">plugins</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nx">legend</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nx">labels</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nx">color</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;#333&#39;</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div></p>
+<h2 id="common-development-tasks">Common Development Tasks<a class="headerlink" href="#common-development-tasks" title="Permanent link">&para;</a></h2>
+<h3 id="adding-a-new-route">Adding a New Route<a class="headerlink" href="#adding-a-new-route" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Choose the appropriate controller file</li>
+<li>Add a route handler function:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nd">@rt</span><span class="p">(</span><span class="s2">&quot;/my-new-route&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">layout</span><span class="p">(</span>
+        <span class="n">H2</span><span class="p">(</span><span class="s2">&quot;My New Page&quot;</span><span class="p">),</span>
+        <span class="n">P</span><span class="p">(</span><span class="s2">&quot;Page content here&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+</code></pre></div>
+<ol>
+<li>If needed, add a POST handler:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nd">@rt</span><span class="p">(</span><span class="s2">&quot;/my-new-route&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">post</span><span class="p">(</span><span class="n">param1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">param2</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="c1"># Process the submission</span>
+    <span class="k">return</span> <span class="n">RedirectResponse</span><span class="p">(</span><span class="s2">&quot;/some-page&quot;</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">303</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="creating-a-new-ui-component">Creating a New UI Component<a class="headerlink" href="#creating-a-new-ui-component" title="Permanent link">&para;</a></h3>
+<p>Create a function that returns HTML elements:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">my_component</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">content</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">Div</span><span class="p">(</span>
+        <span class="n">H3</span><span class="p">(</span><span class="n">title</span><span class="p">),</span>
+        <span class="n">P</span><span class="p">(</span><span class="n">content</span><span class="p">),</span>
+        <span class="bp">cls</span><span class="o">=</span><span class="s2">&quot;my-component&quot;</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>Then use it in your routes:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@rt</span><span class="p">(</span><span class="s2">&quot;/some-route&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">layout</span><span class="p">(</span>
+        <span class="n">my_component</span><span class="p">(</span><span class="s2">&quot;Title 1&quot;</span><span class="p">,</span> <span class="s2">&quot;Content 1&quot;</span><span class="p">),</span>
+        <span class="n">my_component</span><span class="p">(</span><span class="s2">&quot;Title 2&quot;</span><span class="p">,</span> <span class="s2">&quot;Content 2&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+</code></pre></div>
+<h3 id="extending-the-database-schema">Extending the Database Schema<a class="headerlink" href="#extending-the-database-schema" title="Permanent link">&para;</a></h3>
+<p>To add a new table or field:</p>
+<ol>
+<li>Update <code>models/schema.py</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="c1"># Add a new table</span>
+<span class="n">settings</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">t</span><span class="o">.</span><span class="n">settings</span>
+<span class="k">if</span> <span class="n">settings</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">db</span><span class="o">.</span><span class="n">t</span><span class="p">:</span>
+    <span class="n">settings</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="nb">id</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">user_id</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">theme</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">notifications</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+        <span class="n">pk</span><span class="o">=</span><span class="s1">&#39;id&#39;</span>
+    <span class="p">)</span>
+<span class="n">Setting</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">dataclass</span><span class="p">()</span>
+</code></pre></div>
+<ol>
+<li>Add helper functions as needed in utility modules</li>
+<li>Update controllers to use the new schema elements</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Database Errors</strong>:</li>
+<li>Check table creation in <code>schema.py</code></li>
+<li>
+<p>Verify query parameters in function calls</p>
+</li>
+<li>
+<p><strong>Route Errors</strong>:</p>
+</li>
+<li>Ensure route decorators don't conflict</li>
+<li>
+<p>Check parameter types match between routes and inputs</p>
+</li>
+<li>
+<p><strong>WebSocket Issues</strong>:</p>
+</li>
+<li>Verify WebSocket connection setup</li>
+<li>Check browser console for connection errors</li>
+</ol>
+<h3 id="development-tips">Development Tips<a class="headerlink" href="#development-tips" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Debug Mode</strong>:</li>
+<li>The application runs in debug mode by default</li>
+<li>
+<p>Error details are displayed in the console and browser</p>
+</li>
+<li>
+<p><strong>Interactive Debugging</strong>:</p>
+</li>
+<li>Add print statements for debugging</li>
+<li>
+<p>Use browser developer tools for frontend issues</p>
+</li>
+<li>
+<p><strong>Database Inspection</strong>:</p>
+</li>
+<li>
+<p>Use SQLite tools to inspect the database directly:
+   <div class="highlight"><pre><span></span><code>sqlite3<span class="w"> </span>classpulse.db
+.tables
+SELECT<span class="w"> </span>*<span class="w"> </span>FROM<span class="w"> </span>users<span class="p">;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Testing WebSockets</strong>:</p>
+</li>
+<li>Test WebSocket connections with browser developer tools</li>
+<li>Monitor the network tab for WebSocket frames</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/yourusername/classpulse" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "content.code.copy"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>

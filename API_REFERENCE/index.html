@@ -1,0 +1,2503 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the ClassPulse real-time audience interaction tool">
+      
+      
+        <meta name="author" content="ClassPulse Team">
+      
+      
+      
+        <link rel="prev" href="../DATA_FLOW/">
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>API Reference - ClassPulse Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#classpulse-api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ClassPulse Documentation" class="md-header__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ClassPulse Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ClassPulse Documentation" class="md-nav__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ClassPulse Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../GETTING_STARTED/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SPECIFICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_FLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Data Flow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table of Contents
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#http-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      HTTP Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HTTP Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#login-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Login Page
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      Process Login
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logout
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#presenter-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Presenter Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Presenter Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dashboard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sessions-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sessions List
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-session-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Session Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#present-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Present Mode
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#question-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Question Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-question-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Question Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-multiple-choice-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Multiple Choice Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-word-cloud-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Word Cloud Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-rating-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Rating Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#question-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-question-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Question Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-session-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Session Results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audience-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audience Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Audience Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#join-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      Join Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process-join" class="md-nav__link">
+    <span class="md-ellipsis">
+      Process Join
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audience-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audience View
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#submit-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      Submit Response
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toggle-session-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Toggle Session Status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle-question-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Toggle Question Status
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Static Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebSocket Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WebSocket Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#question-results-websocket" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Results WebSocket
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tables
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#users" class="md-nav__link">
+    <span class="md-ellipsis">
+      users
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      sessions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      responses
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      Query Methods
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Query Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-by-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      Get by ID
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-with-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Query with Conditions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insert-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Insert Record
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Update Record
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete Record
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hash_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      hash_password
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      verify_password
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register_user" class="md-nav__link">
+    <span class="md-ellipsis">
+      register_user
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticate_user" class="md-nav__link">
+    <span class="md-ellipsis">
+      authenticate_user
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-management-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session Management API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#functions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_session" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_session_by_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_session_by_code
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_user_sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_user_sessions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle_session_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      toggle_session_status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_multiple_choice_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_multiple_choice_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_word_cloud_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_word_cloud_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_rating_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_rating_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_session_questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_session_questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle_question_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      toggle_question_status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#record_response" class="md-nav__link">
+    <span class="md-ellipsis">
+      record_response
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_question_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_question_stats
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utility-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utility Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Utility Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#qr-code-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      QR Code Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="QR Code Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_qr_code_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_qr_code_data
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ui-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      UI Components
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UI Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      layout
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Helpers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session Helpers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate_session_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      generate_session_code
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      Table of Contents
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#http-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      HTTP Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HTTP Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#login-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      Login Page
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      Process Login
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logout" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logout
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#presenter-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Presenter Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Presenter Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dashboard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sessions-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sessions List
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#new-session-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Session Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#present-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      Present Mode
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#question-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Question Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#new-question-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      New Question Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-multiple-choice-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Multiple Choice Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-word-cloud-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Word Cloud Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-rating-question" class="md-nav__link">
+    <span class="md-ellipsis">
+      Create Rating Question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#question-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-question-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Question Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export-session-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Export Session Results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audience-routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audience Routes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Audience Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#join-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      Join Form
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#process-join" class="md-nav__link">
+    <span class="md-ellipsis">
+      Process Join
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audience-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      Audience View
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#submit-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      Submit Response
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      API Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#toggle-session-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Toggle Session Status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle-question-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Toggle Question Status
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Static Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebSocket Endpoints
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WebSocket Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#question-results-websocket" class="md-nav__link">
+    <span class="md-ellipsis">
+      Question Results WebSocket
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Database API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Database API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tables
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#users" class="md-nav__link">
+    <span class="md-ellipsis">
+      users
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      sessions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#responses" class="md-nav__link">
+    <span class="md-ellipsis">
+      responses
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      Query Methods
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Query Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-by-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      Get by ID
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#query-with-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Query with Conditions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#insert-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Insert Record
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Update Record
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete Record
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authentication API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hash_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      hash_password
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      verify_password
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#register_user" class="md-nav__link">
+    <span class="md-ellipsis">
+      register_user
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticate_user" class="md-nav__link">
+    <span class="md-ellipsis">
+      authenticate_user
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-management-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Management API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session Management API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#functions_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_session" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_session
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_session_by_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_session_by_code
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_user_sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_user_sessions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle_session_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      toggle_session_status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_multiple_choice_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_multiple_choice_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_word_cloud_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_word_cloud_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_rating_question" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_rating_question
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_session_questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_session_questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toggle_question_status" class="md-nav__link">
+    <span class="md-ellipsis">
+      toggle_question_status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#record_response" class="md-nav__link">
+    <span class="md-ellipsis">
+      record_response
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_question_stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_question_stats
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utility-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utility Functions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Utility Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#qr-code-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      QR Code Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="QR Code Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_qr_code_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      create_qr_code_data
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ui-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      UI Components
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UI Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      layout
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Session Helpers
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Session Helpers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate_session_code" class="md-nav__link">
+    <span class="md-ellipsis">
+      generate_session_code
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="classpulse-api-reference">ClassPulse API Reference<a class="headerlink" href="#classpulse-api-reference" title="Permanent link">&para;</a></h1>
+<p>This document provides a comprehensive reference for all the API endpoints, functions, and utilities available in the ClassPulse application. Use this reference when working with the codebase.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#http-endpoints">HTTP Endpoints</a></li>
+<li><a href="#websocket-endpoints">WebSocket Endpoints</a></li>
+<li><a href="#database-api">Database API</a></li>
+<li><a href="#authentication-api">Authentication API</a></li>
+<li><a href="#session-management-api">Session Management API</a></li>
+<li><a href="#utility-functions">Utility Functions</a></li>
+</ul>
+<h2 id="http-endpoints">HTTP Endpoints<a class="headerlink" href="#http-endpoints" title="Permanent link">&para;</a></h2>
+<h3 id="authentication-routes">Authentication Routes<a class="headerlink" href="#authentication-routes" title="Permanent link">&para;</a></h3>
+<h4 id="login-page">Login Page<a class="headerlink" href="#login-page" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/login</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>auth_routes.py</code></li>
+<li><strong>Description</strong>: Displays the login form</li>
+<li><strong>Response</strong>: HTML login page</li>
+</ul>
+<h4 id="process-login">Process Login<a class="headerlink" href="#process-login" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/login</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>auth_routes.py</code></li>
+<li><strong>Parameters</strong>: </li>
+<li><code>username</code> (string): User's username</li>
+<li><code>password</code> (string): User's password</li>
+<li><strong>Description</strong>: Authenticates a user</li>
+<li><strong>Response</strong>: Redirects to dashboard on success, shows error on failure</li>
+</ul>
+<h4 id="logout">Logout<a class="headerlink" href="#logout" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/logout</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>auth_routes.py</code></li>
+<li><strong>Description</strong>: Logs out the current user</li>
+<li><strong>Response</strong>: Redirects to login page</li>
+</ul>
+<h3 id="presenter-routes">Presenter Routes<a class="headerlink" href="#presenter-routes" title="Permanent link">&para;</a></h3>
+<h4 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Description</strong>: Displays the presenter dashboard</li>
+<li><strong>Response</strong>: HTML dashboard page with active sessions</li>
+</ul>
+<h4 id="sessions-list">Sessions List<a class="headerlink" href="#sessions-list" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Description</strong>: Lists all sessions for the current user</li>
+<li><strong>Response</strong>: HTML page with session list</li>
+</ul>
+<h4 id="new-session-form">New Session Form<a class="headerlink" href="#new-session-form" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/new</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Description</strong>: Displays the new session form</li>
+<li><strong>Response</strong>: HTML form for session creation</li>
+</ul>
+<h4 id="create-session">Create Session<a class="headerlink" href="#create-session" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/new</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>name</code> (string): Session name</li>
+<li><strong>Description</strong>: Creates a new session</li>
+<li><strong>Response</strong>: Redirects to session management page</li>
+</ul>
+<h4 id="session-management">Session Management<a class="headerlink" href="#session-management" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{id}</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Session ID</li>
+<li><strong>Description</strong>: Displays the session management page</li>
+<li><strong>Response</strong>: HTML page with session details and questions</li>
+</ul>
+<h4 id="present-mode">Present Mode<a class="headerlink" href="#present-mode" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/present/{id}</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Session ID</li>
+<li><strong>Description</strong>: Displays the presenter view with real-time results</li>
+<li><strong>Response</strong>: HTML page with real-time question results</li>
+</ul>
+<h3 id="question-routes">Question Routes<a class="headerlink" href="#question-routes" title="Permanent link">&para;</a></h3>
+<h4 id="new-question-form">New Question Form<a class="headerlink" href="#new-question-form" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{session_id}/questions/new/{type}</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>session_id</code> (integer): Session ID</li>
+<li><code>type</code> (string): Question type (multiple_choice, word_cloud, rating)</li>
+<li><strong>Description</strong>: Displays the form for creating a new question</li>
+<li><strong>Response</strong>: HTML form for question creation</li>
+</ul>
+<h4 id="create-multiple-choice-question">Create Multiple Choice Question<a class="headerlink" href="#create-multiple-choice-question" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{session_id}/questions/new/multiple_choice</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>session_id</code> (integer): Session ID</li>
+<li><code>title</code> (string): Question title</li>
+<li><code>options</code> (string): Question options (newline-separated)</li>
+<li><strong>Description</strong>: Creates a new multiple choice question</li>
+<li><strong>Response</strong>: Redirects to session management page</li>
+</ul>
+<h4 id="create-word-cloud-question">Create Word Cloud Question<a class="headerlink" href="#create-word-cloud-question" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{session_id}/questions/new/word_cloud</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>session_id</code> (integer): Session ID</li>
+<li><code>title</code> (string): Question title</li>
+<li><strong>Description</strong>: Creates a new word cloud question</li>
+<li><strong>Response</strong>: Redirects to session management page</li>
+</ul>
+<h4 id="create-rating-question">Create Rating Question<a class="headerlink" href="#create-rating-question" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{session_id}/questions/new/rating</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>session_id</code> (integer): Session ID</li>
+<li><code>title</code> (string): Question title</li>
+<li><code>max_rating</code> (integer): Maximum rating value (default: 5)</li>
+<li><strong>Description</strong>: Creates a new rating question</li>
+<li><strong>Response</strong>: Redirects to session management page</li>
+</ul>
+<h4 id="question-results">Question Results<a class="headerlink" href="#question-results" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/questions/{id}/results</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Question ID</li>
+<li><strong>Description</strong>: Displays the question results with visualizations</li>
+<li><strong>Response</strong>: HTML page with result visualizations</li>
+</ul>
+<h4 id="export-question-results">Export Question Results<a class="headerlink" href="#export-question-results" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/questions/{id}/export</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Question ID</li>
+<li><strong>Description</strong>: Exports question results as CSV</li>
+<li><strong>Response</strong>: CSV file download</li>
+</ul>
+<h4 id="export-session-results">Export Session Results<a class="headerlink" href="#export-session-results" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/sessions/{id}/export</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Session ID</li>
+<li><strong>Description</strong>: Exports all session results as CSV</li>
+<li><strong>Response</strong>: CSV file download</li>
+</ul>
+<h3 id="audience-routes">Audience Routes<a class="headerlink" href="#audience-routes" title="Permanent link">&para;</a></h3>
+<h4 id="join-form">Join Form<a class="headerlink" href="#join-form" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/join</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>audience_routes.py</code></li>
+<li><strong>Description</strong>: Displays the session join form</li>
+<li><strong>Response</strong>: HTML join form</li>
+</ul>
+<h4 id="process-join">Process Join<a class="headerlink" href="#process-join" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/join</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>audience_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>code</code> (string): Session code</li>
+<li><strong>Description</strong>: Processes a join request</li>
+<li><strong>Response</strong>: Redirects to audience view on success, shows error on failure</li>
+</ul>
+<h4 id="audience-view">Audience View<a class="headerlink" href="#audience-view" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/audience/{code}</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>audience_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>code</code> (string): Session code</li>
+<li><strong>Description</strong>: Displays the audience view with active questions</li>
+<li><strong>Response</strong>: HTML page with question forms</li>
+</ul>
+<h4 id="submit-response">Submit Response<a class="headerlink" href="#submit-response" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/audience/respond/{question_id}</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>audience_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>question_id</code> (integer): Question ID</li>
+<li><code>response-{question_id}</code> (string): Response value</li>
+<li><strong>Description</strong>: Submits a response to a question</li>
+<li><strong>Response</strong>: HTML confirmation message</li>
+</ul>
+<h3 id="api-endpoints">API Endpoints<a class="headerlink" href="#api-endpoints" title="Permanent link">&para;</a></h3>
+<h4 id="toggle-session-status">Toggle Session Status<a class="headerlink" href="#toggle-session-status" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/api/sessions/{id}/toggle</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>presenter_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Session ID</li>
+<li><strong>Description</strong>: Toggles a session's active status</li>
+<li><strong>Response</strong>: HTML for updated button</li>
+</ul>
+<h4 id="toggle-question-status">Toggle Question Status<a class="headerlink" href="#toggle-question-status" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/api/questions/{id}/toggle</code></li>
+<li><strong>Method</strong>: <code>POST</code></li>
+<li><strong>Controller</strong>: <code>question_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>id</code> (integer): Question ID</li>
+<li><strong>Description</strong>: Toggles a question's active status</li>
+<li><strong>Response</strong>: HTML for updated button</li>
+</ul>
+<h3 id="static-files">Static Files<a class="headerlink" href="#static-files" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>URL</strong>: <code>/static/{path}</code></li>
+<li><strong>Method</strong>: <code>GET</code></li>
+<li><strong>Controller</strong>: <code>app.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>path</code> (string): File path</li>
+<li><strong>Description</strong>: Serves static files (CSS, JS, images)</li>
+<li><strong>Response</strong>: Requested file</li>
+</ul>
+<h2 id="websocket-endpoints">WebSocket Endpoints<a class="headerlink" href="#websocket-endpoints" title="Permanent link">&para;</a></h2>
+<h4 id="question-results-websocket">Question Results WebSocket<a class="headerlink" href="#question-results-websocket" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>URL</strong>: <code>/ws/results/{question_id}</code></li>
+<li><strong>Controller</strong>: <code>websocket_routes.py</code></li>
+<li><strong>Parameters</strong>:</li>
+<li><code>question_id</code> (integer): Question ID</li>
+<li><strong>Description</strong>: Provides real-time updates for question results</li>
+<li><strong>Messages</strong>: HTML content with updated results</li>
+<li><strong>Update Frequency</strong>: Every 2 seconds</li>
+<li><strong>Example Usage</strong>:
+  <div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">div</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;results-container&quot;</span> 
+     <span class="na">hx_ext</span><span class="o">=</span><span class="s">&quot;ws&quot;</span> 
+     <span class="na">ws_connect</span><span class="o">=</span><span class="s">&quot;/ws/results/123&quot;</span><span class="p">&gt;</span>
+  Loading results...
+<span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+</code></pre></div></li>
+</ul>
+<h2 id="database-api">Database API<a class="headerlink" href="#database-api" title="Permanent link">&para;</a></h2>
+<h3 id="tables">Tables<a class="headerlink" href="#tables" title="Permanent link">&para;</a></h3>
+<h4 id="users">users<a class="headerlink" href="#users" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Fields</strong>:</li>
+<li><code>id</code> (integer): Primary key</li>
+<li><code>username</code> (string): Unique username</li>
+<li><code>password_hash</code> (string): Hashed password with salt</li>
+<li><code>email</code> (string): User email</li>
+<li><code>display_name</code> (string): Display name</li>
+</ul>
+<h4 id="sessions">sessions<a class="headerlink" href="#sessions" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Fields</strong>:</li>
+<li><code>id</code> (integer): Primary key</li>
+<li><code>code</code> (string): Unique 6-digit join code</li>
+<li><code>name</code> (string): Session name</li>
+<li><code>created_at</code> (string): ISO timestamp</li>
+<li><code>user_id</code> (integer): Foreign key to users.id</li>
+<li><code>active</code> (boolean): Session active status</li>
+</ul>
+<h4 id="questions">questions<a class="headerlink" href="#questions" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Fields</strong>:</li>
+<li><code>id</code> (integer): Primary key</li>
+<li><code>session_id</code> (integer): Foreign key to sessions.id</li>
+<li><code>type</code> (string): Question type</li>
+<li><code>title</code> (string): Question title</li>
+<li><code>options</code> (string): JSON string with options</li>
+<li><code>active</code> (boolean): Question active status</li>
+<li><code>created_at</code> (string): ISO timestamp</li>
+<li><code>order</code> (integer): Display order</li>
+</ul>
+<h4 id="responses">responses<a class="headerlink" href="#responses" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Fields</strong>:</li>
+<li><code>id</code> (integer): Primary key</li>
+<li><code>question_id</code> (integer): Foreign key to questions.id</li>
+<li><code>session_id</code> (integer): Foreign key to sessions.id</li>
+<li><code>response_value</code> (string): Response content</li>
+<li><code>respondent_id</code> (string): Anonymous UUID</li>
+<li><code>created_at</code> (string): ISO timestamp</li>
+</ul>
+<h3 id="query-methods">Query Methods<a class="headerlink" href="#query-methods" title="Permanent link">&para;</a></h3>
+<h4 id="get-by-id">Get by ID<a class="headerlink" href="#get-by-id" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get a record by primary key</span>
+<span class="n">user</span> <span class="o">=</span> <span class="n">users</span><span class="p">[</span><span class="n">user_id</span><span class="p">]</span>
+</code></pre></div>
+<h4 id="query-with-conditions">Query with Conditions<a class="headerlink" href="#query-with-conditions" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Query with WHERE clause</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">users</span><span class="p">(</span><span class="n">where</span><span class="o">=</span><span class="s2">&quot;username = ?&quot;</span><span class="p">,</span> <span class="n">where_args</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;admin&quot;</span><span class="p">])</span>
+</code></pre></div>
+<h4 id="insert-record">Insert Record<a class="headerlink" href="#insert-record" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create and insert a record</span>
+<span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">&quot;alice&quot;</span><span class="p">,</span> <span class="n">password_hash</span><span class="o">=</span><span class="s2">&quot;hash&quot;</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="s2">&quot;email@example.com&quot;</span><span class="p">)</span>
+<span class="n">users</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="update-record">Update Record<a class="headerlink" href="#update-record" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Update a record</span>
+<span class="n">user</span><span class="o">.</span><span class="n">display_name</span> <span class="o">=</span> <span class="s2">&quot;New Name&quot;</span>
+<span class="n">users</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="delete-record">Delete Record<a class="headerlink" href="#delete-record" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Delete a record by ID</span>
+<span class="n">users</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="authentication-api">Authentication API<a class="headerlink" href="#authentication-api" title="Permanent link">&para;</a></h2>
+<h3 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h3>
+<h4 id="hash_password">hash_password<a class="headerlink" href="#hash_password" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">hash_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Hashes a password with PBKDF2 and salt
+- <strong>Parameters</strong>:
+  - <code>password</code> (string): Password to hash
+  - <code>salt</code> (string, optional): Salt to use (generates one if not provided)
+- <strong>Returns</strong>: String with format "salt$hash"</p>
+<h4 id="verify_password">verify_password<a class="headerlink" href="#verify_password" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">verify_password</span><span class="p">(</span><span class="n">stored_password</span><span class="p">,</span> <span class="n">provided_password</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Verifies a password against a stored hash
+- <strong>Parameters</strong>:
+  - <code>stored_password</code> (string): Stored password hash with salt
+  - <code>provided_password</code> (string): Password to verify
+- <strong>Returns</strong>: Boolean indicating if password matches</p>
+<h4 id="register_user">register_user<a class="headerlink" href="#register_user" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_user</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">display_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Registers a new user
+- <strong>Parameters</strong>:
+  - <code>username</code> (string): Username
+  - <code>password</code> (string): Password
+  - <code>email</code> (string): Email address
+  - <code>display_name</code> (string, optional): Display name
+- <strong>Returns</strong>: Tuple (success, message)</p>
+<h4 id="authenticate_user">authenticate_user<a class="headerlink" href="#authenticate_user" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">authenticate_user</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Authenticates a user
+- <strong>Parameters</strong>:
+  - <code>username</code> (string): Username
+  - <code>password</code> (string): Password
+- <strong>Returns</strong>: User object if successful, None otherwise</p>
+<h2 id="session-management-api">Session Management API<a class="headerlink" href="#session-management-api" title="Permanent link">&para;</a></h2>
+<h3 id="functions_1">Functions<a class="headerlink" href="#functions_1" title="Permanent link">&para;</a></h3>
+<h4 id="create_session">create_session<a class="headerlink" href="#create_session" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_session</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates a new session
+- <strong>Parameters</strong>:
+  - <code>user_id</code> (integer): User ID
+  - <code>name</code> (string): Session name
+- <strong>Returns</strong>: Session object</p>
+<h4 id="get_session_by_code">get_session_by_code<a class="headerlink" href="#get_session_by_code" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_session_by_code</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Gets a session by its code
+- <strong>Parameters</strong>:
+  - <code>code</code> (string): Session code
+- <strong>Returns</strong>: Session object or None</p>
+<h4 id="get_user_sessions">get_user_sessions<a class="headerlink" href="#get_user_sessions" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_user_sessions</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Gets all sessions for a user
+- <strong>Parameters</strong>:
+  - <code>user_id</code> (integer): User ID
+- <strong>Returns</strong>: List of Session objects</p>
+<h4 id="toggle_session_status">toggle_session_status<a class="headerlink" href="#toggle_session_status" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">toggle_session_status</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Toggles a session's active status
+- <strong>Parameters</strong>:
+  - <code>session_id</code> (integer): Session ID
+- <strong>Returns</strong>: New active status (boolean)</p>
+<h4 id="create_multiple_choice_question">create_multiple_choice_question<a class="headerlink" href="#create_multiple_choice_question" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_multiple_choice_question</span><span class="p">(</span><span class="n">session_id</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">options</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates a multiple choice question
+- <strong>Parameters</strong>:
+  - <code>session_id</code> (integer): Session ID
+  - <code>title</code> (string): Question title
+  - <code>options</code> (list): List of options
+  - <code>order</code> (integer, optional): Display order
+- <strong>Returns</strong>: Question object</p>
+<h4 id="create_word_cloud_question">create_word_cloud_question<a class="headerlink" href="#create_word_cloud_question" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_word_cloud_question</span><span class="p">(</span><span class="n">session_id</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates a word cloud question
+- <strong>Parameters</strong>:
+  - <code>session_id</code> (integer): Session ID
+  - <code>title</code> (string): Question title
+  - <code>order</code> (integer, optional): Display order
+- <strong>Returns</strong>: Question object</p>
+<h4 id="create_rating_question">create_rating_question<a class="headerlink" href="#create_rating_question" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_rating_question</span><span class="p">(</span><span class="n">session_id</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">max_rating</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates a rating question
+- <strong>Parameters</strong>:
+  - <code>session_id</code> (integer): Session ID
+  - <code>title</code> (string): Question title
+  - <code>max_rating</code> (integer, optional): Maximum rating value
+  - <code>order</code> (integer, optional): Display order
+- <strong>Returns</strong>: Question object</p>
+<h4 id="get_session_questions">get_session_questions<a class="headerlink" href="#get_session_questions" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_session_questions</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Gets all questions for a session
+- <strong>Parameters</strong>:
+  - <code>session_id</code> (integer): Session ID
+- <strong>Returns</strong>: List of Question objects</p>
+<h4 id="toggle_question_status">toggle_question_status<a class="headerlink" href="#toggle_question_status" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">toggle_question_status</span><span class="p">(</span><span class="n">question_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Toggles a question's active status
+- <strong>Parameters</strong>:
+  - <code>question_id</code> (integer): Question ID
+- <strong>Returns</strong>: New active status (boolean)</p>
+<h4 id="record_response">record_response<a class="headerlink" href="#record_response" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">record_response</span><span class="p">(</span><span class="n">question_id</span><span class="p">,</span> <span class="n">session_id</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">respondent_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Records a response to a question
+- <strong>Parameters</strong>:
+  - <code>question_id</code> (integer): Question ID
+  - <code>session_id</code> (integer): Session ID
+  - <code>value</code> (string): Response value
+  - <code>respondent_id</code> (string): Respondent ID
+- <strong>Returns</strong>: Response object</p>
+<h4 id="get_question_stats">get_question_stats<a class="headerlink" href="#get_question_stats" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_question_stats</span><span class="p">(</span><span class="n">question_id</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Gets statistics for a question
+- <strong>Parameters</strong>:
+  - <code>question_id</code> (integer): Question ID
+- <strong>Returns</strong>: Dictionary with question statistics</p>
+<h2 id="utility-functions">Utility Functions<a class="headerlink" href="#utility-functions" title="Permanent link">&para;</a></h2>
+<h3 id="qr-code-generation">QR Code Generation<a class="headerlink" href="#qr-code-generation" title="Permanent link">&para;</a></h3>
+<h4 id="create_qr_code_data">create_qr_code_data<a class="headerlink" href="#create_qr_code_data" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_qr_code_data</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates a QR code data URL for a given URL
+- <strong>Parameters</strong>:
+  - <code>url</code> (string): URL to encode
+  - <code>size</code> (integer, optional): QR code size in pixels
+- <strong>Returns</strong>: Data URL string or None on failure</p>
+<h3 id="ui-components">UI Components<a class="headerlink" href="#ui-components" title="Permanent link">&para;</a></h3>
+<h4 id="layout">layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">layout</span><span class="p">(</span><span class="o">*</span><span class="n">content</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;ClassPulse&quot;</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Creates the main layout template
+- <strong>Parameters</strong>:
+  - <code>*content</code>: Content to include in the main area
+  - <code>title</code> (string, optional): Page title
+- <strong>Returns</strong>: HTML for the complete page</p>
+<h3 id="session-helpers">Session Helpers<a class="headerlink" href="#session-helpers" title="Permanent link">&para;</a></h3>
+<h4 id="generate_session_code">generate_session_code<a class="headerlink" href="#generate_session_code" title="Permanent link">&para;</a></h4>
+<p><div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_session_code</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+</code></pre></div>
+- <strong>Description</strong>: Generates a random alphanumeric code
+- <strong>Parameters</strong>:
+  - <code>length</code> (integer, optional): Code length
+- <strong>Returns</strong>: Random code string</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/yourusername/classpulse" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "content.code.copy"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>

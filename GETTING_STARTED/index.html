@@ -1,0 +1,1189 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation for the ClassPulse real-time audience interaction tool">
+      
+      
+        <meta name="author" content="ClassPulse Team">
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../ARCHITECTURE/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>Getting Started - ClassPulse Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started-with-classpulse" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ClassPulse Documentation" class="md-header__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ClassPulse Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting Started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ClassPulse Documentation" class="md-nav__button md-logo" aria-label="ClassPulse Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    ClassPulse Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/yourusername/classpulse" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    yourusername/classpulse
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Start Guide
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start Guide">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-presenters" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Presenters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-audience-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Audience Members
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-question-types-effectively" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Question Types Effectively
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using Question Types Effectively">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multiple-choice-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple Choice Questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#word-cloud-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Word Cloud Questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rating-scale-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rating Scale Questions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices-for-effective-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices for Effective Sessions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-classpulse" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing ClassPulse
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../SPECIFICATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Technical Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Developer Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DATA_FLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Data Flow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API_REFERENCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick Start Guide
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start Guide">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#for-presenters" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Presenters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#for-audience-members" class="md-nav__link">
+    <span class="md-ellipsis">
+      For Audience Members
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-question-types-effectively" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Question Types Effectively
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using Question Types Effectively">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multiple-choice-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple Choice Questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#word-cloud-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Word Cloud Questions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rating-scale-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rating Scale Questions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices-for-effective-sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Best Practices for Effective Sessions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-classpulse" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing ClassPulse
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Issues
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      Next Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="getting-started-with-classpulse">Getting Started with ClassPulse<a class="headerlink" href="#getting-started-with-classpulse" title="Permanent link">&para;</a></h1>
+<p>This guide will walk you through the setup, installation, and basic usage of ClassPulse, an interactive audience engagement tool.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Python 3.8 or higher</li>
+<li>pip (Python package installer)</li>
+<li>Basic familiarity with terminal/command line</li>
+</ul>
+<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Clone the repository</strong></li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>&lt;repository-url&gt;
+<span class="nb">cd</span><span class="w"> </span>classpulse
+</code></pre></div>
+<ol>
+<li><strong>Create a virtual environment</strong></li>
+</ol>
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>venv
+</code></pre></div>
+<ol>
+<li><strong>Activate the virtual environment</strong></li>
+</ol>
+<p>On macOS/Linux:
+   <div class="highlight"><pre><span></span><code><span class="nb">source</span><span class="w"> </span>venv/bin/activate
+</code></pre></div></p>
+<p>On Windows:
+   <div class="highlight"><pre><span></span><code>venv\Scripts\activate
+</code></pre></div></p>
+<ol>
+<li><strong>Install dependencies</strong></li>
+</ol>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>python-fasthtml
+</code></pre></div>
+<ol>
+<li><strong>Run the application</strong></li>
+</ol>
+<div class="highlight"><pre><span></span><code>python<span class="w"> </span>app.py
+</code></pre></div>
+<ol>
+<li><strong>Access the application</strong></li>
+</ol>
+<p>Open your web browser and navigate to:
+   <div class="highlight"><pre><span></span><code>http://localhost:5002
+</code></pre></div></p>
+<h2 id="quick-start-guide">Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Permanent link">&para;</a></h2>
+<h3 id="for-presenters">For Presenters<a class="headerlink" href="#for-presenters" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Login</strong></li>
+<li>
+<p>Use the default admin credentials:</p>
+<ul>
+<li>Username: <code>admin</code></li>
+<li>Password: <code>admin123</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Create a Session</strong></p>
+</li>
+<li>From the dashboard, click "Create New Session"</li>
+<li>Enter a name for your session (e.g., "Python Workshop", "Marketing Presentation")</li>
+<li>
+<p>Click "Create Session"</p>
+</li>
+<li>
+<p><strong>Add Questions</strong></p>
+</li>
+<li>On the session management page, you'll see options to add different types of questions</li>
+<li>
+<p>Click the appropriate button for the question type you want to create:</p>
+<ul>
+<li>"New Multiple Choice" for multiple-choice questions</li>
+<li>"New Word Cloud" for word cloud questions</li>
+<li>"New Rating Scale" for rating questions</li>
+</ul>
+</li>
+<li>
+<p><strong>Configure Your Questions</strong></p>
+</li>
+<li>
+<p><strong>For Multiple Choice Questions</strong>:</p>
+<ul>
+<li>Enter the question title</li>
+<li>Add options (one per line)</li>
+<li>Click "Create Question"</li>
+</ul>
+</li>
+<li>
+<p><strong>For Word Cloud Questions</strong>:</p>
+<ul>
+<li>Enter the question title</li>
+<li>Click "Create Question"</li>
+</ul>
+</li>
+<li>
+<p><strong>For Rating Scale Questions</strong>:</p>
+<ul>
+<li>Enter the question title</li>
+<li>Specify maximum rating value (default is 5)</li>
+<li>Click "Create Question"</li>
+</ul>
+</li>
+<li>
+<p><strong>Activate Questions</strong></p>
+</li>
+<li>Questions are active by default</li>
+<li>
+<p>You can toggle questions on/off using the "Toggle Status" button</p>
+</li>
+<li>
+<p><strong>Share Your Session</strong></p>
+</li>
+<li>Note the 6-digit session code displayed on the session management page</li>
+<li>Share this code with your audience</li>
+<li>
+<p>Alternatively, share the QR code which will be displayed on the session page</p>
+</li>
+<li>
+<p><strong>Present Mode</strong></p>
+</li>
+<li>Click "Present Mode" to enter the presentation view</li>
+<li>This view shows real-time results as participants respond</li>
+<li>
+<p>The session code and QR code are prominently displayed for easy joining</p>
+</li>
+<li>
+<p><strong>View Results</strong></p>
+</li>
+<li>Click "Results" next to any question to view detailed response data</li>
+<li>
+<p>Data is visualized according to the question type:</p>
+<ul>
+<li>Bar charts for multiple choice</li>
+<li>Word clouds for word cloud questions</li>
+<li>Bar charts for rating scales</li>
+</ul>
+</li>
+<li>
+<p><strong>Export Data</strong></p>
+</li>
+<li>From the question results page, click "Export Results" to download the data as CSV</li>
+<li>From the session management page, click "Export" to download all session data</li>
+</ol>
+<h3 id="for-audience-members">For Audience Members<a class="headerlink" href="#for-audience-members" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Join a Session</strong></li>
+<li>Navigate to the ClassPulse application (or dedicated join URL if provided)</li>
+<li>Click "Join a session as audience" on the login page</li>
+<li>Enter the 6-digit session code provided by the presenter</li>
+<li>Click "Join"</li>
+<li>
+<p>Alternatively, scan the QR code if shown by the presenter</p>
+</li>
+<li>
+<p><strong>Answer Questions</strong></p>
+</li>
+<li>You will see all active questions for the session</li>
+<li>
+<p>For each question type, the interface is slightly different:</p>
+</li>
+<li>
+<p><strong>Multiple Choice Questions</strong>:</p>
+<ul>
+<li>Select your preferred option</li>
+<li>Click "Submit Answer"</li>
+</ul>
+</li>
+<li>
+<p><strong>Word Cloud Questions</strong>:</p>
+<ul>
+<li>Enter words or short phrases</li>
+<li>Click "Submit Answer"</li>
+</ul>
+</li>
+<li>
+<p><strong>Rating Scale Questions</strong>:</p>
+<ul>
+<li>Select a rating from the available options</li>
+<li>Click "Submit Rating"</li>
+</ul>
+</li>
+<li>
+<p><strong>Confirmation</strong></p>
+</li>
+<li>After submitting, you'll see a confirmation message</li>
+<li>You can change your answers by submitting again if needed</li>
+</ol>
+<h2 id="using-question-types-effectively">Using Question Types Effectively<a class="headerlink" href="#using-question-types-effectively" title="Permanent link">&para;</a></h2>
+<h3 id="multiple-choice-questions">Multiple Choice Questions<a class="headerlink" href="#multiple-choice-questions" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong>
+- Gauging opinion on specific options
+- Testing knowledge with single correct answers
+- Polls with distinct choices</p>
+<p><strong>Tips:</strong>
+- Keep options clear and concise
+- Avoid overlap between options
+- Limit to 3-6 options for readability
+- Consider including an "Other" option when appropriate</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code>Which programming language are you most comfortable with?
+- Python
+- JavaScript
+- Java
+- C/C++
+- Other
+</code></pre></div></p>
+<h3 id="word-cloud-questions">Word Cloud Questions<a class="headerlink" href="#word-cloud-questions" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong>
+- Gathering diverse text responses
+- Brainstorming sessions
+- Collecting feedback in the participants' own words</p>
+<p><strong>Tips:</strong>
+- Ask open-ended but focused questions
+- Encourage participants to use single words or short phrases
+- Let participants know multiple words create multiple entries
+- Include clear context in the question</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code>What words would you use to describe today&#39;s workshop?
+</code></pre></div></p>
+<h3 id="rating-scale-questions">Rating Scale Questions<a class="headerlink" href="#rating-scale-questions" title="Permanent link">&para;</a></h3>
+<p><strong>Best for:</strong>
+- Satisfaction surveys
+- Measuring agreement/disagreement
+- Numerical feedback</p>
+<p><strong>Tips:</strong>
+- Clearly define what the scale represents
+- Consider using a 5-point scale for most purposes
+- Adjust max rating to match your specific needs
+- Include the scale context in the question</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code>How useful did you find today&#39;s content? (1 = Not at all useful, 5 = Extremely useful)
+</code></pre></div></p>
+<h2 id="best-practices-for-effective-sessions">Best Practices for Effective Sessions<a class="headerlink" href="#best-practices-for-effective-sessions" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Prepare Questions in Advance</strong></li>
+<li>Create all your questions before the session starts</li>
+<li>Test them to ensure they work as expected</li>
+<li>
+<p>Consider the flow of questions within your presentation</p>
+</li>
+<li>
+<p><strong>Introduce the Tool</strong></p>
+</li>
+<li>Take a moment to explain how to join and participate</li>
+<li>Demonstrate how to respond to each question type</li>
+<li>
+<p>Emphasize that responses are anonymous</p>
+</li>
+<li>
+<p><strong>Balance Question Types</strong></p>
+</li>
+<li>Use multiple choice for specific, focused feedback</li>
+<li>Use word clouds for creative, open-ended input</li>
+<li>
+<p>Use rating scales for quantifiable feedback</p>
+</li>
+<li>
+<p><strong>Timing Matters</strong></p>
+</li>
+<li>Activate questions at appropriate moments during your presentation</li>
+<li>Give sufficient time for responses (usually 30-60 seconds)</li>
+<li>
+<p>Deactivate questions when you're ready to move on</p>
+</li>
+<li>
+<p><strong>Discuss Results</strong></p>
+</li>
+<li>Take time to acknowledge and discuss the results</li>
+<li>Highlight interesting patterns or unexpected responses</li>
+<li>
+<p>Use the results to guide further discussion</p>
+</li>
+<li>
+<p><strong>Follow Up</strong></p>
+</li>
+<li>Export session data for further analysis</li>
+<li>Share results with participants if appropriate</li>
+<li>Use insights to improve future sessions</li>
+</ol>
+<h2 id="customizing-classpulse">Customizing ClassPulse<a class="headerlink" href="#customizing-classpulse" title="Permanent link">&para;</a></h2>
+<p>ClassPulse is designed to be extensible. Some common customizations:</p>
+<ol>
+<li><strong>Changing the Theme</strong></li>
+<li>
+<p>Edit <code>static/css/styles.css</code> to customize colors and styling</p>
+</li>
+<li>
+<p><strong>Adding Question Types</strong></p>
+</li>
+<li>
+<p>See the Developer Guide for instructions on adding new question types</p>
+</li>
+<li>
+<p><strong>Custom Authentication</strong></p>
+</li>
+<li>
+<p>Modify <code>utils/auth.py</code> to integrate with your authentication system</p>
+</li>
+<li>
+<p><strong>Display Customizations</strong></p>
+</li>
+<li>Adjust chart appearance in <code>static/js/main.js</code></li>
+<li>Modify layout templates in <code>utils/components.py</code></li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<h3 id="common-issues">Common Issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h3>
+<p><strong>Issue</strong>: Application won't start
+- Ensure Python 3.8+ is installed
+- Verify the virtual environment is activated
+- Check that you installed all dependencies
+- Make sure no other application is using port 5002</p>
+<p><strong>Issue</strong>: Can't log in
+- Default credentials are admin/admin123
+- Check if the database file (classpulse.db) exists and isn't corrupted</p>
+<p><strong>Issue</strong>: Audience can't join session
+- Verify the session is active (toggle if needed)
+- Ensure the correct session code is being used
+- Check that the audience is using the correct URL</p>
+<p><strong>Issue</strong>: Real-time updates not working
+- Ensure WebSockets are supported in the browser
+- Check network connectivity
+- Verify that the presenter is in Present Mode</p>
+<p><strong>Issue</strong>: Charts not displaying
+- Ensure JavaScript is enabled in the browser
+- Check the browser console for errors
+- Verify that responses have been submitted</p>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>After getting familiar with the basic functionality, consider exploring:</p>
+<ol>
+<li><strong>Advanced Features</strong></li>
+<li>Explore the documentation on exporting and analyzing results</li>
+<li>
+<p>Try different question configurations for various scenarios</p>
+</li>
+<li>
+<p><strong>Development</strong></p>
+</li>
+<li>Check the Developer Guide for information on extending the platform</li>
+<li>
+<p>Review the code structure to understand how components interact</p>
+</li>
+<li>
+<p><strong>Feedback</strong></p>
+</li>
+<li>Use ClassPulse in real sessions and gather feedback</li>
+<li>Contribute improvements to the project</li>
+</ol>
+<p>For more detailed information, refer to other documentation:
+- <a href="../API_REFERENCE/">API Reference</a>
+- <a href="../ARCHITECTURE/">Architecture</a>
+- <a href="../DEVELOPER_GUIDE/">Developer Guide</a>
+- <a href="../DATA_FLOW/">Data Flow</a>
+- <a href="../SPECIFICATION/">Technical Specification</a></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/yourusername/classpulse" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "search.highlight", "search.share", "content.code.copy"], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>
