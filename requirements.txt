@@ -1,0 +1,4 @@
+python-fasthtml
+mkdocs
+mkdocs-material
+pymdown-extensions
