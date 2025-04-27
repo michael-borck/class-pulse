@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ClassPulse - Enhanced Features Implementation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@3.3.1/400.css" rel="stylesheet"> 
+  <!-- QRCode.js -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      background-color: #f9fafb;
+      color: #22223b;
+    }
+    h1, h2, h3 {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-weight: 500;
+    }
+    .shadow-soft {
+      box-shadow: 0 2px 12px 0 rgba(60,60,100,0.09);
+    }
+    /* Avoid scrollbars for PDF export, show all content in one flow */
+    #audience-answers, #results-visualization, #session-summary { max-height: none !important; }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-4xl mx-auto">
+
+    <!-- HEADER -->
+    <header class="mb-8 text-center">
+      <h1 class="text-3xl font-bold mb-1 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-bolt text-indigo-600"></i> ClassPulse
+      </h1>
+      <div class="text-lg text-gray-700 mb-4">Enhanced Features Demo: QR Code, CSV Export, Session Persistence</div>
+    </header>
+
+    <!-- DESC -->
+    <section class="bg-white rounded-lg p-5 mb-8 shadow-soft border">
+      <h2 class="text-xl font-semibold mb-2">Project Overview</h2>
+      <ul class="list-disc list-inside text-gray-700 mb-2">
+        <li>Generate sharable QR code and session code for participants to join</li>
+        <li>Export poll results to CSV</li>
+        <li>Persist session data in browser using localStorage (for demo/single-user use)</li>
+        <li>Visualize results for Multiple Choice (Bar Chart), Word Cloud, Rating Scale</li>
+        <li>Optimized for PDF export (no scrollbars, single continuous page)</li>
+      </ul>
+    </section>
+
+    <!-- PRESENTER PANEL -->
+    <section class="mb-6" id="presenter-panel">
+      <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <!-- SESSION CODE + QR -->
+        <div class="bg-white rounded-xl shadow-soft border p-5 flex flex-col items-center">
+          <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-link"></i> Join Session
+          </h3>
+          <div class="flex flex-col items-center">
+            <div id="session-code" class="text-2xl font-mono font-bold text-indigo-600">87341</div>
+            <div class="text-gray-600 mt-1">Or scan QR code:</div>
+            <div id="qrcode" class="mt-3"></div>
+          </div>
+          <div class="text-gray-600 mt-3 text-sm">
+            URL: <span id="session-url" class="underline text-blue-600 cursor-pointer">https://classpulse.app/join/87341</span>
+          </div>
+        </div>
+        <!-- EXPORT / RESET -->
+        <div class="bg-white rounded-xl shadow-soft border p-5 flex flex-col items-center">
+          <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-download"></i> Export & Utilities
+          </h3>
+          <button id="export-csv-btn" class="py-2 px-4 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 transition"><i class="fa-solid fa-file-csv mr-2"></i>Export Results (.CSV)</button>
+          <button id="clear-session-btn" class="py-2 px-4 bg-red-100 text-red-600 rounded font-semibold mt-2 hover:bg-red-200 transition"><i class="fa-solid fa-trash mr-2"></i>Clear All Data</button>
+          <div id="export-info" class="mt-4 text-green-700 font-medium hidden">CSV exported!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUESTIONS MANAGER -->
+    <section class="mb-10" id="question-section">
+      <div class="bg-white rounded-xl shadow-soft border p-5">
+        <div class="flex flex-col md:flex-row md:items-center mb-4 md:space-x-6">
+          <h3 class="text-lg font-semibold flex-1">
+            <i class="fa-solid fa-question-circle text-indigo-500"></i> Create New Question
+          </h3>
+        </div>
+        <form id="question-form" class="space-y-2 md:space-x-4 md:flex md:items-end">
+          <div>
+            <label class="font-semibold block mb-1">Question</label>
+            <input type="text" required id="question-text" class="w-full md:w-72 border rounded p-2 focus:ring focus:ring-indigo-100" placeholder="e.g. What is your favorite programming language?">
+          </div>
+          <div>
+            <label class="font-semibold block mb-1">Type</label>
+            <select id="question-type" class="w-full md:w-40 border rounded p-2">
+              <option value="mc">Multiple Choice</option>
+              <option value="wordcloud">Word Cloud</option>
+              <option value="scale">Rating Scale (1–5)</option>
+            </select>
+          </div>
+          <div id="mc-options-div">
+            <label class="font-semibold block mb-1">Options (comma separated)</label>
+            <input type="text" id="mc-options" class="w-full md:w-48 border rounded p-2" placeholder="Python, JavaScript, Java">
+          </div>
+          <button type="submit" class="mt-4 md:mt-0 py-2 px-5 bg-indigo-600 text-white rounded font-semibold hover:bg-indigo-700 transition"><i class="fa-solid fa-plus mr-1"></i>Add</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="mb-10" id="results-section">
+      <div class="bg-white rounded-xl shadow-soft border p-5">
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-chart-column text-green-600"></i> Live Results
+        </h3>
+        <div id="results-visualization"></div>
+      </div>
+    </section>
+
+    <!-- AUDIENCE SIMULATOR -->
+    <section class="mb-10">
+      <div class="bg-white rounded-xl shadow-soft border p-5">
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-user-friends text-blue-600"></i> Audience Simulator
+        </h3>
+        <div id="audience-panel"></div>
+      </div>
+    </section>
+
+    <!-- SESSION SUMMARY (for PDF) -->
+    <section class="mb-10">
+      <div class="bg-white rounded-xl shadow-soft border p-5">
+        <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+          <i class="fa-solid fa-list text-purple-600"></i> Session Summary (For PDF Records)
+        </h3>
+        <div id="session-summary" class="overflow-x-auto"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ----------------------------
+    // Persistent Session Storage
+    // ----------------------------
+    const SESSION_KEY = "classpulse_data_v1";
+    function loadSession() {
+      const data = localStorage.getItem(SESSION_KEY);
+      if (data) return JSON.parse(data);
+      return { sessionCode: "87341", questions: [], results: {} };
+    }
+    function saveSession(sessionObj) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionObj));
+    }
+    function clearSession() {
+      localStorage.removeItem(SESSION_KEY);
+    }
+
+    // ----------------------------
+    // Data Structures & State
+    // ----------------------------
+    let session = loadSession();
+    // Generate a sharable URL (could use window.location in real app)
+    const sessionUrl = `https://classpulse.app/join/${session.sessionCode}`;
+
+    // ----------------------------
+    // QR Code Generation
+    // ----------------------------
+    function makeQRCode(url) {
+      const qrDiv = document.getElementById("qrcode");
+      qrDiv.innerHTML = "";
+      // QRCode.js usage (lightweight)
+      new QRCode(qrDiv, {
+        text: url,
+        width: 108,
+        height: 108,
+        colorDark : "#22223b",
+        colorLight : "#fff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+    }
+    document.getElementById("session-code").textContent = session.sessionCode;
+    document.getElementById("session-url").textContent = sessionUrl;
+    document.getElementById("session-url").href = sessionUrl;
+    makeQRCode(sessionUrl);
+
+    // ----------------------------
+    // Question Form Handling
+    // ----------------------------
+    const qForm = document.getElementById("question-form");
+    const mcOptsDiv = document.getElementById("mc-options-div");
+    const qTypeSel = document.getElementById("question-type");
+
+    function updateOptionsField() {
+      if (qTypeSel.value === "mc") mcOptsDiv.style.display = "block";
+      else mcOptsDiv.style.display = "none";
+    }
+    qTypeSel.addEventListener("change", updateOptionsField);
+    updateOptionsField();
+
+    qForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const text = document.getElementById("question-text").value.trim();
+      const type = qTypeSel.value;
+      let options = [];
+      if (type === "mc") {
+        options = document.getElementById("mc-options").value.split(",").map(s => s.trim()).filter(Boolean);
+        if (options.length < 2) {
+          alert("Please enter at least two options.");
+          return;
+        }
+      }
+      // Only one wordcloud/scale at a time for demo -- for multi, expand logic
+      session.questions = [{ text, type, options }];
+      session.results = {};
+      saveSession(session);
+      renderResults();
+      renderAudience();
+      renderSummary();
+      qForm.reset();
+      updateOptionsField();
+    });
+
+    // ----------------------------
+    // Update Visualization
+    // ----------------------------
+    let chartObj = null;
+    function renderResults() {
+      const rv = document.getElementById("results-visualization");
+      rv.innerHTML = "";
+      if (!session.questions.length) {
+        rv.innerHTML = "<div class='text-gray-400 italic'>No question created yet.</div>";
+        if (chartObj && chartObj.destroy) chartObj.destroy();
+        return;
+      }
+      const q = session.questions[0];
+      const res = session.results[q.text] || [];
+      if (q.type === "mc") {
+        // Bar Chart
+        const counts = {};
+        q.options.forEach(o => counts[o] = 0);
+        res.forEach(ans => { if (counts[ans]) counts[ans]++; else if (ans in counts) counts[ans]=1; });
+        q.options.forEach(o => { if (typeof counts[o] === "undefined") counts[o]=0; });
+        const canvas = document.createElement("canvas");
+        rv.appendChild(canvas);
+        if (chartObj && chartObj.destroy) chartObj.destroy();
+        chartObj = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels: q.options,
+            datasets: [{
+              label: "Responses",
+              data: q.options.map(o=>counts[o]),
+              backgroundColor: "rgba(99,102,241,0.2)",
+              borderColor: "rgba(99,102,241,1)",
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            plugins: { legend: { display: false }},
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          }
+        });
+      } else if (q.type === "wordcloud") {
+        // Simple word frequency
+        const allWords = [].concat(...res.map(ans => ans.split(/\s+/)));
+        const freqs = {};
+        allWords.filter(Boolean).forEach(word => { word=word.toLowerCase(); if (freqs[word]) freqs[word]++; else freqs[word]=1;});
+        const sorted = Object.entries(freqs).sort((a,b)=>b[1]-a[1]);
+        if (sorted.length === 0) rv.innerHTML = "<div class='text-gray-400 italic'>No responses yet.</div>";
+        else {
+          // basic word cloud
+          const div = document.createElement("div");
+          div.className = "flex flex-wrap gap-3 pt-3";
+          const maxCount = sorted[0]? sorted[0][1] : 1;
+          sorted.forEach(([word, count]) => {
+            const span = document.createElement("span");
+            span.textContent = word;
+            span.className = "bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-semibold";
+            span.style.fontSize = (0.9 + count/maxCount * 1.8) + "em";
+            div.appendChild(span);
+          });
+          rv.appendChild(div);
+        }
+      } else if (q.type === "scale") {
+        // Rating bar chart 1-5
+        const vals = [1,2,3,4,5];
+        const counts = [0,0,0,0,0];
+        res.forEach(ans => {
+          let v = Number(ans);
+          if (v>=1&&v<=5) counts[v-1]++;
+        });
+        const canvas = document.createElement("canvas");
+        rv.appendChild(canvas);
+        if (chartObj && chartObj.destroy) chartObj.destroy();
+        chartObj = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels: vals.map(v=>v.toString()),
+            datasets: [{
+              label: "Votes",
+              data: counts,
+              backgroundColor: vals.map(v=>`rgba(${50+v*40},${150+v*10},241,0.3)`),
+              borderColor: vals.map(v=>`rgba(${50+v*40},${150+v*10},241,1)`),
+              borderWidth: 2
+            }]
+          },
+          options: {
+            plugins: { legend: { display: false }},
+            scales: { y: { beginAtZero:true, ticks: { precision: 0 } } }
+          }
+        });
+      }
+    }
+
+    // ----------------------------
+    // Audience Simulator
+    // ----------------------------
+    function renderAudience() {
+      const q = session.questions[0];
+      const panel = document.getElementById("audience-panel");
+      panel.innerHTML = "";
+      if (!q) {
+        panel.innerHTML = "<div class='text-gray-400 italic'>Waiting for presenter to create a question...</div>";
+        return;
+      }
+      // Simulate one audience user per browser for demo
+      const form = document.createElement("form");
+      form.className = "space-y-4";
+      form.onsubmit = function(e) {
+        e.preventDefault();
+        const val = form.elements["audience-answer"].value.trim();
+        if (!val) return;
+        if (!session.results[q.text]) session.results[q.text] = [];
+        session.results[q.text].push(val);
+        saveSession(session);
+        renderResults();
+        renderSummary();
+        form.reset();
+      };
+      const label = document.createElement("label");
+      label.className = "font-semibold block mb-1";
+      label.textContent = q.text;
+      form.appendChild(label);
+
+      let inputEl;
+      if (q.type === "mc") {
+        // Options as a set of radio buttons
+        q.options.forEach((opt, i) => {
+          const div = document.createElement("div");
+          div.className = "flex items-center gap-2";
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.required = true;
+          input.value = opt;
+          input.name = "audience-answer";
+          input.id = `opt${i}`;
+          const lab = document.createElement("label");
+          lab.htmlFor = input.id;
+          lab.textContent = opt;
+          div.appendChild(input);
+          div.appendChild(lab);
+          form.appendChild(div);
+        });
+      } else if (q.type === "wordcloud") {
+        inputEl = document.createElement("input");
+        inputEl.type = "text";
+        inputEl.name = "audience-answer";
+        inputEl.required = true;
+        inputEl.placeholder = "Enter your word/phrase";
+        inputEl.className = "w-full md:w-56 border rounded p-2 focus:ring focus:ring-indigo-100";
+        form.appendChild(inputEl);
+      } else if (q.type === "scale") {
+        // Buttons 1–5
+        const scaleDiv = document.createElement("div");
+        scaleDiv.className = "flex flex-row gap-2 pt-2";
+        for (let v = 1; v <= 5; v++) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "py-2 px-4 rounded bg-indigo-100 hover:bg-indigo-200 focus:bg-indigo-300 font-bold text-lg";
+          btn.textContent = v;
+          btn.onclick = () => {
+            form.elements["audience-answer"].value = v;
+            form.dispatchEvent(new Event("submit", {cancelable:true, bubbles:true}));
+          };
+          scaleDiv.appendChild(btn);
+        }
+        inputEl = document.createElement("input");
+        inputEl.type = "hidden";
+        inputEl.name = "audience-answer";
+        form.appendChild(scaleDiv);
+        form.appendChild(inputEl);
+      }
+      const submit = document.createElement("button");
+      submit.type = "submit";
+      submit.className = "py-2 px-6 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700 transition ml-0 mt-2";
+      submit.textContent = "Submit";
+      if (q.type === "scale") submit.style.display = "none";
+      form.appendChild(submit);
+
+      panel.appendChild(form);
+
+      // Show current answers (non-scroll for PDF)
+      const res = session.results[q.text] || [];
+      if (res.length) {
+        const history = document.createElement("div");
+        history.className = "mt-6";
+        history.innerHTML = "<div class='text-gray-800 font-bold mb-1'>Current Answers ("+res.length+")</div>";
+        const ul = document.createElement("ul");
+        ul.className = "list-disc list-inside text-gray-700 space-y-0";
+        res.forEach((ans, idx) => {
+          const li = document.createElement("li");
+          li.textContent = ans;
+          ul.appendChild(li);
+        });
+        history.appendChild(ul);
+        panel.appendChild(history);
+      }
+    }
+
+    // ----------------------------
+    // Export as CSV
+    // ----------------------------
+    document.getElementById("export-csv-btn").onclick = function() {
+      if (!session.questions.length) { alert("No question to export."); return; }
+      const q = session.questions[0];
+      const res = session.results[q.text] || [];
+      let csv = `Session Code,Question,Type,Response\n`;
+      res.forEach(ans => {
+        csv += `"${session.sessionCode}","${q.text}","${q.type}","${ans.replace(/"/g,'""')}"\n`;
+      });
+      // Download
+      const blob = new Blob([csv], {type: "text/csv"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `classpulse_${session.sessionCode}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+      document.getElementById("export-info").classList.remove("hidden");
+      setTimeout(()=>document.getElementById("export-info").classList.add("hidden"), 2400);
+    };
+
+    // ----------------------------
+    // Clear Session Button
+    // ----------------------------
+    document.getElementById("clear-session-btn").onclick = function() {
+      if (!confirm("Are you sure you want to clear all session data? This cannot be undone.")) return;
+      clearSession();
+      session = loadSession();
+      renderResults();
+      renderAudience();
+      renderSummary();
+      document.getElementById("session-code").textContent = session.sessionCode;
+      makeQRCode(sessionUrl);
+    };
+
+    // ----------------------------
+    // Session Summary for PDF export
+    // ----------------------------
+    function renderSummary() {
+      const div = document.getElementById("session-summary");
+      div.innerHTML = "";
+      if (!session.questions.length) {
+        div.innerHTML = "<div class='text-gray-400 italic'>Session is empty.</div>";
+        return;
+      }
+      const q = session.questions[0];
+      const res = session.results[q.text] || [];
+      const tbl = document.createElement("table");
+      tbl.className = "min-w-full text-sm border";
+      tbl.innerHTML = `
+        <thead>
+          <tr>
+            <th class="border px-4 py-2 text-left bg-gray-100">Session Code</th>
+            <th class="border px-4 py-2 text-left bg-gray-100">Question</th>
+            <th class="border px-4 py-2 text-left bg-gray-100">Type</th>
+            <th class="border px-4 py-2 text-left bg-gray-100">Response</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            res.length ? res.map(ans => `
+              <tr>
+                <td class="border px-4 py-2">${session.sessionCode}</td>
+                <td class="border px-4 py-2">${q.text}</td>
+                <td class="border px-4 py-2">${q.type}</td>
+                <td class="border px-4 py-2">${ans}</td>
+              </tr>
+            `).join("") 
+            : `<tr><td class="border px-4 py-2" colspan="4"><span class="italic text-gray-400">No responses yet.</span></td></tr>`
+          }
+        </tbody>
+      `;
+      div.appendChild(tbl);
+    }
+
+    // Initial rendering on page load
+    renderResults();
+    renderAudience();
+    renderSummary();
+  </script>
+</body>
+</html>
+

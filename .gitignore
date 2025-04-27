@@ -169,3 +169,5 @@ cython_debug/
 .DS_Store
 .sesskey
 classpulse.db
+
+_notes

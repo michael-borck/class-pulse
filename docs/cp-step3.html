@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ClassPulse – Interactive Audience Engagement (Templates & CSS Demo)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Tailwind CSS 2.2.19 via jsDelivr -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Chart.js 4.4.3 via jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Font Awesome 6.5.2 via jsDelivr -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
+  <!-- Google Fonts Inter via jsDelivr -->
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/inter@3.3.1/400.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Inter, sans-serif;
+      background-color: #f9fafb;
+      color: #212121;
+    }
+    /* Word cloud style */
+    .word-cloud span {
+      display: inline-block;
+      margin: 0.25rem;
+      line-height: 1.2;
+    }
+    /* Prevent scrollbars for PDF export */
+    ::-webkit-scrollbar { width: 0 !important; display: none; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+  <!-- Layout/Header -->
+  <header class="bg-white shadow md:sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <span class="text-2xl font-bold tracking-tight text-blue-700 flex items-center">
+        <i class="fas fa-bolt text-yellow-400 mr-2"></i> ClassPulse
+      </span>
+      <nav class="space-x-4">
+        <a href="#dashboard" class="text-gray-700 hover:text-blue-600 font-medium">Dashboard</a>
+        <a href="#join" class="text-gray-700 hover:text-blue-600 font-medium">Join Session</a>
+        <a href="#login" class="text-gray-700 hover:text-blue-600 font-medium">Presenter Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- =================== LOGIN VIEW =================== -->
+  <section id="login" class="max-w-md mx-auto my-16 bg-white p-8 rounded shadow" style="margin-top:60px;">
+    <h2 class="text-xl font-semibold mb-4 text-center"><i class="fas fa-user-lock mr-1"></i>Presenter Login</h2>
+    <form>
+      <div class="mb-4">
+        <label for="username" class="block mb-1 font-medium">Username</label>
+        <input id="username" type="text" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Enter your username">
+      </div>
+      <div class="mb-6">
+        <label for="password" class="block mb-1 font-medium">Password</label>
+        <input id="password" type="password" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="Enter your password">
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700 duration-150">
+        <i class="fas fa-arrow-right mr-1"></i> Login
+      </button>
+    </form>
+  </section>
+
+  <!-- =================== PRESENTER DASHBOARD =================== -->
+  <section id="dashboard" class="max-w-5xl mx-auto mt-16 bg-white p-8 rounded shadow">
+    <h2 class="text-2xl font-bold mb-4 flex items-center">
+      <i class="fas fa-user-cog text-blue-600 mr-2"></i> Presenter Dashboard
+    </h2>
+    <!-- Session Info -->
+    <div class="mb-6 flex items-center space-x-6">
+      <div>
+        <span class="block text-xs text-gray-500 font-medium">Session Code</span>
+        <span class="text-lg font-mono bg-gray-50 border border-gray-200 px-3 py-1 rounded inline-block leading-8">384291</span>
+      </div>
+      <!-- QR Code (placeholder) -->
+      <div class="flex items-center">
+        <span class="block text-xs text-gray-500 font-medium mb-1">Quick Join QR</span>
+        <div class="bg-gray-200 border border-gray-400 ml-3" style="width:56px;height:56px;display:inline-block;vertical-align:middle;border-radius:6px;text-align:center;line-height:56px;">
+          <i class="fas fa-qrcode fa-lg text-gray-400"></i>
+        </div>
+      </div>
+      <div>
+        <span class="block text-xs text-gray-500 font-medium">Share Link</span>
+        <input readonly value="classpulse.app/join/384291" class="px-2 py-1 rounded bg-gray-50 border border-gray-200 font-mono text-sm" style="width:170px;">
+      </div>
+    </div>
+    <!-- Active Questions list -->
+    <div class="mb-4">
+      <div class="flex justify-between mb-2 items-center">
+        <h3 class="font-semibold text-lg"><i class="fas fa-list-ul mr-2"></i>Available Questions</h3>
+        <button class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 font-medium flex items-center"><i class="fas fa-plus mr-1"></i>New Question</button>
+      </div>
+      <div class="w-full rounded border border-gray-200">
+        <div class="p-3 flex justify-between items-center border-b">
+          <span class="flex items-center"><i class="fas fa-check-square text-indigo-700 mr-2"></i> Which is your favorite color?</span>
+          <span class="text-xs bg-blue-50 text-blue-600 rounded px-2 py-0.5">Multiple Choice</span>
+        </div>
+        <div class="p-3 flex justify-between items-center border-b">
+          <span class="flex items-center"><i class="fas fa-cloud text-purple-700 mr-2"></i> Give one word to describe today</span>
+          <span class="text-xs bg-purple-50 text-purple-700 rounded px-2 py-0.5">Word Cloud</span>
+        </div>
+        <div class="p-3 flex justify-between items-center">
+          <span class="flex items-center"><i class="fas fa-sliders-h text-yellow-600 mr-2"></i> Rate this presentation</span>
+          <span class="text-xs bg-yellow-50 text-yellow-800 rounded px-2 py-0.5">Rating Scale</span>
+        </div>
+      </div>
+    </div>
+    <!-- Data Visualization Example -->
+    <div class="mt-8 grid md:grid-cols-3 gap-10">
+      <!-- Multiple Choice Chart -->
+      <div>
+        <h4 class="font-semibold mb-2 flex items-center"><i class="fas fa-poll mr-1"></i>Multiple Choice Result</h4>
+        <canvas id="chart-mc" width="220" height="170"></canvas>
+      </div>
+      <!-- Word Cloud Example -->
+      <div>
+        <h4 class="font-semibold mb-2 flex items-center"><i class="fas fa-cloud mr-1"></i>Live Word Cloud</h4>
+        <div class="word-cloud bg-gray-50 border border-gray-200 rounded p-4 min-h-36 w-full">
+          <span style="font-size:2rem;color:#3b82f6;">Excited</span>
+          <span style="font-size:1.2rem;color:#9333ea;">Curious</span>
+          <span style="font-size:1.5rem;color:#eab308;">Fun</span>
+          <span style="font-size:1.1rem;color:#22c55e;">Learning</span>
+          <span style="font-size:2.2rem;color:#ef4444;">Wow</span>
+          <span style="font-size:1.3rem;color:#7c3aed;">Engaged</span>
+        </div>
+      </div>
+      <!-- Scale Chart -->
+      <div>
+        <h4 class="font-semibold mb-2 flex items-center"><i class="fas fa-bars mr-1"></i>Rating Scale</h4>
+        <canvas id="chart-scale" width="200" height="170"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== AUDIENCE JOIN VIEW =================== -->
+  <section id="join" class="max-w-md mx-auto my-16 bg-white p-8 rounded shadow" style="margin-top:60px;">
+    <h2 class="text-xl font-semibold mb-4 text-center flex items-center justify-center">
+      <i class="fas fa-users text-green-500 mr-2"></i>Join a ClassPulse Session
+    </h2>
+    <form>
+      <div class="mb-4">
+        <label for="audience-session" class="block mb-1 font-medium">Session Code</label>
+        <input id="audience-session" type="text" class="w-full text-center border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 font-mono text-lg" placeholder="Enter code (e.g. 384291)">
+      </div>
+      <button type="submit" class="w-full bg-green-500 text-white font-semibold py-2 rounded hover:bg-green-600 duration-150">
+        <i class="fas fa-sign-in-alt mr-1"></i> Join Now
+      </button>
+    </form>
+    <div class="text-center mt-6">
+      <span class="text-gray-500 text-sm">Scan QR code to join:</span>
+      <div class="mx-auto mt-2 bg-gray-200 border border-gray-400" style="width:72px;height:72px;border-radius:10px;text-align:center;line-height:72px;">
+        <i class="fas fa-qrcode fa-lg text-gray-400"></i>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== AUDIENCE QUESTION VIEW =================== -->
+  <section id="audience-question" class="max-w-lg mx-auto my-16 bg-white p-8 rounded shadow">
+    <h2 class="text-lg font-semibold mb-4 flex items-center text-blue-700"><i class="fas fa-question-circle mr-2"></i>Current Question</h2>
+
+    <!-- Multiple Choice Example -->
+    <div class="mb-5" id="audience-question-mc">
+      <div class="mb-2 font-medium">Which is your favorite color?</div>
+      <form class="space-y-2">
+        <label class="flex items-center space-x-2">
+          <input type="radio" name="mc-color" class="form-radio mr-2 text-blue-500">
+          <span>Red</span>
+        </label>
+        <label class="flex items-center space-x-2">
+          <input type="radio" name="mc-color" class="form-radio mr-2 text-green-500">
+          <span>Green</span>
+        </label>
+        <label class="flex items-center space-x-2">
+          <input type="radio" name="mc-color" class="form-radio mr-2 text-yellow-500">
+          <span>Yellow</span>
+        </label>
+        <label class="flex items-center space-x-2">
+          <input type="radio" name="mc-color" class="form-radio mr-2 text-blue-500">
+          <span>Blue</span>
+        </label>
+        <button class="mt-3 w-full bg-blue-500 text-white font-medium py-2 rounded hover:bg-blue-600">Submit</button>
+      </form>
+    </div>
+
+    <!-- Word Cloud Input Example -->
+    <div class="mb-5" id="audience-question-wordcloud">
+      <div class="mb-2 font-medium">Give one word to describe today:</div>
+      <form>
+        <input type="text" maxlength="15" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-200 mb-2" placeholder="Your word...">
+        <button class="w-full bg-purple-500 text-white font-medium py-2 rounded hover:bg-purple-600">Submit</button>
+      </form>
+    </div>
+
+    <!-- Rating Scale Example -->
+    <div id="audience-question-scale">
+      <div class="mb-2 font-medium">Rate this presentation: <span class="ml-2 text-lg font-bold" id="rating-value">3</span></div>
+      <input type="range" min="1" max="5" value="3" class="w-full mb-2" oninput="document.getElementById('rating-value').textContent=this.value;">
+      <div class="flex justify-between text-xs text-gray-400 mb-1 px-1">
+        <span>Poor</span><span>Excellent</span>
+      </div>
+      <button class="w-full bg-yellow-500 text-white font-medium py-2 rounded hover:bg-yellow-600">Submit</button>
+    </div>
+  </section>
+
+  <footer class="max-w-5xl mx-auto mt-12 py-6 text-center text-gray-500 text-sm">
+    <span>&copy; 2024 ClassPulse. Inspired by Mentimeter. For educational demo purposes.</span>
+  </footer>
+
+  <script>
+    // Example Multiple Choice Data for Dashboard Chart.js
+    document.addEventListener('DOMContentLoaded', function() {
+      // Multiple Choice Chart
+      const ctxMC = document.getElementById('chart-mc').getContext('2d');
+      new Chart(ctxMC, {
+        type: 'bar',
+        data: {
+          labels: ['Red', 'Green', 'Yellow', 'Blue'],
+          datasets: [{
+            label: 'Votes',
+            data: [12, 21, 8, 17],
+            backgroundColor: [
+              'rgba(239,68,68,0.7)',
+              'rgba(34,197,94,0.7)',
+              'rgba(234,179,8,0.7)',
+              'rgba(59,130,246,0.7)'
+            ],
+            borderWidth: 1,
+            borderRadius: 6,
+            maxBarThickness: 32
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: { legend: { display: false }, title: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { display:false } },
+            y: { min: 0, max: 25, ticks: { stepSize: 5 }, grid: { display:false } }
+          }
+        }
+      });
+
+      // Rating Scale Horizontal Bar Chart
+      const ctxScale = document.getElementById('chart-scale').getContext('2d');
+      new Chart(ctxScale, {
+        type: 'bar',
+        data: {
+          labels: ['1', '2', '3', '4', '5'],
+          datasets: [{
+            label: 'Responses',
+            data: [2, 6, 12, 8, 4],
+            backgroundColor: [
+              '#fde68a',
+              '#facc15',
+              '#ca8a04',
+              '#fde047',
+              '#f59e42'
+            ],
+            borderWidth: 1,
+            borderRadius: 7,
+            maxBarThickness: 28
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: false,
+          plugins: { legend: { display: false }, title: { display: false } },
+          scales: {
+            x: { beginAtZero: true, max: 14, grid: { display: false } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+

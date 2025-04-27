@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ClassPulse – Step 1: Project Structure & Dependencies</title>
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
+  <!-- Google Fonts (Roboto) -->
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@3.3.1/400.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+    }
+    code, pre {
+      background: #f5f5f5;
+      color: #2d3748 !important;
+      font-size: 0.97rem;
+      border-radius: 0.25rem;
+      padding: 0.10rem 0.25rem;
+    }
+    pre {
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border-left: 3px solid #2563eb;
+    }
+    .fa-folder { color: #4f8a8b; }
+    .fa-file { color: #e59500; }
+    .fa-play { color: #43aa8b; }
+    .fa-cog { color: #7a5195; }
+    .fa-database { color: #2e294e; }
+    .fa-layer-group { color: #ffd166; }
+    .fa-list-ul, .fa-table { color: #22223b; }
+  </style>
+</head>
+
+<body class="bg-white text-gray-900 py-8 px-4 md:px-12 lg:px-44">
+  <header class="mb-6">
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-blue-700 flex items-center">
+      <i class="fas fa-layer-group mr-2"></i>
+      ClassPulse – Step 1: Setting Up Project Structure & Dependencies
+    </h1>
+    <div class="text-gray-600 text-base mt-2 mb-4">
+      This page guides you through initializing the ClassPulse project—laying out the folder structure and managing essential dependencies—optimized for code efficiency, maintainability, and PDF export.
+    </div>
+    <div class="flex flex-wrap gap-3 mt-1 mb-1">
+      <span class="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-800 text-xs font-medium rounded-md">
+        <i class="fab fa-python text-xl mr-2"></i>Flask
+      </span>
+      <span class="inline-flex items-center px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md">
+        <i class="fab fa-js-square text-lg mr-2"></i>Vanilla JS
+      </span>
+      <span class="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-md">
+        <i class="fas fa-database text-md mr-2"></i>SQLite
+      </span>
+      <span class="inline-flex items-center px-3 py-1 bg-yellow-50 text-yellow-800 text-xs font-medium rounded-md">
+        <i class="fas fa-bolt text-md mr-2"></i>Socket.IO (Realtime)
+      </span>
+    </div>
+  </header>
+
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-3 text-blue-700">
+      <i class="fas fa-stream mr-2"></i>Recommended Frontend Libraries via jsDelivr CDN
+    </h2>
+    <ul class="mb-3 ml-4 list-disc text-base">
+      <li>
+        <span class="font-semibold text-blue-700">Tailwind CSS 2.2.19</span> – Utility-first for rapid responsive design.
+      </li>
+      <li>
+        <span class="font-semibold text-blue-700">Chart.js 4.4.3</span> or <span class="font-semibold text-blue-700">ECharts 5.4.2</span> – Data visualizations (bar charts, word clouds, scales).
+      </li>
+      <li>
+        <span class="font-semibold text-blue-700">Font Awesome 6.5.2</span> – For useful icons in UI.
+      </li>
+      <li>
+        <span class="font-semibold text-blue-700">Google Fonts 3.3.1</span> – Improve typography.
+      </li>
+    </ul>
+    <div class="rounded bg-yellow-100 text-yellow-800 px-3 py-2 mb-2 text-sm flex items-center">
+      <i class="fas fa-info-circle mr-2"></i>
+      Always use <span class="underline ml-1 mr-1">jsDelivr CDN</span> for speed and reliability.
+    </div>
+    <div class="text-gray-600 text-sm mt-2">
+      <b>Note:</b> Visual/chart libraries are not directly setup in this step, but plan their usage for later (Chart.js/ECharts). Only include Font Awesome and Google Fonts for startup.
+    </div>
+  </section>
+
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-3 text-blue-700">
+      <i class="fas fa-sitemap mr-2"></i>ClassPulse Project Directory Structure
+    </h2>
+    <ul class="mb-5 space-y-1">
+      <li><i class="fas fa-folder"></i> <b>~/projects/classpulse/</b></li>
+      <li class="ml-6"><i class="fas fa-file"></i> <b>app.py</b> – Main Flask app</li>
+      <li class="ml-6"><i class="fas fa-file"></i> <b>config.py</b> – Project config/settings</li>
+      <li class="ml-6"><i class="fas fa-file"></i> <b>models.py</b> – Database models</li>
+      <li class="ml-6"><i class="fas fa-file"></i> <b>utils.py</b> – Utility functions</li>
+      <li class="ml-6"><i class="fas fa-folder"></i> <b>static/</b> – Static assets</li>
+      <li class="ml-12"><i class="fas fa-folder"></i> css/ – CSS files (e.g., <b>style.css</b>)</li>
+      <li class="ml-12"><i class="fas fa-folder"></i> js/ – JS files (<b>presenter.js</b>, <b>audience.js</b>)</li>
+      <li class="ml-6"><i class="fas fa-folder"></i> <b>templates/</b> – HTML templates</li>
+      <li class="ml-12"><i class="fas fa-file"></i> layout.html (base), login.html, dashboard.html, create_question.html, present.html, join.html...</li>
+      <li class="ml-6"><i class="fas fa-folder"></i> <b>instance/</b> – Data (e.g., <b>classpulse.sqlite3</b>)</li>
+      <li class="ml-6"><i class="fas fa-file"></i> <b>requirements.txt</b> – Python dependencies</li>
+    </ul>
+
+    <pre>
+~/projects/classpulse/
+│
+├── app.py
+├── config.py
+├── models.py
+├── utils.py
+├── requirements.txt
+│
+├── static/
+│   ├── css/
+│   │   └── style.css
+│   └── js/
+│       ├── presenter.js
+│       └── audience.js
+│
+├── templates/
+│   ├── layout.html
+│   ├── login.html
+│   ├── dashboard.html
+│   ├── create_question.html
+│   ├── present.html
+│   └── join.html
+│
+└── instance/
+    └── classpulse.sqlite3  <i class="fa fa-database"></i>
+    </pre>
+    <div class="text-gray-700 text-sm">
+      <b>Tip:</b> The templates directory is where your Flask Jinja2 HTML files will go, and static for all CSS/JS assets.
+    </div>
+  </section>
+
+  <section class="mb-10">
+    <h2 class="text-lg font-bold mb-3 text-blue-700">
+      <i class="fas fa-terminal mr-2"></i>Step-by-Step: Initial Project Setup
+    </h2>
+    <ol class="list-decimal ml-6 mb-5">
+      <li class="mb-1">
+        <span class="font-semibold">Create the main project folder</span>:
+        <pre>mkdir -p ~/projects/classpulse/{static/css,static/js,templates,instance}</pre>
+      </li>
+      <li class="mb-1">
+        <span class="font-semibold">Navigate into the directory</span>:
+        <pre>cd ~/projects/classpulse</pre>
+      </li>
+      <li class="mb-1">
+        <span class="font-semibold">Initialize a Python environment (recommended)</span>:
+        <pre>python3 -m venv venv
+source venv/bin/activate</pre>
+      </li>
+      <li class="mb-1">
+        <span class="font-semibold">Create empty files (app.py, config.py, models.py, utils.py, requirements.txt)</span>:
+        <pre>touch app.py config.py models.py utils.py requirements.txt</pre>
+      </li>
+      <li class="mb-1">
+        <span class="font-semibold">Install core Python dependencies</span>:
+        <pre>pip install Flask flask-socketio eventlet Flask-SQLAlchemy</pre>
+        <span class="text-gray-600 text-xs block mt-1">
+          Add these packages to your <code>requirements.txt</code>:
+        </span>
+        <pre>
+Flask
+flask-socketio
+eventlet
+Flask-SQLAlchemy
+        </pre>
+      </li>
+      <li class="mb-1">
+        <span class="font-semibold">(Optional) Pre-create minimal static CSS/JS & HTML template stubs</span>
+        <pre>
+echo "body { @apply bg-white text-gray-900; }" > static/css/style.css
+touch static/js/presenter.js static/js/audience.js
+touch templates/layout.html
+        </pre>
+      </li>
+    </ol>
+
+    <div class="rounded bg-blue-50 border-l-4 border-blue-400 px-4 py-2 mb-2 text-blue-800">
+      <b>Once completed</b>, your project is ready to begin implementing app logic and UI!
+    </div>
+  </section>
+
+  <section class="mb-12">
+    <h2 class="text-lg font-bold mb-3 text-blue-700">
+      <i class="fas fa-lightbulb mr-2"></i>Why These Libraries and Structure?
+    </h2>
+    <ul class="list-disc ml-5 mb-4">
+      <li><b>Tailwind CSS</b> ensures <span class="text-blue-700">lightweight, responsive UIs</span> with minimal custom CSS.</li>
+      <li><b>Chart.js/ECharts</b> let you build dynamic visualizations with few lines of code for polling results and word clouds.</li>
+      <li><b>Font Awesome</b> adds context and visual cues to interfaces without having to create custom icons.</li>
+      <li><b>Google Fonts</b> supports clean, professional typography across browsers and print/PDF outputs.</li>
+      <li><b>Flask-SocketIO</b> makes real-time interactivity (polls, results) straightforward with easy Python integration.</li>
+      <li><b>project/ dir structure</b> keeps logic, templates, and static files tidy and easy to maintain or extend.</li>
+    </ul>
+  </section>
+
+  <section class="mb-16">
+    <h2 class="text-lg font-bold mb-3 text-blue-700">
+      <i class="fas fa-tasks mr-2"></i>Next Steps
+    </h2>
+    <ol class="list-decimal ml-6 mb-2">
+      <li>
+        <b>Design</b> the base Flask app structure in <code>app.py</code>.
+      </li>
+      <li>
+        <b>Create Auth & Session logic</b> (minimal/hardcoded for presenter, optional for audience).
+      </li>
+      <li>
+        <b>Design UI templates</b> and <b>connect JS logic</b> to enable creation and live voting.
+      </li>
+      <li>
+        <b>Integrate</b> Chart.js/ECharts for data visualization as questions are answered.
+      </li>
+      <li>
+        <b>Implement export to CSV</b> and dark/light UI modes.
+      </li>
+    </ol>
+    <div class="text-gray-700 text-sm">
+      <b>Ready to proceed?</b><br>
+      Move on to base app logic, auth screens, and basic question model setup!
+    </div>
+  </section>
+
+  <footer class="border-t pt-6 text-gray-500 text-center text-xs">
+    &copy; 2024 ClassPulse. This documentation is PDF-optimized for single-page export. All logos/icons via <a href="https://fontawesome.com/" target="_blank" class="text-blue-800 underline">Font Awesome</a> and <a href="https://jsdelivr.com/" target="_blank" class="text-blue-800 underline">jsDelivr CDN</a>.
+  </footer>
+</body>
+</html>
+
+

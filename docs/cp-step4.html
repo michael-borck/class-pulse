@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ClassPulse - Step 4: Real-Time JS & Visualization</title>
+  <!-- Tailwind CSS via jsDelivr -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Chart.js via jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- ECharts via jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@3.3.1/roboto.css" rel="stylesheet">
+  <!-- Socket.IO (client) -->
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+  <style>
+    html { font-family: 'Roboto', Arial, sans-serif; font-size: 16px; }
+    body { background-color: #f9fafb; color: #222; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .wordcloud-word { transition: filter 0.2s; }
+    /* For continuous large blocks, make containers full width and min-h-screen */
+    .pdf-friendly { overflow: visible !important; }
+  </style>
+</head>
+<body class="pdf-friendly">
+
+  <div class="max-w-5xl mx-auto py-8 px-4">
+    <header class="flex items-center space-x-3 mb-6">
+      <span class="text-3xl text-blue-600"><i class="fa-solid fa-bolt"></i></span>
+      <h1 class="text-3xl font-bold tracking-tight">ClassPulse Demo: Real-Time JS & Interactive Visualizations</h1>
+    </header>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-semibold mb-2 text-gray-700">Introduction</h2>
+      <p>
+        This page demonstrates JavaScript real-time features for <b>ClassPulse</b>, a Mentimeter-style audience engagement app. It covers:
+        <ul class="list-disc list-inside ml-4 mt-2">
+          <li>Using <b>Socket.IO</b> for live updates</li>
+          <li>Visualizing results via <b>Chart.js</b> (bar/rating), <b>ECharts</b> (word cloud)</li>
+          <li>Responsive, PDF-export-optimized design with <b>Tailwind CSS</b></li>
+          <li>Iconography via <b>FontAwesome</b></li>
+        </ul>
+      </p>
+    </section>
+
+    <!-- Socket.IO Live Connection Sim -->
+    <section class="rounded-lg bg-white shadow-md py-5 px-6 mb-10">
+      <h2 class="text-xl font-bold mb-2 flex items-center">
+        <i class="fa-solid fa-right-left text-blue-600 mr-2"></i>
+        Simulated Real-Time Update (Socket.IO)
+      </h2>
+      <div class="text-gray-700 mb-4">
+        In production, the app connects to a Flask (or Node) <b>Socket.IO</b> backend to broadcast audience votes/inputs instantly.
+      </div>
+      <div id="connectionStatus" class="mb-2 text-green-700 flex items-center">
+        <span class="fa-solid fa-circle mr-2 animate-pulse text-green-600"></span>
+        Connected to socket (mock/simulated)
+      </div>
+      <div class="mb-2">
+        <button onclick="simulateVote()" class="bg-blue-600 text-white font-medium px-4 py-2 rounded hover:bg-blue-700 shadow transition active:scale-95">
+          <i class="fa-solid fa-user-plus mr-1"></i> Simulate Audience Response
+        </button>
+      </div>
+      <div class="text-sm text-gray-500">Press to inject random answers</div>
+    </section>
+
+    <section class="rounded-lg bg-white shadow-md py-5 px-6 mb-10">
+      <h2 class="text-xl font-bold mb-2 flex items-center">
+        <i class="fa-solid fa-chart-bar text-purple-600 mr-2"></i>
+        Multiple Choice: Live Bar Chart (Chart.js)
+      </h2>
+      <canvas id="barChart" class="w-full max-w-2xl mx-auto mb-0" height="160"></canvas>
+    </section>
+
+    <section class="rounded-lg bg-white shadow-md py-5 px-6 mb-10">
+      <h2 class="text-xl font-bold mb-2 flex items-center">
+        <i class="fa-solid fa-person-dots-from-line text-yellow-600 mr-2"></i>
+        Rating Scale: Real-Time Horizontal Bar Chart (Chart.js)
+      </h2>
+      <canvas id="ratingChart" class="w-full max-w-2xl mx-auto mb-0" height="120"></canvas>
+    </section>
+
+    <section class="rounded-lg bg-white shadow-md py-5 px-6 mb-10">
+      <h2 class="text-xl font-bold mb-2 flex items-center">
+        <i class="fa-solid fa-cloud-word text-emerald-500 mr-2"></i>
+        Word Cloud: Real-Time (ECharts)
+      </h2>
+      <div class="w-full h-56 md:h-64" id="wordCloud" style="min-height:220px;"></div>
+    </section>
+
+    <section>
+      <h3 class="text-xl font-semibold mb-2">PDF-Export Friendly</h3>
+      <p>This page is designed for continuous, full-content PDF export via the browser’s built-in print-to-PDF function. All content is shown in full, without scrollbars.</p>
+    </section>
+  </div>
+
+  <script>
+    // --- Simulated Socket.IO connection (would be io('WS_URL') in real app) ---
+    // For demo, we'll update data structures directly and trigger chart updates.
+
+    // 1. DATA STATE (simulates results coming in)
+    const barQuestion = {
+      question: "Which feature do you find most useful?",
+      options: ["Live Polls", "Word Cloud", "Ratings", "Export to CSV"],
+      counts: [7, 5, 3, 2]
+    };
+    const ratingQuestion = {
+      question: "How would you rate the session?",
+      ratings: [12, 9, 20, 5, 3] // counts: 1,2,3,4,5-star
+    };
+    const wordCloudData = [
+      { name: "Interactive", value: 12 },
+      { name: "Easy", value: 8 },
+      { name: "Fun", value: 18 },
+      { name: "Live", value: 11 },
+      { name: "Modern", value: 6 }
+    ];
+    const wordBank = ["Exciting", "Intuitive", "Responsive", "Fast", "Simple", "Customizable", "Engaging", "Real-time"];
+
+    // 2. RENDER: BAR CHART
+    let barChartInstance;
+    function renderBarChart() {
+      const ctx = document.getElementById('barChart').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+      barChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: barQuestion.options,
+          datasets: [{
+            label: 'Votes',
+            data: barQuestion.counts,
+            backgroundColor: ['#60a5fa', '#818cf8', '#a3e635', '#fbbf24'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: barQuestion.question, font: { size: 20 } },
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#eee' } }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+
+    // 3. RENDER: RATING CHART
+    let ratingChartInstance;
+    function renderRatingChart() {
+      const ctx = document.getElementById('ratingChart').getContext('2d');
+      if (ratingChartInstance) ratingChartInstance.destroy();
+      ratingChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['1', '2', '3', '4', '5'],
+          datasets: [{
+            label: 'Responses',
+            data: ratingQuestion.ratings,
+            backgroundColor: ['#ef4444', '#f59e42', '#fbbf24', '#84cc16', '#22d3ee'],
+            borderRadius: 8,
+            borderSkipped: false,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            title: { display: true, text: ratingQuestion.question, font: { size: 20 } },
+            legend: { display: false }
+          },
+          scales: {
+            x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#eee' } }
+          },
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+
+    // 4. RENDER: WORD CLOUD (ECharts)
+    let wordCloudInstance;
+    function renderWordCloud() {
+      const chartDom = document.getElementById('wordCloud');
+      wordCloudInstance = echarts.init(chartDom);
+      const option = {
+        title: { text: 'Audience Impressions', left: 'center', textStyle: { fontWeight: 'bold', fontSize: 20 } },
+        tooltip: { show: true },
+        series: [{
+          type: 'wordCloud',
+          shape: 'circle',
+          left: 'center',
+          top: 'center',
+          width: '90%',
+          height: '95%',
+          sizeRange: [22, 54],
+          rotationRange: [0, 0],
+          gridSize: 14,
+          drawOutOfBound: false,
+          textStyle: {
+            fontFamily: 'Roboto, Arial, sans-serif',
+            fontWeight: 'bold',
+            color: function() {
+              // Tailwind color palette
+              const palette = ['#2dd4bf', '#3b82f6', '#8b5cf6', '#f59e42', '#84cc16', '#f43f5e'];
+              return palette[Math.floor(Math.random()*palette.length)];
+            }
+          },
+          data: wordCloudData
+        }]
+      };
+      wordCloudInstance.setOption(option);
+    }
+    // Responsive word cloud for possible PDF scaling
+    window.addEventListener('resize', function() {
+      if (wordCloudInstance) wordCloudInstance.resize();
+    });
+
+    // 5. SIMULATE REAL-TIME VOTES (Socket.IO DEMO)
+    function simulateVote() {
+      // Randomly update one chart or wordcloud
+      // 1. Vote on bar chart
+      if (Math.random() < 0.4) {
+        const idx = Math.floor(Math.random() * barQuestion.counts.length);
+        barQuestion.counts[idx]++;
+        renderBarChart();
+      }
+      // 2. Ratings
+      else if (Math.random() < 0.4) {
+        const idx = Math.floor(Math.random() * ratingQuestion.ratings.length);
+        ratingQuestion.ratings[idx]++;
+        renderRatingChart();
+      }
+      // 3. Word cloud: add or bump a word
+      else {
+        if (Math.random() < 0.7 && wordCloudData.length > 0) {
+          const idx = Math.floor(Math.random() * wordCloudData.length);
+          wordCloudData[idx].value += 1 + Math.floor(Math.random()*2);
+        } else {
+          // add new word from bank if not present yet
+          for (const word of wordBank) {
+            if (!wordCloudData.some(wd => wd.name === word)) {
+              wordCloudData.push({name: word, value: 4 + Math.floor(Math.random() * 4)});
+              break;
+            }
+          }
+        }
+        renderWordCloud();
+      }
+    }
+    // Render all charts once
+    renderBarChart();
+    renderRatingChart();
+    renderWordCloud();
+
+    // --- In a real app, the following would be run after a socket.on event! ---
+    // Example (socket.io real):
+    // socket.on('vote_update', data => { /* update and re-render */ });
+    // Here: we call simulateVote() when button pressed.
+
+  </script>
+</body>
+</html>
+

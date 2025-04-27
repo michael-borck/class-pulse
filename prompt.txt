@@ -1,0 +1,50 @@
+Build a simple web-based audience interaction tool called ClassPulse, similar to Mentimeter. Create the project in ~/projects/classpulse.
+
+# Project Overview
+ClassPulse will allow presenters to create live interactive questions while audience members join using a unique code and submit answers. Presenters can view real-time visualizations of responses.
+
+# Core Features
+1. **Authentication**
+   - Simple login system for presenters (admin/password)
+   - Session management and persistence
+
+2. **Presenter Features**
+   - Dashboard to create and manage sessions
+   - Create different types of questions
+   - View real-time results with visualizations
+   - Generate unique session codes and QR codes for audience
+
+3. **Audience Features**
+   - Join sessions via code or direct URL
+   - Submit answers to active questions
+   - View shared results (optional)
+
+4. **Question Types**
+   - Multiple Choice (visualized as bar charts)
+   - Word Cloud
+   - Rating Scale (1-5, visualized as horizontal bars)
+
+5. **Data Management**
+   - Store sessions, questions, and responses
+   - Export results to CSV
+   - Session persistence across page reloads
+
+# Technical Requirements
+- **Backend**: Flask
+- **Frontend**: Server-side rendered HTML with minimal JavaScript
+- **Database**: SQLite with SQLAlchemy ORM
+- **Real-time Updates**: Flask-SocketIO for WebSockets
+- **UI**: Clean, responsive design with CSS
+
+# Implementation Approach
+1. Start with setting up the Flask application structure
+2. Implement authentication and session management
+3. Create database models for users, sessions, questions, and responses
+4. Build presenter dashboard and question management
+5. Implement audience-facing interfaces
+6. Add real-time functionality with WebSockets
+7. Finalize with data export and session persistence
+
+The application should follow MVC architecture with well-organized routes, templates, and static files. Use Flask blueprints to modularize different aspects of the application.
+
+Please build this step-by-step, explaining key decisions and saving work incrementally.

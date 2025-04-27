@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ClassPulse – Final Application Setup & Run Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Tailwind CSS 2.2.19 -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+  <!-- Chart.js 4.4.3 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- ECharts 5.4.2 -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+  <!-- Font Awesome 6.5.2 -->
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts 3.3.1 (Roboto) -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    html, body { font-family: 'Roboto', sans-serif; background: #f9fafb; color: #1a202c; }
+    h1, h2, h3, h4, h5 { font-weight: 700; }
+    .content-section { max-width: 900px; margin: auto; padding: 2rem 1rem; }
+    .code-block { background: #f4f4f5; border-radius: .5rem; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; font-size: .95rem; font-family: 'JetBrains Mono', 'Fira Mono', monospace; color: #212121;}
+    .demo-chart { background: white; border-radius: .75rem; padding: 1rem; margin: 2rem 0; box-shadow: 0 2px 12px 0 #e2e8f0;}
+    .icon { color: #059669 }
+    .fa-ul { margin-left: 1.4em; }
+    @media print {
+      html, body { background: #fff !important; color: #000 !important; }
+      .hidden-print { display: none !important; }
+      a { color: #000; text-decoration: underline; }
+      * { box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="bg-white shadow mb-8">
+    <div class="content-section flex items-center justify-between">
+      <div class="flex items-center">
+        <i class="fas fa-bolt fa-2x icon mr-3"></i>
+        <h1 class="text-3xl font-bold tracking-tight">ClassPulse</h1>
+      </div>
+      <span class="text-lg hidden sm:inline text-green-650 font-medium">Final: Launch & Usage Guide</span>
+    </div>
+  </header>
+
+  <section class="content-section">
+    <h2 class="text-2xl mb-4 font-bold text-green-700 flex items-center">
+      <i class="fas fa-circle-check mr-2"></i>
+      Project Overview
+    </h2>
+    <p class="mb-2">
+      <strong>ClassPulse</strong> is a minimal web-based audience interaction tool for the classroom or events, inspired by Mentimeter.
+      Presenters can create real-time polls (multiple choice, word cloud, rating scale), and participants submit responses using a session code or QR code.
+      Results are visualized live for both presenters and the audience.
+    </p>
+    <ul class="fa-ul mb-3 text-base grid gap-1">
+      <li><span class="fa-li"><i class="fas fa-play-circle text-green-500"></i></span> Simple and clean UI (Tailwind CSS)</li>
+      <li><span class="fa-li"><i class="fas fa-chart-bar text-blue-400"></i></span> Bar, word cloud, and scale visualizations (Chart.js/ECharts)</li>
+      <li><span class="fa-li"><i class="fas fa-bolt text-yellow-500"></i></span> Real-time updates (WebSocket, Socket.IO)</li>
+      <li><span class="fa-li"><i class="fas fa-database text-indigo-500"></i></span> Persistent &amp; exportable results (SQLite, CSV)</li>
+      <li><span class="fa-li"><i class="fas fa-qrcode text-gray-700"></i></span> Secure joining with session code or QR code</li>
+    </ul>
+  </section>
+
+  <!-- TECHNOLOGY STACK -->
+  <section class="content-section mb-6">
+    <h2 class="text-2xl font-bold flex items-center text-blue-800 mb-3">
+      <i class="fas fa-laptop-code mr-2"></i>Technology Stack
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-lg">
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fab fa-python text-blue-900 mr-3 fa-lg"></i><span>Flask (Backend)</span></div>
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fas fa-database text-indigo-700 mr-3 fa-lg"></i> <span>SQLite (Persistence)</span></div>
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fas fa-bolt text-yellow-700 mr-3 fa-lg"></i> <span>Flask-SocketIO (Realtime)</span></div>
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fas fa-paint-brush text-pink-500 mr-3 fa-lg"></i> <span>Tailwind CSS</span></div>
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fas fa-chart-bar text-green-600 mr-3 fa-lg"></i> <span>Chart.js / ECharts</span></div>
+      <div class="bg-white rounded-lg shadow-sm p-4 flex items-center"><i class="fas fa-users text-gray-700 mr-3 fa-lg"></i><span>Vanilla JS, Font Awesome</span></div>
+    </div>
+  </section>
+
+  <!-- FINAL PROJECT STRUCTURE -->
+  <section class="content-section mb-4">
+    <h2 class="text-2xl font-bold flex items-center text-yellow-700 mb-3">
+      <i class="fas fa-folder-open mr-2"></i>Project Structure
+    </h2>
+<pre class="code-block">
+~/projects/classpulse/
+├── app.py                # Main Flask app
+├── models.py             # DB models/schema
+├── config.py             # Config vars
+├── requirements.txt      # Python packages
+├── utils.py              # Misc utilities
+├── templates/
+│   ├── layout.html
+│   ├── login.html
+│   ├── dashboard.html
+│   ├── create_question.html
+│   ├── present.html
+│   └── join.html
+├── static/
+│   ├── css/style.css
+│   └── js/{presenter.js,audience.js}
+├── instance/
+│   └── classpulse.sqlite # Database file
+</pre>
+    <p>
+      <strong>Note:</strong> All frontend assets are in <code>static/</code> and html in <code>templates/</code> following Flask conventions. No base64 images are used for portability and file size.
+    </p>
+  </section>
+
+  <!-- SETUP INSTRUCTIONS -->
+  <section class="content-section mb-6">
+    <h2 class="text-xl font-bold text-green-800 flex items-center mb-2">
+      <i class="fas fa-rocket mr-2"></i>Quickstart: Setup &amp; Run
+    </h2>
+    <ol class="list-decimal ml-6 text-base mb-2">
+      <li>
+        <b>Clone/Create the project directory</b><br>
+        <div class="code-block">mkdir -p ~/projects/classpulse &amp;&amp; cd ~/projects/classpulse</div>
+      </li>
+      <li>
+        <b>Install Python dependencies</b><br>
+        <div class="code-block">
+cat &gt; requirements.txt &lt;&lt;EOF
+Flask==2.2.5
+flask-socketio==5.3.6
+eventlet==0.35.1
+Flask-Login==0.6.3
+Flask-Cors==4.0.0
+SQLAlchemy==2.0.28
+qrcode==7.4.2
+EOF
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+        </div>
+      </li>
+      <li>
+        <b>Configure and launch the app</b><br>
+        <div class="code-block">
+# Run the Flask-SocketIO server with eventlet
+export FLASK_APP=app.py
+export FLASK_ENV=development
+flask run --host=0.0.0.0
+        </div>
+      </li>
+      <li>
+        <b>Access in browser</b><br>
+        <span class="bg-gray-100 rounded px-2 py-1">http://localhost:5000/</span>
+      </li>
+    </ol>
+    <p>
+      <i class="fas fa-circle-info text-gray-500"></i>
+      For production, see <a href="https://flask-socketio.readthedocs.io/en/latest/" target="_blank" class="text-blue-600 underline">Flask-SocketIO deployment docs</a>.
+    </p>
+  </section>
+
+  <!-- CORE FEATURES SUMMARY -->
+  <section class="content-section mb-6">
+    <h2 class="text-xl font-bold text-purple-800 flex items-center mb-4">
+      <i class="fas fa-layer-group mr-2"></i>Core Features: At a Glance
+    </h2>
+    <ol class="list-decimal ml-6 text-base mb-5">
+      <li>
+        <strong>Presenter Login:</strong> Hardcoded/simple login for presenters.
+      </li>
+      <li>
+        <strong>Create &amp; Manage Questions:</strong> Add multiple-choice, rating, and word clouds. Control which question is live.
+      </li>
+      <li>
+        <strong>Session Join for Audience:</strong> Participants join by session URL/code or QR code. Each session has a unique identifier.
+      </li>
+      <li>
+        <strong>Real-time Updates:</strong> Submissions instantly update results on the presenter dashboard and the audience display via WebSocket.
+      </li>
+      <li>
+        <strong>Visualization:</strong>
+        <ul class="list-disc ml-8">
+          <li>Multiple-choice: Bar charts (Chart.js)</li>
+          <li>Word cloud: (ECharts)</li>
+          <li>Scale: Horizontal bar (Chart.js)</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Export &amp; Persist:</strong> Download all session results as CSV. Results are not lost on reload (SQLite or JSON-based persistence).
+      </li>
+      <li>
+        <strong>Theming:</strong> Toggle simple light/dark mode on the dashboard (Tailwind utility).
+      </li>
+    </ol>
+    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-0">
+      <b>Bonus:</b> To preview a full demo, use the ready sample session below.
+    </div>
+  </section>
+
+  <!-- SECTION: INTERACTIVE VISUAL DEMO -->
+  <section class="content-section mb-8">
+    <h2 class="text-xl font-bold text-pink-800 flex items-center mb-4">
+      <i class="fas fa-eye fa-fw mr-2"></i>Sample Live Result Visualization (Demo)
+    </h2>
+    <div class="mb-6">
+      <h3 class="font-semibold mb-1 text-lg">Multiple Choice Poll Example <span class="text-gray-500 font-normal">(Chart.js Bar)</span></h3>
+      <div class="demo-chart">
+        <canvas id="mcBarChart" width="500" height="220"></canvas>
+      </div>
+    </div>
+    <div class="mb-6">
+      <h3 class="font-semibold mb-1 text-lg">Rating Scale Example <span class="text-gray-500 font-normal">(Chart.js Horizontal Bar)</span></h3>
+      <div class="demo-chart">
+        <canvas id="scaleBarChart" width="500" height="140"></canvas>
+      </div>
+    </div>
+    <div class="mb-4">
+      <h3 class="font-semibold mb-1 text-lg">Word Cloud Example <span class="text-gray-500 font-normal">(ECharts)</span></h3>
+      <div id="wcDemo" class="demo-chart" style="height:200px;width:100%"></div>
+    </div>
+    <script>
+      // BAR CHART (Multiple Choice)
+      const ctx = document.getElementById('mcBarChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Python', 'JavaScript', 'Java', 'C#', 'Other'],
+          datasets: [{
+            label: 'Votes',
+            data: [19, 33, 7, 4, 6],
+            backgroundColor: ['#4ade80','#60a5fa','#facc15','#f472b6','#a78bfa'],
+            borderColor: '#a1a1aa',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero:true, precision:0 } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // HORIZONTAL SCALE BAR (Rating)
+      const ctxScale = document.getElementById('scaleBarChart').getContext('2d');
+      new Chart(ctxScale, {
+        type: 'bar',
+        data: {
+          labels: ['1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars'],
+          datasets: [{
+            label: 'Count',
+            data: [2, 3, 8, 17, 23],
+            backgroundColor: '#60a5fa'
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          scales: { x: { beginAtZero: true } },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // WORD CLOUD (ECharts)
+      const wordData = [
+        {name: 'Engaging', value: 28},
+        {name: 'Easy', value: 18},
+        {name: 'Intuitive', value: 10},
+        {name: 'Fun', value: 25},
+        {name: 'Quick', value: 12},
+        {name: 'Interactive', value: 20},
+        {name: 'Simple', value: 8},
+      ];
+      const wcChart = echarts.init(document.getElementById('wcDemo'));
+      wcChart.setOption({
+        tooltip: {},
+        series: [{
+          type: 'wordCloud',
+          gridSize: 3, sizeRange: [18, 50],
+          rotationRange: [0, 0],
+          shape: 'circle', left: "center", top: "center",
+          width: '100%', height: '98%',
+          textStyle: { normal: { color: function() { return '#' + Math.floor(Math.random() * 16777215).toString(16);} } },
+          data: wordData
+        }]
+      });
+    </script>
+  </section>
+
+  <!-- SECTION: QR CODE JOIN SAMPLE -->
+  <section class="content-section">
+    <h2 class="text-xl font-bold text-blue-900 flex items-center mb-4">
+      <i class="fas fa-qrcode mr-2"></i>Joining a Session: QR/Code
+    </h2>
+    <p>To join, an audience member can scan a QR code from their device, or enter the session code at the provided link. This QR code is dynamically generated for each session using <code>qrcode</code> Python library or a frontend library.</p>
+    <div class="bg-white rounded-lg p-3 flex items-center mt-3 gap-5">
+      <!-- Placeholder for QR: use data-url in actual app -->
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://classpulse.example.com/join/ABC123" width="120" height="120" alt="QR code for joining sample session" class="shadow">
+      <div>
+        <b>Session Code:</b> <span class="bg-gray-200 px-2 py-1 rounded font-mono text-lg">ABC123</span><br>
+        <span class="text-sm text-gray-600">Or visit:</span><br>
+        <a href="https://classpulse.example.com/join/ABC123" class="text-blue-600 underline">https://classpulse.example.com/join/ABC123</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION: EXPORT TO CSV -->
+  <section class="content-section">
+    <h2 class="text-xl font-bold text-indigo-800 flex items-center mb-4">
+      <i class="fas fa-download mr-2"></i>Exporting Results
+    </h2>
+    <p>
+      All session results can be exported as a CSV file by the presenter – whether for grades, participation, or further analysis. This is accessible from the presenter dashboard.
+    </p>
+    <div class="bg-gray-100 text-gray-900 rounded px-4 py-2 my-2">
+      <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+      Actual code example:
+      <pre class="code-block text-xs mb-0"># Flask route
+@app.route('/export/&lt;session_code&gt;.csv')
+def export_csv(session_code):
+    ...
+    # Logic to query results for session and return as CSV file
+    return Response(csv_data, mimetype="text/csv", headers={"Content-disposition": f"attachment;filename={session_code}-results.csv"})
+      </pre>
+    </div>
+  </section>
+
+  <!-- SECTION: LIGHT/DARK THEME -->
+  <section class="content-section pb-8">
+    <h2 class="text-xl font-bold text-gray-700 flex items-center mb-3">
+      <i class="fas fa-moon mr-2"></i>Light/Dark Theme Support
+    </h2>
+    <p>
+      ClassPulse features a simple toggle for light/dark mode using Tailwind's utility classes. <br>
+      This applies to all dashboards and results pages for both presenters and participants.
+    </p>
+    <div class="bg-white rounded px-4 py-3 my-4 flex items-center gap-5" id="theme-sample">
+      <button id="theme-toggle" class="transition px-3 py-2 rounded text-gray-700 font-medium border-gray-200 border shadow hover:bg-gray-100"><i class="fas fa-adjust mr-2"></i>Toggle Light/Dark Mode</button>
+      <span class="px-4 py-1 rounded text-sm bg-gray-200">Sample area: light/dark toggle</span>
+    </div>
+    <script>
+      const themeSample = document.getElementById('theme-sample');
+      const btn = document.getElementById('theme-toggle');
+      let dark = false;
+      btn.addEventListener('click', ()=> {
+        dark = !dark;
+        themeSample.classList.toggle('bg-gray-900', dark);
+        themeSample.classList.toggle('bg-white', !dark);
+        themeSample.classList.toggle('text-gray-50', dark);
+        themeSample.classList.toggle('text-gray-700', !dark);
+      });
+    </script>
+    <p class="mt-2 text-gray-500 text-xs"><i>PDF export will be in your current theme mode. Use browser print/export tools to save as PDF (continuous page).</i></p>
+  </section>
+
+  <!-- SECTION: ADDITIONAL RESOURCES -->
+  <section class="content-section py-4">
+    <h2 class="text-lg font-bold text-gray-800 flex items-center mb-3">
+      <i class="fas fa-book-open mr-2"></i>Further Resources
+    </h2>
+    <ul class="list-disc ml-8 text-base mb-3">
+      <li><a href="https://flask.palletsprojects.com/en/2.2.x/" target="_blank" class="text-blue-700 underline">Flask Documentation</a></li>
+      <li><a href="https://flask-socketio.readthedocs.io/en/latest/" target="_blank" class="text-blue-700 underline">Flask-SocketIO Docs</a></li>
+      <li><a href="https://tailwindcss.com/docs/" target="_blank" class="text-blue-700 underline">Tailwind CSS Guide</a></li>
+      <li><a href="https://www.chartjs.org/docs/latest/" target="_blank" class="text-blue-700 underline">Chart.js Documentation</a></li>
+      <li><a href="https://echarts.apache.org/en/" target="_blank" class="text-blue-700 underline">ECharts Documentation</a></li>
+      <li><a href="https://fontawesome.com/docs/" target="_blank" class="text-blue-700 underline">Font Awesome Docs</a></li>
+    </ul>
+  </section>
+
+  <footer class="py-6 mt-8 border-t text-center text-sm text-gray-400">
+    &copy; 2024 ClassPulse – Open Source Audience Interaction Solution | PDF export: Use your browser's <b>Print</b> → <b>Save as PDF</b>
+  </footer>
+</body>
+</html>
+
+

@@ -1,4 +1,7 @@
-python-fasthtml
-mkdocs
-mkdocs-material
-pymdown-extensions
+Flask==2.3.3
+Flask-SQLAlchemy==3.1.1
+Flask-SocketIO==5.3.6
+qrcode==7.4.2
+Pillow==10.1.0
+python-socketio==5.10.0
+eventlet==0.33.3

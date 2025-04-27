@@ -1,0 +1,146 @@
+{% extends "layout.html" %}
+
+{% block title %}Present: {{ presentation_session.title }} - ClassPulse{% endblock %}
+
+{% block head %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<!-- Tailwind CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<!-- Socket.IO client library - Use the latest version to ensure compatibility -->
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<!-- jQuery for easier DOM manipulation -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Chart.js for visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- ECharts for word cloud (optional alternative) -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+
+<script>
+  // Add this immediately to check browser console
+  console.log('Present view loading...');
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="presentation">
+    <div class="presentation-header">
+        <h2>{{ presentation_session.title }}</h2>
+        <div class="session-info">
+            <span class="session-code">Session Code: <strong>{{ presentation_session.code }}</strong></span>
+            <div class="qr-code-container">
+                <img src="{{ qr_code }}" alt="QR Code to join" class="qr-code">
+                <p>Scan to join</p>
+            </div>
+            <div class="join-url">
+                <a href="{{ url_for('join', code=presentation_session.code) }}" target="_blank" class="text-sm text-blue-600">
+                    {{ request.host_url }}join?code={{ presentation_session.code }}
+                </a>
+            </div>
+            <div class="mt-2">
+                <a href="{{ url_for('export_results', session_id=presentation_session.id) }}" class="btn secondary small">
+                    <i class="fas fa-download mr-1"></i> Export Results (CSV)</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="presentation-body">
+        <div class="questions-sidebar">
+            <h3 class="font-semibold mb-3">Questions</h3>
+            <div class="question-list">
+                {% for question in questions %}
+                <div class="question-item" data-id="{{ question.id }}"
+                     data-options="{{ question.options|default('[]') }}">
+                    <p>{{ question.text }}</p>
+                    <span class="question-type">{{ question.type|replace('_', ' ')|capitalize }}</span>
+                    <div class="mt-2">
+                        <form method="post" action="/api/activate_question/{{ question.id }}/{{ presentation_session.id }}" class="inline">
+                            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white text-sm font-bold py-1 px-3 rounded flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                Activate
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="sidebar-actions">
+                <a href="{{ url_for('edit_session', session_id=presentation_session.id) }}" class="btn secondary">
+                    <i class="fas fa-edit mr-1"></i> Edit Session
+                </a>
+                <a href="{{ url_for('dashboard') }}" class="btn tertiary">
+                    <i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="active-question">
+            <div class="no-question-active">
+                <i class="fas fa-hand-point-left text-4xl text-gray-300 mb-4"></i>
+                <p>Select a question from the sidebar to activate it.</p>
+            </div>
+
+            <div class="question-display" style="display: none;">
+                <h3 id="active-question-text" class="text-xl font-semibold"></h3>
+                <div class="visualization-container">
+                    <div id="chart-container"></div>
+                    <div id="word-cloud-container"></div>
+                    <div id="rating-scale-container"></div>
+                </div>
+
+                <div class="response-stats">
+                    <p>Responses: <span id="response-count">0</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Store the session ID globally
+    const sessionId = {{ presentation_session.id }};
+    const sessionCode = '{{ presentation_session.code }}';
+
+    // Force refresh the page on F5 or refresh button
+    const originalReload = window.onbeforeunload;
+    window.onbeforeunload = function(e) {
+        if (originalReload) originalReload(e);
+        // Clear any cached data
+        localStorage.removeItem('presenter_cache');
+        sessionStorage.clear();
+    };
+
+    // Check for activation success parameter (when form-based activation returns)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('activated')) {
+        // Show a success message
+        const feedback = document.createElement('div');
+        feedback.textContent = 'Question activated successfully!';
+        feedback.style.position = 'fixed';
+        feedback.style.top = '50%';
+        feedback.style.left = '50%';
+        feedback.style.transform = 'translate(-50%, -50%)';
+        feedback.style.backgroundColor = 'rgba(76, 175, 80, 0.9)';
+        feedback.style.color = 'white';
+        feedback.style.padding = '20px';
+        feedback.style.borderRadius = '5px';
+        feedback.style.zIndex = '9999';
+        feedback.style.fontWeight = 'bold';
+        document.body.appendChild(feedback);
+
+        setTimeout(() => {
+            feedback.style.opacity = '0';
+            feedback.style.transition = 'opacity 0.5s';
+            setTimeout(() => document.body.removeChild(feedback), 500);
+        }, 1500);
+
+        // Clean up the URL by removing the parameter
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+</script>
+<script src="{{ url_for('static', filename='js/presenter.js') }}?_timestamp=" + new Date().getTime()></script>
+{% endblock %}
