@@ -1,0 +1,118 @@
+{% extends "layout.html" %}
+{% block title %}Results: {{ question.title }}{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-4">Results: {{ question.title }}</h2>
+<div class="mb-4 space-x-4">
+    <a href="{{ url_for('manage_session', session_id=question.session_id) }}" class="text-indigo-600 hover:underline">&laquo; Back to Session: {{ question.session.name }}</a>
+    <a href="{{ url_for('export_question_results', question_id=question.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export Results (CSV)</a>
+</div>
+
+
+<div class="bg-white p-6 rounded-lg shadow-md mt-4">
+     <p class="text-sm text-gray-600 mb-4">Total Responses: {{ stats.total_responses }}</p>
+
+    {# Placeholder for chart canvas or word cloud div #}
+    {% if stats.type == 'multiple_choice' %}
+        <h4 class="text-lg font-semibold mb-2">Multiple Choice Results</h4>
+        <div class="h-64 md:h-96 relative"> {# Increased height #}
+            <canvas id="chart-mc-{{ question.id }}"></canvas>
+        </div>
+    {% elif stats.type == 'rating' %}
+         <h4 class="text-lg font-semibold mb-2">Rating Scale Results</h4>
+         <div class="h-64 md:h-96 relative"> {# Increased height #}
+            <canvas id="chart-rating-{{ question.id }}"></canvas>
+        </div>
+    {% elif stats.type == 'word_cloud' %}
+        <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
+        <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div> {# Increased height #}
+    {% else %}
+        <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const statsData = {{ stats | tojson }}; // Pass stats data from Flask
+        const questionId = {{ question.id }};
+
+        if (!statsData || statsData.error) {
+            console.error("Error loading stats data:", statsData);
+            return;
+        }
+
+        // Common chart options
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false, // Allow chart to fill container height
+        };
+
+         // Specific options for bar charts
+        const barChartOptions = {
+            ...chartOptions, // Inherit common options
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+             plugins: { legend: { display: true } } // Show legend for MC
+        };
+
+        // Specific options for horizontal bar charts (rating)
+        const horizontalBarChartOptions = {
+             ...chartOptions, // Inherit common options
+             indexAxis: 'y', // Make it horizontal
+             scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }, // X-axis starts at 0
+             plugins: {
+                 legend: { display: false }, // Hide legend for rating
+                 tooltip: { // Customize tooltips if desired
+                     callbacks: {
+                         label: function(context) {
+                             let label = context.dataset.label || '';
+                             if (label) {
+                                 label += ': ';
+                             }
+                             if (context.parsed.x !== null) {
+                                 // Add a star emoji for rating tooltips
+                                 label += `${context.parsed.x} ⭐`;
+                             }
+                             return label;
+                         }
+                     }
+                 }
+             }
+        };
+
+
+        if (statsData.type === 'multiple_choice' && statsData.results) {
+            const canvasId = `chart-mc-${questionId}`;
+            const labels = statsData.options || Object.keys(statsData.results);
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Votes',
+                    data: labels.map(label => statsData.results[label] || 0),
+                    backgroundColor: 'rgba(79, 70, 229, 0.7)' // Indigo
+                }]
+            };
+            initChart(canvasId, 'bar', chartData, barChartOptions);
+        } else if (statsData.type === 'rating' && statsData.results) {
+            const canvasId = `chart-rating-${questionId}`;
+            const maxRating = statsData.max_rating || 5;
+            const labels = Array.from({ length: maxRating }, (_, i) => `${i + 1} ⭐`); // Add star to labels
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: 'Ratings',
+                    data: labels.map((_, i) => statsData.results[String(i + 1)] || 0),
+                    backgroundColor: 'rgba(249, 115, 22, 0.7)' // Orange
+                }]
+            };
+            initChart(canvasId, 'bar', chartData, horizontalBarChartOptions); // Use horizontal options
+        } else if (statsData.type === 'word_cloud' && statsData.results) {
+            const cloudId = `wordcloud-${questionId}`;
+            initWordCloud(cloudId, statsData.results);
+        }
+    });
+</script>
+{% endblock %}
+

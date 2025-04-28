@@ -1,40 +1,21 @@
 {% extends "layout.html" %}
-
-{% block title %}Join Session - ClassPulse{% endblock %}
+{% block title %}Join Session{% endblock %}
 
 {% block content %}
-<section class="audience-view">
-    <div class="question-container">
-        <h2 class="text-xl font-semibold mb-4 text-center flex items-center justify-center">
-            <i class="fa fa-users text-green-500 mr-2"></i>Join a ClassPulse Session
-        </h2>
-        
-        {% if error %}
-        <div class="alert alert-error mb-4">
-            {{ error }}
-        </div>
-        {% endif %}
-        
-        <form action="{{ url_for('join_session') }}" method="post">
-            <div class="form-group">
-                <label for="session_code" class="block mb-1 font-medium">Session Code</label>
-                <input id="session_code" name="session_code" type="text" class="w-full text-center border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 font-mono text-lg" placeholder="Enter 6-digit code" value="{{ code }}" required>
-            </div>
-            <button type="submit" class="w-full bg-green-500 text-white font-semibold py-2 rounded hover:bg-green-600 duration-150">
-                <i class="fa fa-sign-in-alt mr-1"></i> Join Now
-            </button>
-        </form>
-        
-        <div class="text-center mt-6">
-            <p class="text-gray-500 mb-2">Need help? Ask your presenter for the session code</p>
-        </div>
+<h2 class="text-2xl font-semibold mb-6 text-center">Join a Session</h2>
+<form action="{{ url_for('join') }}" method="post" class="max-w-xs mx-auto bg-white p-8 rounded-lg shadow-md">
+    <div class="mb-6">
+        <label for="code" class="block text-sm font-medium text-gray-700">Session Code (6 characters)</label>
+        <input type="text" id="code" name="code" required maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="ABC123"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm uppercase font-mono tracking-widest text-center"
+               value="{{ code or '' }}">
     </div>
-</section>
+    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+        Join Session
+    </button>
+</form>
+<p class="text-center mt-4 text-sm">
+    <a href="{{ url_for('login') }}" class="text-indigo-600 hover:text-indigo-800">Are you a presenter? Login here</a>
+</p>
 {% endblock %}
 
-{% block head %}
-<!-- Font Awesome for icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<!-- Tailwind CSS -->
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-{% endblock %}

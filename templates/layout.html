@@ -4,41 +4,258 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ClassPulse{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    {% block head %}{% endblock %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <script src="https://cdnjs.cloudflare.com/ajax/libs/jqcloud/1.0.4/jqcloud-1.0.4.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jqcloud/1.0.4/jqcloud.min.css" rel="stylesheet">
+    <style>
+        /* Add any minor custom styles here if needed */
+        body { font-family: 'Inter', sans-serif; }
+        .flash-message {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border-width: 1px;
+        }
+        .flash-success { background-color: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+        .flash-danger { background-color: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+        .flash-warning { background-color: #fef3c7; border-color: #fcd34d; color: #92400e; }
+        .flash-info { background-color: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+        /* Style for toggle/action buttons */
+        .action-button {
+            cursor: pointer;
+            padding: 0.25rem 0.5rem; /* py-1 px-2 */
+            border-radius: 0.25rem; /* rounded */
+            font-size: 0.75rem; /* text-xs */
+            font-weight: 700; /* font-bold */
+            color: white;
+            margin-left: 0.5rem; /* ml-2 */
+            transition: background-color 0.2s;
+            display: inline-block; /* Ensure proper spacing */
+            text-decoration: none; /* Remove underline from links styled as buttons */
+            border: none; /* Remove default button border */
+            line-height: inherit; /* Ensure text aligns */
+            text-align: center;
+        }
+        .toggle-button.active { background-color: #ef4444; /* bg-red-500 */ }
+        .toggle-button.active:hover { background-color: #dc2626; /* hover:bg-red-600 */ }
+        .toggle-button.inactive { background-color: #22c55e; /* bg-green-500 */ }
+        .toggle-button.inactive:hover { background-color: #16a34a; /* hover:bg-green-600 */ }
+        .archive-button { background-color: #6b7280; /* bg-gray-500 */ }
+        .archive-button:hover { background-color: #4b5563; /* hover:bg-gray-600 */ }
+        .unarchive-button { background-color: #f59e0b; /* bg-amber-500 */ }
+        .unarchive-button:hover { background-color: #d97706; /* hover:bg-amber-600 */ }
+        .verify-button { background-color: #10b981; /* bg-emerald-500 */ }
+        .verify-button:hover { background-color: #059669; /* hover:bg-emerald-600 */ }
+        .unverify-button { background-color: #f97316; /* bg-orange-500 */ }
+        .unverify-button:hover { background-color: #ea580c; /* hover:bg-orange-600 */ }
+
+
+    </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1>ClassPulse</h1>
+<body class="flex flex-col min-h-screen bg-gray-50">
+
+    <header class="bg-indigo-600 shadow-md">
+        <div class="container mx-auto flex justify-between items-center py-4 px-6">
+            <div class="flex items-center space-x-4">
+                 {# Use Flask session here, which is always available #}
+                <a href="{{ url_for('dashboard' if session.get('user_id') else 'login') }}">
+                    <h1 class="text-2xl font-bold text-white">ClassPulse</h1>
+                </a>
             </div>
-            <nav>
-                {% if 'user_id' in session %}
-                <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('logout') }}">Logout</a>
+            <div class="flex items-center space-x-2 md:space-x-4 flex-wrap"> {# Added flex-wrap and reduced spacing #}
+                 {# Use Flask session here #}
+                {% if session.get('user_id') %}
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                    <a href="{{ url_for('list_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Sessions</a>
+                    <a href="{{ url_for('list_archived_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Archived</a> {# Link to archived #}
+                    {# Use is_admin injected by context processor #}
+                    {% if is_admin %}
+                         <a href="{{ url_for('admin_manage_users') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Manage Users</a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Logout ({{ session.get('display_name', 'User') }})</a>
                 {% else %}
-                <a href="{{ url_for('login') }}">Login</a>
+                    <a href="{{ url_for('login') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Login</a>
+                    <a href="{{ url_for('register') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Register</a> {# Link to register #}
+                    <a href="{{ url_for('join') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Join Session</a>
                 {% endif %}
-                <button id="theme-toggle">🌓</button>
-            </nav>
+            </div>
         </div>
     </header>
-    
-    <main>
-        <div class="container">
+
+    <main class="flex-grow">
+        <div class="container mx-auto mt-8 mb-8 px-6">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 ClassPulse</p>
+
+    <footer class="bg-gray-100 mt-auto">
+        <div class="container mx-auto py-4 px-6">
+            <p class="text-center text-gray-500 text-sm">© {{ now().year }} ClassPulse. All rights reserved.</p>
         </div>
     </footer>
-    
-    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
-    {% block scripts %}{% endblock %}
+
+    <script>
+        // Chart.js Initialization
+        function initChart(canvasId, chartType, chartData, chartOptions) {
+            const ctx = document.getElementById(canvasId);
+             if (!ctx) { console.error('Canvas element not found:', canvasId); return null; }
+            // Destroy existing chart
+            let existingChart = Chart.getChart(ctx);
+            if (existingChart) { existingChart.destroy(); }
+            // Create new chart
+            try {
+                // Default options for responsiveness and aspect ratio
+                const defaultOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                };
+                const mergedOptions = { ...defaultOptions, ...chartOptions }; // Merge defaults with provided options
+                return new Chart(ctx, { type: chartType, data: chartData, options: mergedOptions });
+            } catch (e) {
+                console.error("Chart.js error:", e, "Config:", { type: chartType, data: chartData, options: chartOptions });
+                return null;
+            }
+        }
+
+        // jQCloud Initialization
+        function initWordCloud(elementId, words) {
+            const element = $('#' + elementId);
+            if (!element.length) { console.error('Word cloud element not found:', elementId); return; }
+            // Ensure words is an array of objects with text and weight
+            if (!Array.isArray(words)) {
+                console.error('Invalid word data for jQCloud:', words);
+                words = []; // Prevent error
+            }
+            words = words.filter(item => typeof item === 'object' && item !== null && 'text' in item && 'weight' in item);
+
+            try {
+                element.empty().jQCloud(words, {
+                    autoResize: true,
+                     // Add other jQCloud options here if needed
+                     // Example: shape: 'rectangular'
+                });
+            } catch (e) {
+                 console.error("jQCloud error:", e, "Words:", words);
+            }
+        }
+
+         // Make functions globally available if needed by inline scripts
+         window.initChart = initChart;
+         window.initWordCloud = initWordCloud;
+
+        // Function to handle API toggle clicks (example)
+        // This now handles both active/inactive and archive/unarchive based on button class
+        function handleApiButtonClick(event) {
+            event.preventDefault(); // Prevent default form submission if it's a button in a form
+            const button = event.target.closest('button, a'); // Find the button or link clicked
+            if (!button) return;
+
+            const url = button.dataset.url;
+            if (!url) return; // Need a URL to POST to
+
+            // Confirmation for archive/unarchive might be good
+            let confirmAction = true;
+             let actionType = '';
+            if (button.classList.contains('archive-button')) actionType = 'archive';
+            if (button.classList.contains('unarchive-button')) actionType = 'unarchive';
+            if (button.classList.contains('verify-button')) actionType = 'verify';
+            if (button.classList.contains('unverify-button')) actionType = 'unverify';
+
+             if (actionType) {
+                 confirmAction = confirm(`Are you sure you want to ${actionType} this ${button.dataset.itemType || 'item'}?`);
+             }
+
+
+            if (confirmAction) {
+                fetch(url, { method: 'POST' })
+                    .then(response => {
+                        if (response.redirected) {
+                             // If server redirects (like session archive does), follow the redirect
+                             window.location.href = response.url;
+                        } else if (response.ok) {
+                             return response.json(); // Otherwise, expect JSON for toggle
+                        } else {
+                            // Handle HTTP errors (e.g., 400, 403, 404)
+                            return response.json().then(errData => {
+                                throw new Error(errData.message || `HTTP error ${response.status}`);
+                            }).catch(() => { // Catch if response wasn't JSON
+                                throw new Error(`HTTP error ${response.status}`);
+                            });
+                        }
+                    })
+                    .then(data => {
+                        if (data && data.success) { // Check if data exists (won't for redirect)
+                            // Handle toggle button updates
+                            button.textContent = data.new_text;
+
+                            // Toggle active/inactive classes
+                            if (data.active !== undefined) {
+                                button.classList.toggle('active', data.active);
+                                button.classList.toggle('inactive', !data.active);
+                            }
+                            // Toggle verified/unverified classes
+                            if (data.verified !== undefined) {
+                                button.classList.toggle('verify-button', !data.verified);
+                                button.classList.toggle('unverify-button', data.verified);
+                            }
+                            // Toggle archived/unarchived classes (usually handled by redirect, but just in case)
+                             if (data.archived !== undefined) {
+                                button.classList.toggle('archive-button', !data.archived);
+                                button.classList.toggle('unarchive-button', data.archived);
+                            }
+
+                            // Update status text if applicable (e.g., in admin user list)
+                            const statusElementId = button.dataset.statusTarget;
+                            if (statusElementId) {
+                                const statusElement = document.getElementById(statusElementId);
+                                if (statusElement) {
+                                    if (data.active !== undefined) statusElement.textContent = data.active ? 'Active' : 'Inactive';
+                                    if (data.verified !== undefined) statusElement.textContent = data.verified ? 'Verified' : 'Not Verified';
+                                    if (data.archived !== undefined) statusElement.textContent = data.archived ? 'Archived' : 'Not Archived';
+                                }
+                            }
+
+
+                        } else if (data && !data.success) {
+                            // Handle API error reported in JSON
+                            console.error("API action failed:", data.message || "Unknown error");
+                            alert("Action failed: " + (data.message || "Unknown error"));
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error performing API action:", error);
+                         alert("An error occurred: " + error.message);
+                    });
+            }
+        }
+
+        // Add event listeners to action buttons after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Attach to buttons with data-url attribute
+            document.querySelectorAll('.action-button[data-url]').forEach(button => {
+                button.addEventListener('click', handleApiButtonClick);
+            });
+        });
+
+
+        // Socket.IO connection (only if needed globally, often better per-page)
+        // const socket = io(); // Connects to the server that served the page
+        // socket.on('connect', () => {
+        //     console.log('Socket.IO connected');
+        // });
+        // Add more general Socket.IO listeners here if applicable
+    </script>
+    {% block scripts %}{% endblock %} {# Placeholder for page-specific scripts #}
 </body>
 </html>
 

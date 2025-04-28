@@ -1,265 +1,81 @@
 {% extends "layout.html" %}
-
-{% block title %}Dashboard - ClassPulse{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<section class="dashboard">
-    {% if active_session %}
-    
-    <div class="session-edit">
-        <div class="session-header">
-            <h2>Editing: {{ active_session.title }}</h2>
-            <div class="session-actions">
-                <a href="{{ url_for('present_session', session_id=active_session.id) }}" class="btn primary">Present</a>
-                <a href="{{ url_for('export_results', session_id=active_session.id) }}" class="btn secondary">Export Results</a>
-                <a href="{{ url_for('dashboard') }}" class="btn tertiary">Back to Dashboard</a>
+{# Use Flask session here #}
+<h2 class="text-3xl font-semibold mb-6">Welcome, {{ session.get('display_name', 'Presenter') }}!</h2>
+
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Active Sessions</h3>
+    {% if active_sessions %}
+    <ul class="space-y-2">
+        {% for s in active_sessions %}
+        <li class="bg-white p-4 rounded-lg shadow">
+            <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+                <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
+                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-indigo-700 hover:underline">{{ s.name }}</a>
+                    <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
+                    <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
+                </div>
+                <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
+                    <a href="{{ url_for('present_mode', session_id=s.id) }}" class="action-button bg-green-500 hover:bg-green-600">Present</a>
+                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
+                    {# Archive Button #}
+                    <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
+                            class="action-button archive-button">
+                        Archive
+                    </button>
+                </div>
             </div>
-        </div>
-        
-        <div class="questions-container">
-            <h3>Questions</h3>
-            
-            <div class="question-list">
-                {% if questions %}
-                    {% for question in questions %}
-                    <div class="question-item">
-                        <div class="question-info">
-                            <h4>{{ question.text }}</h4>
-                            <span class="question-type">{{ question.type|replace('_', ' ')|capitalize }}</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <p class="empty-state">No questions yet. Create one below.</p>
-                {% endif %}
-            </div>
-            
-            <div class="question-form">
-                <h3>Add New Question</h3>
-                <form action="{{ url_for('create_question', session_id=active_session.id) }}" method="post">
-                    <div class="form-group">
-                        <label for="question_text">Question Text</label>
-                        <input type="text" id="question_text" name="question_text" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="question_type">Question Type</label>
-                        <select id="question_type" name="question_type" required>
-                            <option value="multiple_choice">Multiple Choice</option>
-                            <option value="word_cloud">Word Cloud</option>
-                            <option value="rating_scale">Rating Scale</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Options for Multiple Choice -->
-                    <div id="multiple_choice_options" class="question-options">
-                        <label>Options</label>
-                        <div class="option-list">
-                            <div class="option-item">
-                                <input type="text" name="options[]" placeholder="Option 1" required>
-                            </div>
-                            <div class="option-item">
-                                <input type="text" name="options[]" placeholder="Option 2" required>
-                            </div>
-                        </div>
-                        <button type="button" class="btn secondary small" id="add_option">+ Add Option</button>
-                    </div>
-                    
-                    <!-- Options for Rating Scale -->
-                    <div id="rating_scale_options" class="question-options" style="display: none;">
-                        <div class="form-row">
-                            <div class="form-group half">
-                                <label for="min_value">Min Value</label>
-                                <input type="number" id="min_value" name="min_value" value="1" min="1" max="10" required>
-                            </div>
-                            <div class="form-group half">
-                                <label for="max_value">Max Value</label>
-                                <input type="number" id="max_value" name="max_value" value="5" min="2" max="10" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn primary">Add Question</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    
+        </li>
+        {% endfor %}
+    </ul>
     {% else %}
-    
-    <div class="dashboard-header">
-        <h2>Your Sessions</h2>
-        <button id="create-session-btn" class="btn primary">Create New Session</button>
-    </div>
-    
-    <!-- Active Sessions -->
-    <div class="sessions-container">
-        <h3>Active Sessions</h3>
-        {% if active_sessions %}
-            <div class="session-list">
-                {% for session in active_sessions %}
-                <div class="session-item">
-                    <div class="session-info">
-                        <h3>{{ session.title }}</h3>
-                        <p>{{ session.description }}</p>
-                        <span class="session-code">Code: {{ session.code }}</span>
-                        <span class="session-date">Created: {{ session.created_at.strftime('%Y-%m-%d') }}</span>
-                    </div>
-                    <div class="session-actions">
-                        <a href="{{ url_for('edit_session', session_id=session.id) }}" class="btn secondary">Edit</a>
-                        <a href="{{ url_for('present_session', session_id=session.id) }}" class="btn primary">Present</a>
-                        <div class="dropdown">
-                            <button class="btn tertiary">More</button>
-                            <div class="dropdown-content">
-                                <form action="{{ url_for('export_results', session_id=session.id) }}" method="get">
-                                    <button type="submit" class="dropdown-item">Export Results</button>
-                                </form>
-                                <form action="{{ url_for('archive_session', session_id=session.id) }}" method="post">
-                                    <button type="submit" class="dropdown-item">Archive</button>
-                                </form>
-                                <form action="{{ url_for('delete_session', session_id=session.id) }}" method="post" 
-                                      onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.')">
-                                    <button type="submit" class="dropdown-item danger">Delete</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">
-                <p>You don't have any active sessions. Create one to get started!</p>
-            </div>
-        {% endif %}
-    </div>
-    
-    <!-- Archived Sessions -->
-    <div class="sessions-container archived">
-        <h3>Archived Sessions</h3>
-        {% if archived_sessions %}
-            <div class="session-list">
-                {% for session in archived_sessions %}
-                <div class="session-item">
-                    <div class="session-info">
-                        <h3>{{ session.title }}</h3>
-                        <p>{{ session.description }}</p>
-                        <span class="session-code">Code: {{ session.code }}</span>
-                        <span class="session-date">Created: {{ session.created_at.strftime('%Y-%m-%d') }}</span>
-                        <span class="session-archived">Archived</span>
-                    </div>
-                    <div class="session-actions">
-                        <form action="{{ url_for('restore_session', session_id=session.id) }}" method="post">
-                            <button type="submit" class="btn secondary">Restore</button>
-                        </form>
-                        <form action="{{ url_for('delete_session', session_id=session.id) }}" method="post" 
-                              onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.')">
-                            <button type="submit" class="btn danger">Delete</button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="empty-state">
-                <p>You don't have any archived sessions.</p>
-            </div>
-        {% endif %}
-    </div>
-    
-    <!-- Create Session Modal -->
-    <div id="create-session-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Create New Session</h2>
-            <form action="{{ url_for('create_session') }}" method="post">
-                <div class="form-group">
-                    <label for="title">Session Title</label>
-                    <input type="text" id="title" name="title" required>
-                </div>
-                <div class="form-group">
-                    <label for="description">Description (optional)</label>
-                    <textarea id="description" name="description"></textarea>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn primary">Create Session</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
+    <p class="text-gray-500">No active sessions.</p>
     {% endif %}
-</section>
+</div>
+
+<div class="mb-8">
+    <h3 class="text-xl font-semibold mb-4">Inactive Sessions</h3>
+     {% if inactive_sessions %}
+    <ul class="space-y-2">
+        {% for s in inactive_sessions %}
+         <li class="bg-gray-100 p-4 rounded-lg shadow">
+            <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+                <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
+                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-gray-700 hover:underline">{{ s.name }}</a>
+                     <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
+                     <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
+                </div>
+                 <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
+                     <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
+                     {# Archive Button #}
+                     <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
+                             class="action-button archive-button">
+                         Archive
+                     </button>
+                 </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-gray-500">No inactive sessions.</p>
+    {% endif %}
+</div>
+
+<a href="{{ url_for('new_session') }}" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
+    Create New Session
+</a>
+
+{# Optional: Link to view archived sessions #}
+{# <p class="mt-6"><a href="{{ url_for('list_archived_sessions') }}" class="text-sm text-gray-600 hover:underline">View Archived Sessions</a></p> #}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Modal handling
-    const modal = document.getElementById('create-session-modal');
-    const btn = document.getElementById('create-session-btn');
-    const span = document.getElementsByClassName('close')[0];
-    
-    if (btn) {
-        btn.onclick = function() {
-            modal.style.display = 'block';
-        }
-    }
-    
-    if (span) {
-        span.onclick = function() {
-            modal.style.display = 'none';
-        }
-    }
-    
-    window.onclick = function(event) {
-        if (event.target == modal) {
-            modal.style.display = 'none';
-        }
-    }
-    
-    // Question type handling
-    const questionType = document.getElementById('question_type');
-    const multipleChoiceOptions = document.getElementById('multiple_choice_options');
-    const ratingScaleOptions = document.getElementById('rating_scale_options');
-    
-    if (questionType) {
-        questionType.addEventListener('change', function() {
-            if (this.value === 'multiple_choice') {
-                multipleChoiceOptions.style.display = 'block';
-                ratingScaleOptions.style.display = 'none';
-            } else if (this.value === 'rating_scale') {
-                multipleChoiceOptions.style.display = 'none';
-                ratingScaleOptions.style.display = 'block';
-            } else {
-                multipleChoiceOptions.style.display = 'none';
-                ratingScaleOptions.style.display = 'none';
-            }
-        });
-    }
-    
-    // Add option button
-    const addOptionBtn = document.getElementById('add_option');
-    const optionList = document.querySelector('.option-list');
-    
-    if (addOptionBtn && optionList) {
-        addOptionBtn.addEventListener('click', function() {
-            const options = optionList.querySelectorAll('.option-item');
-            const newOption = document.createElement('div');
-            newOption.className = 'option-item';
-            newOption.innerHTML = `
-                <input type="text" name="options[]" placeholder="Option ${options.length + 1}" required>
-                <button type="button" class="btn remove-option">&times;</button>
-            `;
-            optionList.appendChild(newOption);
-            
-            // Add event listener to remove button
-            const removeBtn = newOption.querySelector('.remove-option');
-            removeBtn.addEventListener('click', function() {
-                optionList.removeChild(newOption);
-            });
-        });
-    }
+    // Add page-specific JS for dashboard if needed
 </script>
 {% endblock %}
 

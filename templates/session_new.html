@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block title %}New Session{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-6 text-center">Create New Session</h2>
+<form action="{{ url_for('new_session') }}" method="post" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+    <div class="mb-6">
+        <label for="name" class="block text-sm font-medium text-gray-700">Session Name</label>
+        <input type="text" id="name" name="name" required placeholder="e.g., Weekly Team Meeting"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+               value="{{ name or '' }}">
+    </div>
+    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+        Create Session
+    </button>
+</form>
+{% endblock %}
+

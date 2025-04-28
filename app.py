@@ -1,813 +1,962 @@
+# Main application entry point for ClassPulse (Flask Version)
+
+# --- Imports ---
 import os
-import json
 import uuid
+import json
+import hashlib
+import secrets
+import io
 import csv
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file
-from flask_socketio import emit, join_room
-from flask_socketio import ConnectionRefusedError
+from datetime import datetime # Added datetime import
+from typing import List, Dict, Optional, Tuple, Any
+from functools import wraps
+import re # For email validation
 
-# Import extensions
-from extensions import db, socketio
-from config import Config
+# Flask and Extensions
+from flask import (
+    Flask, render_template, request, redirect, url_for, session,
+    flash, make_response, jsonify, abort, send_file, g # Added g for admin check
+)
+from flask_sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# Import utility functions
-from utils import generate_session_code, generate_qr_code, get_join_url, export_results_to_csv
+# External Libraries (Ensure these are installed)
+import qrcode as qr_code_lib
+from PIL import Image
+import base64
 
-# Initialize Flask app
+# --- Flask App Configuration ---
 app = Flask(__name__)
-app.config.from_object(Config)
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for static files
+app.config['SECRET_KEY'] = secrets.token_hex(32) # Replace with env var in production
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///classpulse_flask.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize extensions with the app
-db.init_app(app)
-socketio.init_app(app)
+# --- Database Setup (using Flask-SQLAlchemy) ---
+db = SQLAlchemy(app)
+# Use eventlet or gevent for production async mode
+# For development, the default Flask development server works but might be less performant for WebSockets
+socketio = SocketIO(app, async_mode=None) # Changed async_mode for broader compatibility in dev
 
-# Disable caching for all responses
-@app.after_request
-def add_no_cache_headers(response):
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+# --- Database Models ---
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    display_name = db.Column(db.String(100))
+    is_admin = db.Column(db.Boolean, default=False, nullable=False) # New: Admin flag
+    is_verified = db.Column(db.Boolean, default=False, nullable=False) # New: Verification flag
+    is_archived = db.Column(db.Boolean, default=False, nullable=False) # New: Archive flag
+    sessions = db.relationship('Session', backref='creator', lazy=True)
 
-# Import models (after db initialization)
-from models import User, Session, Question, Response
+class Session(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(6), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.String, default=lambda: datetime.now().isoformat())
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    archived = db.Column(db.Boolean, default=False, nullable=False) # New field for archiving
+    questions = db.relationship('Question', backref='session', lazy=True, order_by='Question.order, Question.created_at')
+    responses = db.relationship('Response', backref='session', lazy=True)
 
-# Initialize database with a function to be called when the app context is available
-def init_db():
-    """Initialize the database and create default admin user if not exists."""
-    db.create_all()
-    
-    # Create default admin user if it doesn't exist
-    admin = User.query.filter_by(username=Config.ADMIN_USERNAME).first()
-    if not admin:
-        admin = User(username=Config.ADMIN_USERNAME, password=Config.ADMIN_PASSWORD)
-        db.session.add(admin)
-        db.session.commit()
-        print(f"Created default admin user: {Config.ADMIN_USERNAME}")
+class Question(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('session.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False) # 'multiple_choice', 'word_cloud', 'rating'
+    title = db.Column(db.String(255), nullable=False)
+    options = db.Column(db.Text, default='{}') # JSON string for options/config
+    active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.String, default=lambda: datetime.now().isoformat())
+    order = db.Column(db.Integer, default=0)
+    responses = db.relationship('Response', backref='question', lazy=True)
 
-# Note: We're not using @app.before_first_request as it was removed in Flask 2.3+
-# Instead, we're initializing the database when the app starts up (see below)
-        
-# Also initialize the database when the app starts up
-with app.app_context():
-    try:
-        init_db()
-        print("Database initialized successfully")
-    except Exception as e:
-        print(f"Error initializing database: {e}")
+class Response(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False)
+    session_id = db.Column(db.Integer, db.ForeignKey('session.id'), nullable=False)
+    response_value = db.Column(db.Text, nullable=False)
+    respondent_id = db.Column(db.String(36), nullable=False) # Anonymous UUID
+    created_at = db.Column(db.String, default=lambda: datetime.now().isoformat())
 
-# Routes
-@app.route('/')
-def index():
+# --- Constants & Config ---
+DEFAULT_ADMIN_USER = "admin"
+DEFAULT_ADMIN_PASS = "admin123" # Change this!
+RESPONDENT_COOKIE_NAME = "classpulse_respondent"
+
+# Basic English stop words list (can be expanded)
+STOP_WORDS = set([
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at",
+    "be", "because", "been", "before", "being", "below", "between", "both", "but", "by",
+    "can't", "cannot", "could", "couldn't", "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during",
+    "each", "few", "for", "from", "further", "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd",
+    "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's",
+    "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
+    "let's", "me", "more", "most", "mustn't", "my", "myself",
+    "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out",
+    "over", "own", "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such",
+    "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they",
+    "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too", "under", "until", "up", "very",
+    "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's",
+    "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't",
+    "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves"
+])
+
+
+# --- Context Processors ---
+@app.context_processor
+def inject_now():
+    """Injects the current UTC datetime into the template context."""
+    return {'now': datetime.utcnow} # Make datetime.utcnow available as 'now'
+
+@app.context_processor
+def inject_user_and_admin_status():
+    """Injects the current user object and admin status into the template context."""
+    user = None
+    is_admin = False
     if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+        # Use g to cache user object per request if needed elsewhere
+        # Check if g.user exists and is still valid (not None after query)
+        if 'user' not in g or g.user is None:
+            # Use Session.get() which is preferred in SQLAlchemy 2.0+
+            g.user = db.session.get(User, session['user_id'])
+        user = g.user
+        if user:
+            is_admin = user.is_admin
+    return {'current_user': user, 'is_admin': is_admin}
 
+# --- Utility Functions ---
+
+# QR Code Generation
+def create_qr_code_data(url: str, size: int = 200) -> Optional[str]:
+    """Creates a QR code data URL for a given URL."""
+    try:
+        qr = qr_code_lib.QRCode(
+            version=1,
+            error_correction=qr_code_lib.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").resize((size, size))
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        return f"data:image/png;base64,{img_str}"
+    except Exception as e:
+        print(f"Error generating QR code: {e}")
+        return None
+
+# Session Code Generation
+def generate_session_code(length: int = 6) -> str:
+    """Generates a random alphanumeric code, ensuring uniqueness."""
+    while True:
+        code = ''.join(secrets.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(length))
+        # Ensure the query is executed within an application context if run outside a request
+        with app.app_context():
+            existing = Session.query.filter_by(code=code).first()
+        if not existing:
+            return code
+
+# Authentication Helpers
+def hash_password(password: str, salt: Optional[bytes] = None) -> str:
+    """Hashes a password with PBKDF2 and salt."""
+    if salt is None:
+        salt = secrets.token_bytes(16)
+    password_bytes = password.encode('utf-8')
+    hashed = hashlib.pbkdf2_hmac('sha256', password_bytes, salt, 100000)
+    return f"{salt.hex()}${hashed.hex()}"
+
+def verify_password(stored_password_hash: str, provided_password: str) -> bool:
+    """Verifies a password against a stored hash."""
+    try:
+        salt_hex, hash_hex = stored_password_hash.split('$', 1)
+        salt = bytes.fromhex(salt_hex)
+        stored_hash = bytes.fromhex(hash_hex)
+        provided_password_bytes = provided_password.encode('utf-8')
+        provided_hash = hashlib.pbkdf2_hmac('sha256', provided_password_bytes, salt, 100000)
+        return secrets.compare_digest(stored_hash, provided_hash)
+    except (ValueError, IndexError):
+        return False
+
+# Decorator for routes requiring login
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Use Flask's session proxy directly
+        if 'user_id' not in session:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('login'))
+        # Load user into g for potential use in the request context
+        # Use Session.get() which is preferred in SQLAlchemy 2.0+
+        g.user = db.session.get(User, session['user_id'])
+        if not g.user: # Handle case where user_id in session is invalid
+             session.clear()
+             flash("Invalid session. Please log in again.", "warning")
+             return redirect(url_for('login'))
+        # Prevent archived users from accessing protected routes (except logout)
+        if g.user.is_archived and request.endpoint != 'logout':
+            session.clear()
+            flash("Your account has been archived. Please contact an administrator.", "danger")
+            return redirect(url_for('login'))
+        # Prevent unverified users from accessing protected routes (except logout and admin pages)
+        # Allow access to logout regardless of verification status
+        # Allow access for admins to admin pages even if somehow unverified (shouldn't happen)
+        allowed_endpoints = ['logout', 'admin_manage_users', 'api_toggle_verify_user', 'api_toggle_archive_user']
+        if not g.user.is_verified and request.endpoint not in allowed_endpoints:
+             # If the user is an admin, let them proceed (they might need to verify others)
+             if not g.user.is_admin:
+                session.clear() # Log them out if they somehow got a session
+                flash("Your account is not verified. Please contact an administrator.", "warning")
+                return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorator for admin-only routes
+def admin_required(f):
+    @wraps(f)
+    @login_required # Ensure user is logged in first
+    def decorated_function(*args, **kwargs):
+        # g.user should be populated by @login_required
+        if not g.user or not g.user.is_admin:
+            flash("You do not have permission to access this page.", "danger")
+            return redirect(url_for('dashboard')) # Redirect non-admins
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# --- Custom Jinja Filters ---
+def format_datetime_filter(value, format='%Y-%m-%d %H:%M'):
+    """Formats an ISO datetime string."""
+    if value is None:
+        return ""
+    try:
+        # Handle potential timezone info if present (e.g., +00:00 or Z)
+        dt_object = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+        return dt_object.strftime(format)
+    except (ValueError, TypeError):
+        return value # Return original if parsing fails
+
+# Register the filter with Jinja environment
+app.jinja_env.filters['format_datetime'] = format_datetime_filter
+
+def fromjson_filter(value):
+    """Loads JSON string into Python object."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+         # Return default based on expected type (list for MC, dict for rating)
+         # This is a simplification; might need more context
+         # Check if it looks like a list or dict string before returning default
+        if isinstance(value, str):
+            if value.strip().startswith('['): return []
+            if value.strip().startswith('{'): return {}
+        return {} # Default fallback
+
+# Register the filter with Jinja environment
+app.jinja_env.filters['fromjson'] = fromjson_filter
+
+
+# --- Authentication Routes ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    error = None
+    if 'user_id' in session: # Use Flask session
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
+        username = request.form.get('username')
+        password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
-        
-        if user and user.password == password:
-            session['user_id'] = user.id
-            session['username'] = user.username
+
+        # Check if user exists and password is correct
+        if user and verify_password(user.password_hash, password):
+            # Check if user is archived
+            if user.is_archived:
+                flash("Your account has been archived. Please contact an administrator.", "danger")
+                return render_template('login.html', username=username)
+            # FIX: Check if user is verified (unless they are admin)
+            if not user.is_verified and not user.is_admin:
+                flash("Your account is not verified. Please contact an administrator.", "warning")
+                return render_template('login.html', username=username)
+
+            # If all checks pass, log the user in
+            session['user_id'] = user.id # Use Flask session
+            session['display_name'] = user.display_name or user.username # Use Flask session
+            flash(f"Welcome back, {session['display_name']}!", "success") # Use Flask session
             return redirect(url_for('dashboard'))
         else:
-            error = 'Invalid credentials. Please try again.'
-    
-    return render_template('login.html', error=error)
+            flash("Invalid username or password.", "danger")
+            return render_template('login.html', username=username) # Pass back username
+
+    return render_template('login.html')
 
 @app.route('/logout')
+@login_required # Keep login_required to ensure g.user might be set for logging, etc.
 def logout():
-    session.pop('user_id', None)
-    session.pop('username', None)
+    session.clear() # Use Flask session
+    flash("You have been logged out.", "info")
     return redirect(url_for('login'))
 
-@app.route('/dashboard')
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """Handles user registration."""
+    if 'user_id' in session:
+        return redirect(url_for('dashboard')) # Redirect if already logged in
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        display_name = request.form.get('display_name') or username # Default display name to username
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        # --- Validation ---
+        errors = []
+        if not username: errors.append("Username is required.")
+        if not email: errors.append("Email is required.")
+        if not password: errors.append("Password is required.")
+        if len(password) < 6: errors.append("Password must be at least 6 characters long.") # Basic length check
+        if password != confirm_password: errors.append("Passwords do not match.")
+        # Basic email format check
+        if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+             errors.append("Invalid email address.")
+        # Check uniqueness
+        if username and User.query.filter_by(username=username).first():
+            errors.append("Username already taken.")
+        if email and User.query.filter_by(email=email).first():
+             errors.append("Email address already registered.")
+
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+            return render_template('register.html', username=username, email=email, display_name=display_name)
+        # --- End Validation ---
+
+        # Create user (default: not admin, not verified, not archived)
+        password_h = hash_password(password)
+        new_user = User(
+            username=username,
+            email=email,
+            password_hash=password_h,
+            display_name=display_name,
+            is_admin=False,
+            is_verified=False, # Require admin verification
+            is_archived=False
+            )
+        db.session.add(new_user)
+        try:
+            db.session.commit()
+            flash("Registration successful! Your account requires verification by an administrator before you can log in.", "success") # Inform about verification
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error during registration commit: {e}")
+            flash("An error occurred during registration. Please try again.", "danger")
+            return render_template('register.html', username=username, email=email, display_name=display_name)
+
+    # GET request
+    return render_template('register.html')
+
+
+# --- Presenter Routes ---
+@app.route('/')
+@login_required
 def dashboard():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    # Get active sessions
-    active_sessions = Session.query.filter_by(
-        user_id=session['user_id'], 
-        active=True
-    ).order_by(Session.created_at.desc()).all()
-    
-    # Get archived sessions
-    archived_sessions = Session.query.filter_by(
-        user_id=session['user_id'], 
-        active=False
-    ).order_by(Session.created_at.desc()).all()
-    
-    return render_template(
-        'dashboard.html', 
-        active_sessions=active_sessions,
-        archived_sessions=archived_sessions
-    )
+    user_id = session['user_id'] # Use Flask session
+    # Filter out archived sessions
+    user_sessions = Session.query.filter_by(user_id=user_id, archived=False).order_by(Session.created_at.desc()).all()
+    active_sessions = [s for s in user_sessions if s.active]
+    inactive_sessions = [s for s in user_sessions if not s.active]
+    # Optionally, get archived sessions for a separate view/link
+    # archived_sessions = Session.query.filter_by(user_id=user_id, archived=True).order_by(Session.created_at.desc()).all()
+    return render_template('dashboard.html',
+                           active_sessions=active_sessions,
+                           inactive_sessions=inactive_sessions)
+                           # archived_sessions=archived_sessions) # Pass archived if needed
 
-@app.route('/create_session', methods=['POST'])
-def create_session():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    title = request.form['title']
-    description = request.form.get('description', '')
-    
-    new_session = Session(
-        title=title,
-        description=description,
-        code=generate_session_code(),
-        user_id=session['user_id'],
-        active=True
-    )
-    
-    db.session.add(new_session)
-    db.session.commit()
-    
-    return redirect(url_for('edit_session', session_id=new_session.id))
+@app.route('/sessions')
+@login_required
+def list_sessions():
+    user_id = session['user_id'] # Use Flask session
+    # Filter out archived sessions
+    user_sessions = Session.query.filter_by(user_id=user_id, archived=False).order_by(Session.created_at.desc()).all()
+    return render_template('sessions_list.html', sessions=user_sessions)
 
-@app.route('/session/<int:session_id>/archive', methods=['POST'])
-def archive_session(session_id):
-    """Archive (deactivate) a session"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    # Archive the session
-    presentation_session.active = False
-    db.session.commit()
-    
-    return redirect(url_for('dashboard'))
+# Optional: Route to view archived sessions
+@app.route('/sessions/archived')
+@login_required
+def list_archived_sessions():
+    user_id = session['user_id']
+    archived_sessions = Session.query.filter_by(user_id=user_id, archived=True).order_by(Session.created_at.desc()).all()
+    return render_template('sessions_archived.html', sessions=archived_sessions) # Need to create this template
 
-@app.route('/session/<int:session_id>/restore', methods=['POST'])
-def restore_session(session_id):
-    """Restore (reactivate) an archived session"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    # Restore the session
-    presentation_session.active = True
-    db.session.commit()
-    
-    return redirect(url_for('dashboard'))
 
-@app.route('/session/<int:session_id>/delete', methods=['POST'])
-def delete_session(session_id):
-    """Permanently delete a session and all its data"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    # Delete all related data (questions and responses)
-    questions = Question.query.filter_by(session_id=session_id).all()
-    for question in questions:
-        # Delete responses for this question
-        Response.query.filter_by(question_id=question.id).delete()
-    
-    # Delete questions
-    Question.query.filter_by(session_id=session_id).delete()
-    
-    # Delete the session
-    db.session.delete(presentation_session)
-    db.session.commit()
-    
-    return redirect(url_for('dashboard'))
+@app.route('/sessions/new', methods=['GET', 'POST'])
+@login_required
+def new_session():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        if not name:
+            flash("Session name is required.", "danger")
+            return render_template('session_new.html')
 
-@app.route('/session/<int:session_id>/edit')
-def edit_session(session_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    questions = Question.query.filter_by(session_id=session_id).all()
-    
-    return render_template(
-        'dashboard.html',
-        active_session=presentation_session,
-        questions=questions
-    )
+        code = generate_session_code()
+        new_session = Session(
+            name=name,
+            code=code,
+            user_id=session['user_id'], # Use Flask session
+            active=True,
+            archived=False # Explicitly set archived to False
+        )
+        db.session.add(new_session)
+        db.session.commit()
+        flash(f"Session '{name}' created successfully!", "success")
+        return redirect(url_for('manage_session', session_id=new_session.id))
 
-@app.route('/session/<int:session_id>/question', methods=['POST'])
-def create_question(session_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    question_text = request.form['question_text']
-    question_type = request.form['question_type']
-    
-    # Create the new question
-    new_question = Question(
-        text=question_text,
-        type=question_type,
-        session_id=session_id
-    )
-    
-    # If it's a multiple choice question, add options
-    if question_type == 'multiple_choice':
-        options = request.form.getlist('options[]')
-        new_question.options = json.dumps(options)
-    elif question_type == 'rating_scale':
-        min_value = request.form.get('min_value', 1)
-        max_value = request.form.get('max_value', 5)
-        new_question.options = json.dumps({
-            'min': min_value,
-            'max': max_value
-        })
-    
-    db.session.add(new_question)
-    db.session.commit()
-    
-    return redirect(url_for('edit_session', session_id=session_id))
+    return render_template('session_new.html')
 
-@app.route('/session/<int:session_id>/present')
-def present_session(session_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    questions = Question.query.filter_by(session_id=session_id).all()
-    
-    # Generate QR code for joining
-    join_url = get_join_url(presentation_session.code, request.host_url.rstrip('/'))
-    qr_code_data = generate_qr_code(join_url)
-    qr_code = f"data:image/png;base64,{qr_code_data}"
-    
-    return render_template(
-        'present.html',
-        presentation_session=presentation_session,
-        questions=questions,
-        qr_code=qr_code
-    )
+@app.route('/sessions/<int:session_id>')
+@login_required
+def manage_session(session_id):
+    # Query using Flask session for user_id
+    # Use 'current_session' to avoid conflict with Flask session
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    # Don't show archived sessions via direct URL unless intended
+    if current_session.archived:
+        flash("This session is archived.", "info")
+        return redirect(url_for('list_sessions')) # Or redirect to archived list
 
-@app.route('/join')
-def join():
-    code = request.args.get('code', '')
-    return render_template('join.html', code=code)
+    # Use 'code' instead of 'session_code' in url_for
+    join_url = url_for('audience_view', code=current_session.code, _external=True)
+    qr_code_data_url = create_qr_code_data(join_url)
+    # Pass database session object as 'current_session'
+    return render_template('session_manage.html',
+                           current_session=current_session,
+                           questions=current_session.questions, # Already ordered by model definition
+                           join_url=join_url,
+                           qr_code_data_url=qr_code_data_url)
 
-@app.route('/session/join', methods=['POST'])
-def join_session():
-    code = request.form['session_code']
-    
-    # Find the session with the given code
-    presentation_session = Session.query.filter_by(code=code).first()
-    
-    if not presentation_session:
-        return render_template('join.html', error='Invalid session code')
-    
-    # Set a unique identifier for this participant
-    participant_id = str(uuid.uuid4())
-    session['participant_id'] = participant_id
-    session['session_code'] = code
-    session['session_id'] = presentation_session.id
-    
-    return redirect(url_for('participate'))
+@app.route('/present/<int:session_id>')
+@login_required
+def present_mode(session_id):
+    # Query using Flask session for user_id
+    # Use 'current_session' to avoid conflict with Flask session
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    # Prevent presenting archived sessions
+    if current_session.archived:
+        flash("Cannot present an archived session.", "warning")
+        return redirect(url_for('manage_session', session_id=session_id))
 
-@app.route('/participate')
-def participate():
-    if 'session_code' not in session:
-        return redirect(url_for('join'))
-    
-    session_code = session['session_code']
-    presentation_session = Session.query.filter_by(code=session_code).first()
-    
-    if not presentation_session:
-        session.pop('session_code', None)
-        return redirect(url_for('join'))
-    
-    # Get active question from the session record
-    active_question = None
-    
-    # First check if there's an active question ID stored in the session record
-    # Safely check if the attribute exists (in case migration hasn't been run)
-    if hasattr(presentation_session, 'active_question_id') and presentation_session.active_question_id:
-        active_question = Question.query.get(presentation_session.active_question_id)
-        print(f"Found active question from session record: {active_question.text if active_question else 'None'}")
-    
-    # If no active question found in the session record, fall back to the most recent question
-    if not active_question:
-        questions = Question.query.filter_by(session_id=presentation_session.id).all()
-        if questions:
-            active_question = questions[-1]
-            print(f"Using most recent question as active: {active_question.text}")
-            
-            # Update the session record with this question ID for future reference
-            try:
-                # Only attempt to update if the attribute exists
-                if hasattr(presentation_session, 'active_question_id'):
-                    presentation_session.active_question_id = active_question.id
-                    db.session.commit()
-                    print(f"Updated session record with active question ID: {active_question.id}")
-                else:
-                    print("Warning: active_question_id column not found - database migration may be needed")
-            except Exception as e:
-                print(f"Error updating active question ID: {e}")
-                db.session.rollback()
-    
-    # Format active question for JavaScript
-    active_question_js = None
-    if active_question:
-        # Parse options for the template
-        if active_question.options:
-            active_question.options_list = json.loads(active_question.options)
-        else:
-            active_question.options_list = []
-            
-        # Create a JSON version for JavaScript
-        options = active_question.options_list
-        active_question_js = {
-            'id': active_question.id,
-            'text': active_question.text,
-            'type': active_question.type,
-            'options': options
-        }
-        print(f"Passing active question to template: {active_question_js}")
-    
-    return render_template(
-        'participate.html',
-        presentation_session=presentation_session,
-        active_question=active_question,
-        active_question_js=json.dumps(active_question_js) if active_question_js else None
-    )
+    active_questions = [q for q in current_session.questions if q.active]
+    # Use 'code' instead of 'session_code' in url_for
+    join_url = url_for('audience_view', code=current_session.code, _external=True)
+    qr_code_data_url = create_qr_code_data(join_url, size=150)
+    # Pass database session object as 'current_session'
+    return render_template('present_mode.html',
+                           current_session=current_session,
+                           active_questions=active_questions,
+                           join_url=join_url,
+                           qr_code_data_url=qr_code_data_url)
 
-@app.route('/session/<int:session_id>/export')
-def export_results(session_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    presentation_session = Session.query.get_or_404(session_id)
-    
-    # Check if the session belongs to the logged-in user
-    if presentation_session.user_id != session['user_id']:
-        return redirect(url_for('dashboard'))
-    
-    # Get all questions for this session
-    questions = Question.query.filter_by(session_id=session_id).all()
-    
-    # Prepare the questions and responses in the format needed for export_results_to_csv
-    questions_data = []
-    responses_data = []
-    
-    for question in questions:
-        question_data = {
-            'id': question.id,
-            'text': question.text,
-            'type': question.type,
-            'options': json.loads(question.options) if question.options else []
-        }
-        questions_data.append(question_data)
-        
-        responses = Response.query.filter_by(question_id=question.id).all()
-        for response in responses:
-            response_data = {
-                'question_id': question.id,
-                'answer': response.value,
-                'participant_id': response.participant_id[:8],
-                'timestamp': response.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            responses_data.append(response_data)
-    
-    # Use the utility function to create CSV
-    csv_data = export_results_to_csv(presentation_session.code, questions_data, responses_data)
-    
-    # Create a response and set the appropriate headers
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"classpulse_results_{presentation_session.code}_{timestamp}.csv"
-    
-    return send_file(
-        csv_data,
-        as_attachment=True,
-        download_name=filename,
-        mimetype='text/csv'
-    )
 
-# API routes for client-side JavaScript
-@app.route('/api/question/<int:question_id>')
-def get_question_details(question_id):
+# --- Question Routes ---
+@app.route('/sessions/<int:session_id>/questions/new/<q_type>', methods=['GET', 'POST'])
+@login_required
+def new_question(session_id, q_type):
+    # Query using Flask session for user_id
+    # RENAME db_session to current_session for clarity and consistency
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    # Prevent adding questions to archived sessions
+    if current_session.archived:
+        flash("Cannot add questions to an archived session.", "warning")
+        return redirect(url_for('manage_session', session_id=session_id))
+
+    valid_types = ['multiple_choice', 'word_cloud', 'rating']
+    if q_type not in valid_types:
+        abort(400, "Invalid question type")
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        if not title:
+            flash("Question title is required.", "danger")
+            # Need to pass type back to template for rendering correct form again
+            # Pass current_session
+            return render_template('question_new.html', current_session=current_session, q_type=q_type, title=title)
+
+        options_dict_or_list = {} # Default to dict
+        if q_type == 'multiple_choice':
+            options_text = request.form.get('options', '')
+            options_list = [opt.strip() for opt in options_text.splitlines() if opt.strip()]
+            if not options_list:
+                flash("At least one option is required for multiple choice.", "danger")
+                # Pass current_session
+                return render_template('question_new.html', current_session=current_session, q_type=q_type, title=title, options=options_text)
+            options_dict_or_list = options_list # Store list directly for MC
+        elif q_type == 'rating':
+            max_rating = request.form.get('max_rating', 5, type=int)
+            options_dict_or_list = {'max_rating': max_rating} # Store dict for rating
+        # Word cloud needs no specific options initially, empty dict is fine
+
+        new_q = Question(
+            session_id=session_id,
+            type=q_type,
+            title=title,
+            options=json.dumps(options_dict_or_list), # Serialize the list or dict
+            active=True,
+            # Order could be handled here, e.g., max(q.order for q in session.questions) + 1
+        )
+        db.session.add(new_q)
+        db.session.commit()
+        flash(f"{q_type.replace('_', ' ').title()} question created.", "success")
+        return redirect(url_for('manage_session', session_id=session_id))
+
+    # GET request
+    # Pass current_session
+    return render_template('question_new.html', current_session=current_session, q_type=q_type)
+
+
+@app.route('/questions/<int:question_id>/results')
+@login_required
+def view_question_results(question_id):
     question = Question.query.get_or_404(question_id)
-    
-    # Return question data as JSON
+    # Verify ownership through Flask session
+    if question.session.user_id != session['user_id']:
+        abort(403)
+    stats = get_question_stats(question_id) # Use helper to calculate stats
+    return render_template('question_results.html', question=question, stats=stats)
+
+
+# --- Admin Routes ---
+@app.route('/admin/users')
+@admin_required # Apply both decorators (@login_required is applied within @admin_required)
+def admin_manage_users():
+    """Displays page for admins to manage users."""
+    # Query all users except the current admin
+    users = User.query.filter(User.id != session['user_id']).order_by(User.username).all()
+    return render_template('admin_users.html', users=users)
+
+
+# --- API Routes (for toggling status, could use JS fetch or HTMX) ---
+@app.route('/api/sessions/<int:session_id>/toggle', methods=['POST'])
+@login_required
+def api_toggle_session(session_id):
+     # Query using Flask session for user_id
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    # Cannot toggle archived sessions
+    if current_session.archived:
+         return jsonify({"success": False, "message": "Cannot toggle archived session."}), 400
+    current_session.active = not current_session.active
+    db.session.commit()
+    # Return new status or updated HTML fragment if using HTMX
+    return jsonify({"success": True, "active": current_session.active, "new_text": "Deactivate" if current_session.active else "Activate"})
+
+@app.route('/api/questions/<int:question_id>/toggle', methods=['POST'])
+@login_required
+def api_toggle_question(question_id):
+    question = Question.query.get_or_404(question_id)
+     # Verify ownership through Flask session
+    if question.session.user_id != session['user_id']:
+        # Return JSON error instead of aborting for API endpoint
+        return jsonify({"success": False, "message": "Permission denied."}), 403
+    # Cannot toggle questions in archived sessions
+    if question.session.archived:
+         return jsonify({"success": False, "message": "Cannot toggle question in archived session."}), 400
+    question.active = not question.active
+    db.session.commit()
+    # Return new status or updated HTML fragment if using HTMX
+    return jsonify({"success": True, "active": question.active, "new_text": "Deactivate" if question.active else "Activate"})
+
+@app.route('/api/sessions/<int:session_id>/archive', methods=['POST'])
+@login_required
+def api_archive_session(session_id):
+    """API endpoint to toggle session archive status."""
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    current_session.archived = not current_session.archived
+    # Optionally deactivate when archiving
+    if current_session.archived:
+        current_session.active = False
+    db.session.commit()
+    flash(f"Session '{current_session.name}' {'archived' if current_session.archived else 'unarchived'}.", "info")
+    # Redirect is simpler here than complex JS to update UI across lists
+    # Redirect to the appropriate list based on the new status
+    if current_session.archived:
+        return redirect(url_for('list_sessions'))
+    else:
+        # If unarchiving, maybe redirect back to the archived list or the main list
+        return redirect(request.referrer or url_for('list_archived_sessions'))
+
+
+# --- Admin API Routes ---
+@app.route('/api/users/<int:user_id>/toggle_verify', methods=['POST'])
+@admin_required # Ensures only logged-in admins can access
+def api_toggle_verify_user(user_id):
+    """API endpoint for admin to toggle user verification status."""
+    user_to_modify = db.session.get(User, user_id) # Use newer Session.get()
+    if not user_to_modify:
+        return jsonify({"success": False, "message": "User not found."}), 404
+    # Prevent admin from de-verifying themselves? Optional.
+    # if user_to_modify.id == session['user_id']:
+    #     return jsonify({"success": False, "message": "Cannot change own verification status."}), 400
+    user_to_modify.is_verified = not user_to_modify.is_verified
+    db.session.commit()
     return jsonify({
-        'id': question.id,
-        'text': question.text,
-        'type': question.type,
-        'options': json.loads(question.options) if question.options else []
+        "success": True,
+        "verified": user_to_modify.is_verified,
+        "new_text": "Unverify" if user_to_modify.is_verified else "Verify"
     })
 
-@app.route('/api/activate_question/<int:question_id>/<int:session_id>', methods=['POST', 'GET'])
-def activate_question_api(question_id, session_id):
-    """API endpoint to activate a question - alternative to Socket.IO"""
-    print(f"HTTP API: Question {question_id} activated for session {session_id}")
-    
-    # Get the question details
-    question = Question.query.get_or_404(question_id)
-    
-    # Get the session code for this session
-    presentation_session = Session.query.get_or_404(session_id)
-    session_code = presentation_session.code
-    print(f"Question activated for session code: {session_code}")
-    
-    # Create room names for the session - use all possible formats for maximum reliability
-    rooms = [
-        f"session_{session_id}",      # Main room by session ID
-        f"code_{session_code}",       # Room by session code
-        f"s_{session_id}",            # Short format room
-        f"c_{session_code}"           # Short format code room
-    ]
-    
-    # Create response data
-    question_details = {
-        'id': question.id,
-        'text': question.text,
-        'type': question.type,
-        'options': json.loads(question.options) if question.options else None
-    }
-    
-    # IMPORTANT: Broadcast to all rooms for maximum reliability
-    print(f"Broadcasting to multiple rooms: {', '.join(rooms)}")
-    
-    activation_data = {
-        'question_id': question_id,
-        'session_id': session_id,  # Include session ID for more context
-        'session_code': session_code,  # Include session code for more context
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # Broadcast to specific rooms
-    for room in rooms:
-        socketio.emit('question_activated', activation_data, room=room)
-        socketio.emit('question_details', question_details, room=room)
-    
-    # Also broadcast globally for any client that might have missed room registration
-    # In Flask-SocketIO, global broadcasts are done by omitting the room parameter
-    socketio.emit('question_activated', activation_data)  # Global broadcast
-    socketio.emit('question_details', question_details)  # Global broadcast
-    
-    # Fetch existing responses for this question
-    responses = Response.query.filter_by(question_id=question_id).all()
-    print(f"HTTP API: Found {len(responses)} existing responses for question {question_id}")
-    
-    response_data = {
-        'question_id': question_id,
-        'responses': [{'value': r.value, 'participant_id': r.participant_id} for r in responses]
-    }
-    
-    # Update all clients with existing responses (both in rooms and globally)
-    for room in rooms:
-        socketio.emit('response_update', response_data, room=room)
-    
-    # Update database to mark this as the active question for this session
-    # (This helps when audience members join or refresh the page)
-    try:
-        # Store the active question ID in the session record
-        # Check if the attribute exists (in case migration hasn't been run)
-        if hasattr(presentation_session, 'active_question_id'):
-            presentation_session.active_question_id = question_id
-            db.session.commit()
-            print(f"Set question {question_id} as active for session {session_id}")
-        else:
-            print("Warning: active_question_id column not found - database migration may be needed")
-    except Exception as e:
-        print(f"Error updating active question ID: {e}")
-        db.session.rollback()  # Roll back the transaction to avoid DB state issues
-        # This is non-fatal, so continue
-    
-    # Check if this is an AJAX request or direct form submission
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # For AJAX requests, return JSON with appropriate headers
-        response = jsonify({
-            'success': True,
-            'message': f'Question {question_id} activated for session {session_id}',
-            'question': question_details
-        })
-        # Add CORS headers to ensure the response can be processed by fetch
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,X-Requested-With')
-        return response
-    else:
-        # For direct form submissions, redirect back to the presenter page
-        # Add a success parameter to indicate the activation worked
-        return redirect(url_for('present_session', session_id=session_id, activated='true'))
+@app.route('/api/users/<int:user_id>/toggle_archive', methods=['POST'])
+@admin_required # Ensures only logged-in admins can access
+def api_toggle_archive_user(user_id):
+    """API endpoint for admin to toggle user archive status."""
+    user_to_modify = db.session.get(User, user_id) # Use newer Session.get()
+    if not user_to_modify:
+        return jsonify({"success": False, "message": "User not found."}), 404
+    # Prevent admin from archiving themselves
+    if user_to_modify.id == session['user_id']:
+        return jsonify({"success": False, "message": "Cannot archive self."}), 400
+    user_to_modify.is_archived = not user_to_modify.is_archived
+    # Optionally force logout if user is archived? More complex.
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "archived": user_to_modify.is_archived,
+        "new_text": "Unarchive" if user_to_modify.is_archived else "Archive"
+    })
 
-# Socket.IO events
+
+# --- Audience Routes ---
+@app.route('/join', methods=['GET', 'POST'])
+def join():
+    if request.method == 'POST':
+        code = request.form.get('code', '').upper()
+        # Use current_session as variable name, check not archived
+        current_session = Session.query.filter_by(code=code, active=True, archived=False).first()
+
+        if current_session:
+            # Generate respondent ID if not present
+            respondent_id = request.cookies.get(RESPONDENT_COOKIE_NAME)
+            if not respondent_id:
+                respondent_id = str(uuid.uuid4())
+
+            response = make_response(redirect(url_for('audience_view', code=code))) # Use 'code' here
+            response.set_cookie(RESPONDENT_COOKIE_NAME, respondent_id, max_age=60*60*24*30) # 30 days
+            return response
+        else:
+            flash("Invalid, inactive, or archived session code. Please try again.", "danger")
+            return render_template('join.html', code=code)
+
+    return render_template('join.html')
+
+
+@app.route('/audience/<code>')
+def audience_view(code):
+    session_code = code.upper()
+    # Use current_session as variable name, check not archived
+    current_session = Session.query.filter_by(code=session_code, active=True, archived=False).first()
+    if not current_session:
+        flash("Session not found, is inactive, or has been archived.", "warning")
+        return redirect(url_for('join'))
+
+    respondent_id = request.cookies.get(RESPONDENT_COOKIE_NAME)
+    if not respondent_id:
+        # Force back to join page to get a cookie
+        flash("Could not identify you. Please join the session again.", "warning")
+        return redirect(url_for('join'))
+
+    active_questions = [q for q in current_session.questions if q.active]
+
+    # Get previous responses for this user in this session
+    previous_responses_db = Response.query.filter_by(session_id=current_session.id, respondent_id=respondent_id).all()
+    previous_responses = {r.question_id: r.response_value for r in previous_responses_db}
+
+    # Pass current_session to the template
+    return render_template('audience_view.html',
+                           current_session=current_session,
+                           questions=active_questions,
+                           previous_responses=previous_responses)
+
+
+@app.route('/audience/respond/<int:question_id>', methods=['POST'])
+def process_response(question_id):
+    question = Question.query.get_or_404(question_id)
+    # Check if question or session is inactive or archived
+    if not question.active or not question.session.active or question.session.archived:
+        flash("Sorry, this question or session is no longer active.", "warning")
+        return redirect(url_for('audience_view', code=question.session.code)) # Redirect back
+
+    respondent_id = request.cookies.get(RESPONDENT_COOKIE_NAME)
+    if not respondent_id:
+        flash("Could not identify you. Please try rejoining the session.", "warning")
+        return redirect(url_for('join'))
+
+    response_value = request.form.get(f'response-{question_id}')
+    if response_value is None:
+        flash("No response value submitted.", "warning")
+        return redirect(url_for('audience_view', code=question.session.code))
+
+    # Check for existing response and update, or create new
+    existing_response = Response.query.filter_by(
+        question_id=question_id,
+        respondent_id=respondent_id
+    ).first()
+
+    if existing_response:
+        existing_response.response_value = response_value
+        existing_response.created_at = datetime.now().isoformat()
+    else:
+        new_response = Response(
+            question_id=question_id,
+            session_id=question.session_id,
+            response_value=response_value,
+            respondent_id=respondent_id
+        )
+        db.session.add(new_response)
+
+    db.session.commit()
+
+    # Notify presenters via WebSocket
+    broadcast_results(question_id)
+
+    # Using flash for confirmation, could return JSON for JS/HTMX
+    flash(f"Your response was submitted!", "success")
+    return redirect(url_for('audience_view', code=question.session.code))
+
+
+# --- Data Export Routes ---
+@app.route('/questions/<int:question_id>/export')
+@login_required
+def export_question_results(question_id):
+    question = Question.query.get_or_404(question_id)
+     # Verify ownership through Flask session
+    if question.session.user_id != session['user_id']: abort(403)
+
+    all_responses = Response.query.filter_by(question_id=question_id).order_by(Response.created_at).all()
+    if not all_responses:
+        flash("No responses to export for this question.", "info")
+        return redirect(url_for('view_question_results', question_id=question_id))
+
+    data_to_export = [
+        {
+            "response_id": r.id, "question_id": r.question_id, "session_id": r.session_id,
+            "response_value": r.response_value, "respondent_id": r.respondent_id,
+            "timestamp": r.created_at
+        } for r in all_responses
+    ]
+
+    output = io.StringIO()
+    fieldnames = data_to_export[0].keys()
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(data_to_export)
+
+    mem_output = io.BytesIO()
+    mem_output.write(output.getvalue().encode('utf-8'))
+    mem_output.seek(0)
+    output.close()
+
+    filename = f"classpulse_q_{question_id}_results.csv"
+    return send_file(mem_output, as_attachment=True, download_name=filename, mimetype='text/csv')
+
+
+@app.route('/sessions/<int:session_id>/export')
+@login_required
+def export_session_results(session_id):
+     # Query using Flask session for user_id
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    all_responses = Response.query.filter_by(session_id=session_id).order_by(Response.question_id, Response.created_at).all()
+
+    if not all_responses:
+        flash("No responses to export for this session.", "info")
+        return redirect(url_for('manage_session', session_id=session_id))
+
+    data_to_export = [
+        {
+            "response_id": r.id, "question_id": r.question_id, "session_id": r.session_id,
+            "response_value": r.response_value, "respondent_id": r.respondent_id,
+            "timestamp": r.created_at
+        } for r in all_responses
+    ]
+
+    output = io.StringIO()
+    fieldnames = data_to_export[0].keys()
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(data_to_export)
+
+    mem_output = io.BytesIO()
+    mem_output.write(output.getvalue().encode('utf-8'))
+    mem_output.seek(0)
+    output.close()
+
+    filename = f"classpulse_session_{session_id}_all_results.csv"
+    return send_file(mem_output, as_attachment=True, download_name=filename, mimetype='text/csv')
+
+
+# --- WebSocket Handling ---
+
+# Helper to get stats (could be moved to a utils file)
+def get_question_stats(question_id: int) -> Dict[str, Any]:
+    """Gets statistics for a question based on its type."""
+    # Use with app.app_context() if calling this outside a request context
+    question = db.session.get(Question, question_id) # Use newer Session.get()
+    if not question:
+        return {"error": "Question not found"}
+
+    all_responses = Response.query.filter_by(question_id=question_id).all()
+    total_responses = len(all_responses)
+    stats: Dict[str, Any] = {"total_responses": total_responses, "type": question.type, "title": question.title}
+
+    if question.type == 'multiple_choice':
+        try:
+            options = json.loads(question.options) # Should be a list
+            if not isinstance(options, list): options = []
+        except json.JSONDecodeError:
+            options = []
+        # Ensure options are strings for dictionary keys
+        options = [str(opt) for opt in options]
+        results = {opt: 0 for opt in options}
+        for resp in all_responses:
+            if str(resp.response_value) in results: # Ensure comparison is string-to-string
+                results[str(resp.response_value)] += 1
+        stats["results"] = results
+        stats["options"] = options # Keep original options list for labels
+
+    elif question.type == 'word_cloud':
+        words = {}
+        for resp in all_responses:
+            # Simple split by space, convert to lowercase, filter stop words
+            for word in resp.response_value.lower().split():
+                cleaned_word = ''.join(filter(str.isalnum, word)) # Basic cleaning
+                if cleaned_word and cleaned_word not in STOP_WORDS: # Filter stop words
+                    words[cleaned_word] = words.get(cleaned_word, 0) + 1
+        # Ensure results are in the format jQCloud expects
+        stats["results"] = [{"text": w, "weight": c} for w, c in words.items()]
+
+    elif question.type == 'rating':
+        try:
+            config = json.loads(question.options) # Should be a dict
+            max_rating = int(config.get('max_rating', 5)) # Ensure integer
+        except (json.JSONDecodeError, AttributeError, ValueError):
+            max_rating = 5
+        results = {str(i): 0 for i in range(1, max_rating + 1)}
+        for resp in all_responses:
+             # Ensure comparison is string-to-string
+            if str(resp.response_value) in results:
+                results[str(resp.response_value)] += 1
+        stats["results"] = results
+        stats["max_rating"] = max_rating
+
+    return stats
+
+# Function to broadcast results to a specific room (question)
+def broadcast_results(question_id: int):
+    """Fetches latest stats and emits them to the question's room."""
+    print(f"Broadcasting results for question {question_id}")
+    # Need app context to access db outside of a request
+    with app.app_context():
+        stats = get_question_stats(question_id)
+    room_name = f'question_{question_id}'
+    # Make sure stats are JSON serializable (datetime objects are not by default)
+    # In this case, our stats dict should be fine.
+    socketio.emit('update_results', {'question_id': question_id, 'stats': stats}, room=room_name)
+    print(f"Emitted update for room {room_name}")
+
+
 @socketio.on('connect')
 def handle_connect():
-    print('Client connected')
+    # Authentication check could happen here if needed for presenters
+    # Accessing flask session in socketio requires proper setup or passing tokens
+    # For simplicity, we'll just log the connection SID for now.
+    # user_id = session.get('user_id') # This might not work reliably depending on setup
+    # if user_id:
+    #     print(f"Presenter {user_id} connected: {request.sid}")
+    # else:
+    #      print(f"Audience member or anonymous user connected: {request.sid}")
+    print(f"Client connected: {request.sid}")
+
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    print('Client disconnected')
+    print(f"Client disconnected: {request.sid}")
+    # No specific room cleanup needed here as rooms are managed by join/leave
 
-@socketio.on('join_room')
+@socketio.on('join')
 def handle_join_room(data):
-    room = data['room']
-    join_room(room)
-    print(f'Client joined room: {room}')
-    
-    # If this is a session room, add the client to both room types
-    if room.startswith('session_'):
-        session_id = room.split('_')[1]
+    """Client requests to join a room for a specific question."""
+    question_id = data.get('question_id')
+    if question_id:
         try:
-            # Try to find the session code for this session ID
-            presentation_session = Session.query.get(int(session_id))
-            if presentation_session:
-                # Also join the room by code
-                code_room = f"code_{presentation_session.code}"
-                join_room(code_room)
-                print(f'Client also joined code room: {code_room}')
+            q_id = int(question_id) # Ensure it's an integer
+            room_name = f'question_{q_id}'
+            join_room(room_name)
+            print(f"Client {request.sid} joined room {room_name}")
+            # Send current results immediately to the joining client
+            # Need app context to access db outside of a request
+            with app.app_context():
+                stats = get_question_stats(q_id)
+            emit('update_results', {'question_id': q_id, 'stats': stats}, room=request.sid) # Send only to requester
+        except ValueError:
+            print(f"Invalid question_id received for join: {question_id}")
         except Exception as e:
-            print(f"Error joining additional room: {e}")
-    
-    # Acknowledge the room join
-    emit('room_joined', {'status': 'success', 'room': room})
+             print(f"Error handling join room for question {question_id}: {e}")
 
-@socketio.on('presenter_connected')
-def handle_presenter_connected(data):
-    session_id = data['session_id']
-    room = f"session_{session_id}"
-    join_room(room)
-    
-    # Emit to all clients in the room that the presenter is connected
-    emit('presenter_status', {'connected': True}, room=room)
 
-@socketio.on('activate_question')
-def handle_activate_question(data):
-    question_id = data['question_id']
-    session_id = data['session_id']
-    
-    print(f"Question {question_id} activated for session {session_id}")
-    
-    # Find the session by ID
-    presentation_session = Session.query.get(session_id)
-    if not presentation_session:
-        print(f"Error: Session {session_id} not found")
-        return
-    
-    # Get session code for additional room targeting
-    session_code = presentation_session.code
-    
-    # Define all possible room names for maximum delivery
-    rooms = [
-        f"session_{session_id}",      # Main room by session ID
-        f"code_{session_code}",       # Room by session code
-        f"s_{session_id}",            # Short format room
-        f"c_{session_code}"           # Short format code room
-    ]
-    
-    # Create activation data with all context
-    activation_data = {
-        'question_id': question_id,
-        'session_id': session_id,
-        'session_code': session_code,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # Get the question details
-    question = Question.query.get(question_id)
-    
-    # If the question exists, send its details
-    if question:
-        print(f"Sending question details for question {question_id}")
-        question_details = {
-            'id': question.id,
-            'text': question.text,
-            'type': question.type,
-            'options': json.loads(question.options) if question.options else None
-        }
-        
-        # Update all clients in all rooms
-        for room in rooms:
-            print(f"Broadcasting to room: {room}")
-            emit('question_activated', activation_data, room=room, include_self=True)
-            emit('question_details', question_details, room=room, include_self=True)
-        
-        # Also broadcast globally for redundancy 
-        # In Flask-SocketIO, global broadcasts are done by omitting the room parameter
-        emit('question_activated', activation_data)  # Global broadcast
-        emit('question_details', question_details)   # Global broadcast
-        
-        # Fetch existing responses for this question
-        responses = Response.query.filter_by(question_id=question_id).all()
-        print(f"Found {len(responses)} existing responses for question {question_id}")
-        
-        response_data = {
-            'question_id': question_id,
-            'responses': [{'value': r.value, 'participant_id': r.participant_id} for r in responses]
-        }
-        
-        # Update all clients with existing responses
-        for room in rooms:
-            emit('response_update', response_data, room=room, include_self=True)
-        
-        # Update database to mark this as the active question for this session
+@socketio.on('leave')
+def handle_leave_room(data):
+    """Client requests to leave a room."""
+    question_id = data.get('question_id')
+    if question_id:
         try:
-            # Check if the attribute exists (in case migration hasn't been run)
-            if hasattr(presentation_session, 'active_question_id'):
-                presentation_session.active_question_id = question_id
+            q_id = int(question_id)
+            room_name = f'question_{q_id}'
+            leave_room(room_name)
+            print(f"Client {request.sid} left room {room_name}")
+        except ValueError:
+             print(f"Invalid question_id received for leave: {question_id}")
+        except Exception as e:
+            print(f"Error handling leave room for question {question_id}: {e}")
+
+
+# --- Initialization ---
+def create_default_admin():
+    """Creates the default admin user if none exists."""
+    with app.app_context():
+        admin_exists = User.query.filter_by(username=DEFAULT_ADMIN_USER).first()
+        if not admin_exists:
+            print(f"Creating default admin user: {DEFAULT_ADMIN_USER} / {DEFAULT_ADMIN_PASS}")
+            password_h = hash_password(DEFAULT_ADMIN_PASS)
+            admin = User(
+                username=DEFAULT_ADMIN_USER,
+                password_hash=password_h,
+                email="admin@example.com",
+                display_name="Admin User",
+                is_admin=True,      # Make default user admin
+                is_verified=True,   # Make default user verified
+                is_archived=False
+            )
+            db.session.add(admin)
+            try:
                 db.session.commit()
-                print(f"Updated session {session_id} with active question ID {question_id}")
-            else:
-                print("Warning: active_question_id column not found - database migration may be needed")
-        except Exception as e:
-            print(f"Error updating active question ID in database: {e}")
-            db.session.rollback()
-    else:
-        print(f"Question {question_id} not found!")
+                print("Default admin user created successfully.")
+            except Exception as e:
+                db.session.rollback()
+                print(f"Failed to create default admin user: {e}")
 
-@socketio.on('submit_response')
-def handle_submit_response(data):
-    question_id = data['question_id']
-    session_id = data['session_id']
-    value = data['value']
-    participant_id = session.get('participant_id', str(uuid.uuid4()))
-    
-    print(f"Received response from participant {participant_id} for question {question_id}: {value}")
-    
-    # Create a new response
-    new_response = Response(
-        question_id=question_id,
-        participant_id=participant_id,
-        value=value,
-        timestamp=datetime.now()
-    )
-    
-    db.session.add(new_response)
-    db.session.commit()
-    
-    # Find the session to get the session code
-    presentation_session = Session.query.get(session_id)
-    if not presentation_session:
-        print(f"Error: Session {session_id} not found")
-        emit('response_received', {'status': 'error', 'message': 'Session not found'})
-        return
-    
-    session_code = presentation_session.code
-    
-    # Define all possible room names for maximum delivery
-    rooms = [
-        f"session_{session_id}",      # Main room by session ID
-        f"code_{session_code}",       # Room by session code
-        f"s_{session_id}",            # Short format room
-        f"c_{session_code}"           # Short format code room
-    ]
-    
-    # Create response data
-    response_data = {
-        'question_id': question_id,
-        'value': value,
-        'participant_id': participant_id
-    }
-    
-    # Print debug information
-    print(f"DEBUG RESPONSE: {response_data}")
-    
-    # Notify the presenter and other participants about the new response
-    for room in rooms:
-        print(f"DEBUG: Broadcasting response_received to room {room}")
-        emit('response_received', response_data, room=room)
-    
-    # Get all responses for this question to update visualizations
-    responses = Response.query.filter_by(question_id=question_id).all()
-    print(f"Total responses for question {question_id}: {len(responses)}")
-    
-    response_data = {
-        'question_id': question_id,
-        'responses': [{'value': r.value, 'participant_id': r.participant_id} for r in responses]
-    }
-    
-    # Update all clients with the latest response data
-    for room in rooms:
-        emit('response_update', response_data, room=room)
-    
-    # Also emit globally as a fallback
-    emit('response_update', response_data)
-
-@socketio.on('request_active_question')
-def handle_request_active_question(data):
-    session_id = data.get('session_id')
-    session_code = data.get('session_code')
-    print(f"Client requested active question for session {session_id} / code {session_code}")
-    
-    # Find the session by ID or code
-    presentation_session = None
-    if session_id:
-        presentation_session = Session.query.get(session_id)
-    elif session_code:
-        presentation_session = Session.query.filter_by(code=session_code).first()
-    
-    if not presentation_session:
-        print(f"Session not found with ID {session_id} or code {session_code}")
-        emit('active_question', {'status': 'error', 'message': 'Session not found'})
-        return
-        
-    # Get the most recent question as the active one
-    questions = Question.query.filter_by(session_id=presentation_session.id).order_by(Question.id.desc()).all()
-    
-    if questions:
-        active_question = questions[0]  # Most recent question
-        print(f"Sending active question details for session {presentation_session.id}")
-        
-        question_details = {
-            'id': active_question.id,
-            'text': active_question.text,
-            'type': active_question.type,
-            'options': json.loads(active_question.options) if active_question.options else None
-        }
-        
-        # Send the active question to the requesting client
-        emit('question_details', question_details)
-    else:
-        print(f"No active question found for session {presentation_session.id}")
-        emit('active_question', {'status': 'none'})
-
-@socketio.on('request_question_details')
-def handle_request_question_details(data):
-    question_id = data['question_id']
-    session_id = data.get('session_id')
-    print(f"Client requested details for question {question_id}")
-    
-    # Get the question details
-    question = Question.query.get(question_id)
-    
-    if question:
-        print(f"Sending details for question {question_id}")
-        question_details = {
-            'id': question.id,
-            'text': question.text,
-            'type': question.type,
-            'options': json.loads(question.options) if question.options else None
-        }
-        
-        # Send question details to the requesting client
-        emit('question_details', question_details)
-        
-        # If session ID is provided, also send responses
-        if session_id:
-            # Get responses for this question
-            responses = Response.query.filter_by(question_id=question_id).all()
-            response_data = {
-                'question_id': question_id,
-                'responses': [{'value': r.value, 'participant_id': r.participant_id} for r in responses]
-            }
-            
-            # Send responses to the client
-            emit('response_update', response_data)
-    else:
-        print(f"Question {question_id} not found!")
-        emit('question_details_response', {'status': 'error', 'message': 'Question not found'})
-
-@socketio.on('heartbeat')
-def handle_heartbeat(data):
-    # Simple ping-pong to keep the connection alive
-    participant_id = data.get('participant_id', 'unknown')
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    print(f"Heartbeat received from participant {participant_id} at {timestamp}")
-    
-    # Send acknowledgment back to the client
-    emit('heartbeat_ack', {
-        'server_time': timestamp,
-        'participant_id': participant_id
-    })
-
+# --- Run Application ---
 if __name__ == '__main__':
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    with app.app_context():
+        db.create_all() # Create database tables if they don't exist
+    create_default_admin()
+    # Use eventlet or gevent for SocketIO
+    # Example using eventlet: pip install eventlet
+    print("Starting Flask-SocketIO server on http://localhost:5002")
+    # Set use_reloader=False if reloading causes issues with SocketIO/DB creation
+    # Set async_mode='threading' or 'eventlet' or 'gevent' based on installation
+    # Added allow_unsafe_werkzeug=True for newer SocketIO/Werkzeug versions if needed
+    # Note: use_reloader=True might cause create_default_admin to run twice
+    socketio.run(app, host='0.0.0.0', port=5002, debug=True, use_reloader=False, allow_unsafe_werkzeug=True) # Changed use_reloader to False
+
 

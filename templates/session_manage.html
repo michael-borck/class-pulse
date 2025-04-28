@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+{# Use current_session passed from the route #}
+{% block title %}Manage: {{ current_session.name }}{% endblock %}
+
+{% block content %}
+{# Use current_session passed from the route #}
+<h2 class="text-3xl font-semibold mb-4">Manage Session: {{ current_session.name }}</h2>
+
+<div class="mb-6 flex items-center flex-wrap space-x-2 space-y-2 md:space-y-0"> {# Added flex-wrap and spacing #}
+     {# Use current_session passed from the route #}
+    <span class="text-xl font-mono bg-gray-200 px-3 py-1 rounded">Code: {{ current_session.code }}</span>
+     {# Use current_session passed from the route #}
+    <button data-url="{{ url_for('api_toggle_session', session_id=current_session.id) }}" data-item-type="session"
+            class="action-button toggle-button {{ 'active' if current_session.active else 'inactive' }}">
+        {{ 'Deactivate' if current_session.active else 'Activate' }}
+    </button>
+     {# Use current_session passed from the route #}
+    <a href="{{ url_for('present_mode', session_id=current_session.id) }}" class="action-button bg-purple-500 hover:bg-purple-600">Present Mode</a>
+     {# Use current_session passed from the route #}
+    <a href="{{ url_for('export_session_results', session_id=current_session.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export Session Results</a>
+     {# Archive Button #}
+     <button data-url="{{ url_for('api_archive_session', session_id=current_session.id) }}" data-item-type="session"
+             class="action-button archive-button">
+         Archive
+     </button>
+</div>
+
+<div class="mb-8 bg-white p-4 rounded-lg shadow">
+    <h3 class="text-xl font-semibold mb-2">Join Info</h3>
+    <p class="text-gray-700">Share this code or QR code with your audience:</p>
+    {# join_url is passed separately from the route #}
+    <p><a href="{{ join_url }}" target="_blank" class="text-indigo-600 hover:underline">{{ join_url }}</a></p>
+    {# qr_code_data_url is passed separately from the route #}
+    {% if qr_code_data_url %}
+    <img src="{{ qr_code_data_url }}" alt="Session QR Code" class="mt-2 w-32 h-32 border rounded">
+    {% else %}
+    <p class="text-red-500">Could not generate QR code.</p>
+    {% endif %}
+</div>
+
+<h3 class="text-xl font-semibold mb-4">Questions</h3>
+<div class="mb-6 space-x-2"> {# Question creation buttons #}
+     {# Use current_session passed from the route #}
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multiple_choice') }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm">New Multiple Choice</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='word_cloud') }}" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded text-sm">New Word Cloud</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='rating') }}" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-3 rounded text-sm">New Rating Scale</a>
+</div>
+
+{# Use questions variable passed from route #}
+{% if questions %}
+<ul class="space-y-3">
+    {% for q in questions %}
+    <li class="bg-white p-4 rounded-lg shadow">
+        <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+            <span class="text-lg mb-2 sm:mb-0">#{{ loop.index }}. [{{ q.type.replace('_', ' ').title() }}] {{ q.title }}</span>
+            <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
+                <a href="{{ url_for('view_question_results', question_id=q.id) }}" class="text-indigo-600 hover:underline text-xs mr-2">Results</a>
+                <a href="{{ url_for('export_question_results', question_id=q.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export</a>
+                <button data-url="{{ url_for('api_toggle_question', question_id=q.id) }}" data-item-type="question"
+                        class="action-button toggle-button {{ 'active' if q.active else 'inactive' }}">
+                    {{ 'Deactivate' if q.active else 'Activate' }}
+                </button>
+                {# Add Edit/Delete buttons later if needed #}
+            </div>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-gray-500">No questions added yet.</p>
+{% endif %}
+
+{% endblock %}
+

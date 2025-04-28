@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block title %}My Sessions{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6 flex-wrap"> {# Added flex-wrap #}
+    <h2 class="text-3xl font-semibold mb-2 md:mb-0">Your Sessions (Active & Inactive)</h2>
+    <div>
+        <a href="{{ url_for('new_session') }}" class="action-button bg-indigo-600 hover:bg-indigo-700 mr-2">
+            Create New Session
+        </a>
+        <a href="{{ url_for('list_archived_sessions') }}" class="action-button bg-gray-500 hover:bg-gray-600">
+            View Archived
+        </a>
+    </div>
+</div>
+
+{% if sessions %}
+<ul class="space-y-3">
+    {% for s in sessions %}
+    <li class="bg-white p-4 rounded-lg shadow">
+        <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+            <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
+                <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-indigo-700 hover:underline">{{ s.name }}</a>
+                <span class="ml-2 text-xs font-semibold {{ 'text-green-600' if s.active else 'text-red-600' }}">
+                    ({{ 'Active' if s.active else 'Inactive' }})
+                </span>
+                <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
+                <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
+            </div>
+            <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
+                 <a href="{{ url_for('present_mode', session_id=s.id) }}" class="action-button bg-green-500 hover:bg-green-600">Present</a>
+                 <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
+                 <a href="{{ url_for('export_session_results', session_id=s.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export</a>
+                 {# Archive Button #}
+                 <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
+                         class="action-button archive-button">
+                     Archive
+                 </button>
+            </div>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-gray-500">You haven't created any non-archived sessions yet.</p>
+{% endif %}
+{% endblock %}
+

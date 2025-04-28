@@ -1,32 +1,30 @@
 {% extends "layout.html" %}
-
-{% block title %}Login - ClassPulse{% endblock %}
+{% block title %}Presenter Login{% endblock %}
 
 {% block content %}
-<section class="auth-form">
-    <h2>Login to ClassPulse</h2>
-    
-    {% if error %}
-    <div class="alert alert-error">
-        {{ error }}
+<h2 class="text-2xl font-semibold mb-6 text-center">Presenter Login</h2>
+<form action="{{ url_for('login') }}" method="post" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+    <div class="mb-4">
+        <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+        <input type="text" id="username" name="username" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+               value="{{ username or '' }}">
     </div>
-    {% endif %}
-    
-    <form action="{{ url_for('login') }}" method="post">
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
-        </div>
-        
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        
-        <div class="form-actions">
-            <button type="submit" class="btn primary">Login</button>
-        </div>
-    </form>
-</section>
+    <div class="mb-6">
+        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+        <input type="password" id="password" name="password" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    </div>
+    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+        Login
+    </button>
+</form>
+<p class="text-center mt-4 text-sm">
+    <a href="{{ url_for('join') }}" class="text-indigo-600 hover:text-indigo-800">Or join a session as audience</a>
+</p>
+{# Link to registration page #}
+<p class="text-center mt-2 text-sm">
+    Don't have an account? <a href="{{ url_for('register') }}" class="text-indigo-600 hover:text-indigo-800">Register here</a>
+</p>
 {% endblock %}
 

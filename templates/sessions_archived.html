@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block title %}Archived Sessions{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6 flex-wrap"> {# Added flex-wrap #}
+    <h2 class="text-3xl font-semibold mb-2 md:mb-0">Archived Sessions</h2>
+    <a href="{{ url_for('list_sessions') }}" class="action-button bg-indigo-600 hover:bg-indigo-700">
+        View Active/Inactive Sessions
+    </a>
+</div>
+
+{% if sessions %}
+<ul class="space-y-3">
+    {% for s in sessions %}
+    <li class="bg-gray-200 p-4 rounded-lg shadow"> {# Different background for archived #}
+        <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+            <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
+                <span class="text-lg font-medium text-gray-600">{{ s.name }}</span> {# No link for archived #}
+                <span class="ml-2 text-xs font-semibold text-gray-500">(Archived)</span>
+                <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
+                <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
+            </div>
+            <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
+                 <a href="{{ url_for('export_session_results', session_id=s.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export</a>
+                 {# Unarchive Button #}
+                 <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
+                         class="action-button unarchive-button">
+                     Unarchive
+                 </button>
+                 {# Add Delete button later if needed #}
+            </div>
+        </div>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-gray-500">You haven't archived any sessions yet.</p>
+{% endif %}
+{% endblock %}
+

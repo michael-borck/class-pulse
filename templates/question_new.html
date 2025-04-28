@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% set page_title = q_type.replace('_', ' ').title() + ' Question' %}
+{% block title %}New {{ page_title }}{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-6 text-center">Create {{ page_title }}</h2>
+<div class="mb-4">
+     {# FIX: Use current_session passed from the route #}
+     <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="text-indigo-600 hover:underline">&laquo; Back to Session: {{ current_session.name }}</a>
+</div>
+
+{# FIX: Use current_session passed from the route in action URL #}
+<form action="{{ url_for('new_question', session_id=current_session.id, q_type=q_type) }}" method="post" class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
+    {# Common field: Title #}
+    <div class="mb-4">
+        <label for="title" class="block text-sm font-medium text-gray-700">Question Title</label>
+        <input type="text" id="title" name="title" required placeholder="Enter your question"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+               value="{{ title or '' }}">
+    </div>
+
+    {# Type-specific fields #}
+    {% if q_type == 'multiple_choice' %}
+    <div class="mb-4">
+        <label for="options" class="block text-sm font-medium text-gray-700">Options (one per line)</label>
+        <textarea id="options" name="options" required rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{{ options or '' }}</textarea>
+    </div>
+    {% elif q_type == 'rating' %}
+    <div class="mb-4">
+        <label for="max_rating" class="block text-sm font-medium text-gray-700">Maximum Rating</label>
+        <input type="number" id="max_rating" name="max_rating" value="{{ max_rating or 5 }}" min="2" max="10" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    </div>
+    {% elif q_type == 'word_cloud' %}
+        {# No extra fields needed #}
+         <p class="text-sm text-gray-500 mb-4">Audience members will be able to submit words or short phrases.</p>
+    {% endif %}
+
+    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+        Create Question
+    </button>
+</form>
+{% endblock %}
+
