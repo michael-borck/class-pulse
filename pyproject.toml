@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "classpulse"
+version = "0.1.0"
+description = "Real-time audience engagement web application"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "ClassPulse Team"}
+]
+dependencies = [
+    "flask>=2.2.0",
+    "flask-sqlalchemy>=3.0.0",
+    "flask-socketio>=5.3.0",
+    "pillow>=9.0.0",
+    "qrcode>=7.3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+prod = [
+    "gunicorn>=20.1.0",
+    "eventlet>=0.33.3",
+    "psycopg2-binary>=2.9.5",
+    "python-dotenv>=1.0.0",
+    "flask-migrate>=4.0.0",
+]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "instance",
+]
+
+[tool.ruff.isort]
+known-first-party = ["classpulse"]
+force-single-line = false
+
+[tool.ruff.flake8-bugbear]
+extend-immutable-calls = ["flask.url_for", "flask.render_template"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = ["flask_sqlalchemy.*", "flask_socketio.*", "qrcode.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--cov=classpulse --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["classpulse"]
+omit = ["tests/*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+pip = { custom-compile-command = "pip-compile" }
