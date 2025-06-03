@@ -1,0 +1,19 @@
+[Unit]
+Description=ClassPulse Web Application
+After=network.target
+
+[Service]
+Type=forking
+User=michael
+Group=michael
+WorkingDirectory=/home/michael/projects/class-pulse
+Environment="PATH=/home/michael/projects/class-pulse/venv/bin"
+ExecStart=/home/michael/projects/class-pulse/start.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=classpulse
+
+[Install]
+WantedBy=multi-user.target
