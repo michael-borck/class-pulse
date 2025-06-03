@@ -4,28 +4,12 @@ services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@db/classpulse
       - SECRET_KEY=${SECRET_KEY:-default_key_change_me}
-      - SOCKETIO_ASYNC_MODE=eventlet
-    depends_on:
-      - db
+      - SOCKETIO_ASYNC_MODE=threading
     volumes:
       - ./instance:/app/instance
     restart: unless-stopped
-    command: gunicorn --workers=3 --bind=0.0.0.0:8000 --worker-class=eventlet 'wsgi:application'
-
-  db:
-    image: postgres:14-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=classpulse
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
+    command: gunicorn --workers=4 --bind=0.0.0.0:5000 --worker-class=gthread --threads=2 'wsgi:application'

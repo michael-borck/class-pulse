@@ -1,15 +1,19 @@
 # ClassPulse Deployment Guide
 
-This guide explains how to deploy ClassPulse as a systemd service on Ubuntu/Debian systems.
+This guide explains multiple ways to deploy ClassPulse:
+1. As a systemd service (production)
+2. Using Docker and Docker Compose
+3. Using the Makefile for quick setup
+4. Manual development setup
 
 ## Prerequisites
 
 - Python 3.8 or higher
 - Git
-- System with systemd (Ubuntu, Debian, etc.)
-- User with sudo privileges
+- For systemd: Ubuntu/Debian system with sudo privileges
+- For Docker: Docker and Docker Compose installed
 
-## Installation Steps
+## Method 1: Systemd Service (Recommended for Production)
 
 ### 1. Clone the Repository
 
@@ -101,9 +105,146 @@ sudo journalctl -u classpulse -f
 sudo journalctl -u classpulse --since today
 ```
 
+## Method 2: Docker Deployment
+
+Docker provides an isolated environment and is great for containerized deployments.
+
+### 1. Clone and Navigate to Repository
+
+```bash
+git clone https://github.com/michael-borck/class-pulse.git
+cd class-pulse
+```
+
+### 2. Build and Run with Docker Compose
+
+```bash
+# Build and start the application
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the application
+docker-compose down
+```
+
+### 3. Alternative: Build and Run with Docker
+
+```bash
+# Build the Docker image
+docker build -t classpulse:latest .
+
+# Run the container
+docker run -d \
+  -p 5000:5000 \
+  -v $(pwd)/instance:/app/instance \
+  -e SECRET_KEY=your-secret-key-here \
+  --name classpulse \
+  classpulse:latest
+
+# View logs
+docker logs -f classpulse
+
+# Stop the container
+docker stop classpulse
+docker rm classpulse
+```
+
+## Method 3: Using Makefile
+
+The Makefile provides convenient commands for both development and production setup.
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/michael-borck/class-pulse.git
+cd class-pulse
+```
+
+### 2. Setup Commands
+
+```bash
+# Development setup (includes dev tools)
+make setup
+
+# Production setup
+make setup-prod
+
+# Run development server
+make run
+
+# Run production server with gunicorn
+make prod
+
+# Initialize database
+make db-init
+
+# Run linting and formatting
+make lint
+make format
+
+# Clean up cache files
+make clean
+```
+
+### 3. Docker Commands via Makefile
+
+```bash
+# Build Docker image
+make docker-build
+
+# Start with Docker Compose
+make docker-up
+
+# Stop Docker Compose
+make docker-down
+```
+
+## Method 4: Manual Development Setup
+
+For development or testing purposes, you can run the application manually.
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/michael-borck/class-pulse.git
+cd class-pulse
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. Initialize Database
+
+```bash
+python -c "from app import app, db; app.app_context().push(); db.create_all()"
+```
+
+### 5. Run the Application
+
+```bash
+# Development server
+python app.py
+
+# Production server with gunicorn
+gunicorn --workers=4 --bind=0.0.0.0:5000 --worker-class=gthread --threads=2 wsgi:application
+```
+
 ## Accessing the Application
 
-Once the service is running, you can access ClassPulse at:
+Regardless of the deployment method, you can access ClassPulse at:
 - Local: http://localhost:5000
 - Network: http://YOUR_SERVER_IP:5000
 
@@ -142,7 +283,7 @@ If port 5000 is already in use, either:
 
 ## Updating the Application
 
-To update ClassPulse:
+### For Systemd Service
 
 ```bash
 # Stop the service
@@ -154,6 +295,33 @@ git pull
 
 # Restart the service
 sudo systemctl start classpulse
+```
+
+### For Docker
+
+```bash
+# Pull latest changes
+git pull
+
+# Rebuild and restart
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
+
+### For Manual Setup
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Pull latest changes
+git pull
+
+# Update dependencies
+pip install -r requirements.txt
+
+# Restart your application
 ```
 
 ## Security Considerations

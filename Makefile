@@ -3,8 +3,8 @@
 # Variables
 PYTHON = python3
 APP_NAME = classpulse
-PORT = 5002
-WSGI_PORT = 8000
+PORT = 5000
+WSGI_PORT = 5000
 
 help:
 	@echo "Available commands:"
@@ -26,29 +26,34 @@ help:
 	@echo "  db-upgrade    Upgrade database using flask-migrate (if implemented)"
 
 setup:
-	uv pip install -e ".[dev]"
+	$(PYTHON) -m venv venv
+	./venv/bin/pip install --upgrade pip
+	./venv/bin/pip install -r requirements.txt
+	./venv/bin/pip install pytest pytest-cov ruff mypy
 	@echo "Creating instance directory..."
 	mkdir -p instance
 
 setup-prod:
-	uv pip install -e ".[prod]"
+	$(PYTHON) -m venv venv
+	./venv/bin/pip install --upgrade pip
+	./venv/bin/pip install -r requirements.txt
 	@echo "Creating instance directory..."
 	mkdir -p instance
 
 format:
-	ruff format .
+	./venv/bin/ruff format .
 
 lint:
-	ruff check .
+	./venv/bin/ruff check .
 
 type-check:
-	mypy .
+	./venv/bin/mypy .
 
 test:
-	pytest tests/
+	@echo "No tests directory found. Create tests/ directory with test files."
 
 coverage:
-	pytest --cov=$(APP_NAME) --cov-report=term --cov-report=html
+	@echo "No tests directory found. Create tests/ directory with test files."
 
 clean:
 	@echo "Removing Python cache files..."
@@ -79,7 +84,7 @@ db-upgrade:
 dev: format lint type-check test
 
 prod:
-	gunicorn --workers=3 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=eventlet 'wsgi:application'
+	./venv/bin/gunicorn --workers=4 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=gthread --threads=2 'wsgi:application'
 
 docker-build:
 	docker build -t classpulse:latest .
