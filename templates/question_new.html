@@ -9,6 +9,27 @@
      <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="text-indigo-600 hover:underline">&laquo; Back to Session: {{ current_session.name }}</a>
 </div>
 
+{# AI Generation Section #}
+{% if current_user and current_user.ai_enabled %}
+<div class="max-w-lg mx-auto bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg shadow-md mb-6">
+    <h3 class="text-lg font-semibold mb-4 text-purple-800">✨ Generate with AI</h3>
+    <div class="mb-4">
+        <input type="text" id="ai-prompt" 
+               placeholder="Describe your question (e.g., 'multiple choice about hard disk sector size')"
+               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
+    </div>
+    <button type="button" onclick="generateWithAI()" 
+            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md mr-2">
+        Generate Question
+    </button>
+    <button type="button" onclick="clearForm()" 
+            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md">
+        Clear Form
+    </button>
+    <div id="ai-status" class="mt-3 text-sm hidden"></div>
+</div>
+{% endif %}
+
 {# FIX: Use current_session passed from the route in action URL #}
 <form action="{{ url_for('new_question', session_id=current_session.id, q_type=q_type) }}" method="post" class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
     {# Common field: Title #}
@@ -41,5 +62,120 @@
         Create Question
     </button>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function generateWithAI() {
+    const prompt = document.getElementById('ai-prompt').value.trim();
+    const statusDiv = document.getElementById('ai-status');
+    
+    if (!prompt) {
+        alert('Please enter a description for your question');
+        return;
+    }
+    
+    // Show loading status
+    statusDiv.className = 'mt-3 text-sm text-blue-600';
+    statusDiv.innerHTML = '⏳ Generating question with AI...';
+    statusDiv.classList.remove('hidden');
+    
+    fetch('{{ url_for("api_test_ai_generation") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: prompt })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Check if generated type matches current page type
+            const currentType = '{{ q_type }}';
+            if (data.question_type !== currentType) {
+                // Redirect to correct question type page
+                const newUrl = '{{ url_for("new_question", session_id=current_session.id, q_type="PLACEHOLDER") }}'.replace('PLACEHOLDER', data.question_type);
+                window.location.href = newUrl + '?ai_title=' + encodeURIComponent(data.title) + 
+                                     '&ai_options=' + encodeURIComponent(JSON.stringify(data.options));
+                return;
+            }
+            
+            // Fill form with generated data
+            fillFormWithAIData(data);
+            
+            statusDiv.className = 'mt-3 text-sm text-green-600';
+            statusDiv.innerHTML = '✅ Question generated successfully! Review and edit as needed.';
+        } else {
+            statusDiv.className = 'mt-3 text-sm text-red-600';
+            statusDiv.innerHTML = '❌ ' + data.error;
+        }
+    })
+    .catch(error => {
+        statusDiv.className = 'mt-3 text-sm text-red-600';
+        statusDiv.innerHTML = '❌ Error: ' + error.message;
+    });
+}
+
+function fillFormWithAIData(data) {
+    // Fill title
+    document.getElementById('title').value = data.title;
+    
+    // Fill type-specific fields
+    const currentType = '{{ q_type }}';
+    if (currentType === 'multiple_choice' && Array.isArray(data.options)) {
+        document.getElementById('options').value = data.options.join('\n');
+    } else if (currentType === 'rating' && data.options && data.options.max_rating) {
+        document.getElementById('max_rating').value = data.options.max_rating;
+    }
+}
+
+function clearForm() {
+    document.getElementById('title').value = '';
+    {% if q_type == 'multiple_choice' %}
+    document.getElementById('options').value = '';
+    {% elif q_type == 'rating' %}
+    document.getElementById('max_rating').value = '5';
+    {% endif %}
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-status').classList.add('hidden');
+}
+
+// Check for AI data in URL parameters (from redirects)
+window.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const aiTitle = urlParams.get('ai_title');
+    const aiOptions = urlParams.get('ai_options');
+    
+    if (aiTitle) {
+        document.getElementById('title').value = decodeURIComponent(aiTitle);
+        
+        if (aiOptions) {
+            try {
+                const options = JSON.parse(decodeURIComponent(aiOptions));
+                const currentType = '{{ q_type }}';
+                
+                if (currentType === 'multiple_choice' && Array.isArray(options)) {
+                    document.getElementById('options').value = options.join('\n');
+                } else if (currentType === 'rating' && options.max_rating) {
+                    document.getElementById('max_rating').value = options.max_rating;
+                }
+            } catch (e) {
+                console.error('Error parsing AI options:', e);
+            }
+        }
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Show success message
+        const statusDiv = document.getElementById('ai-status');
+        if (statusDiv) {
+            statusDiv.className = 'mt-3 text-sm text-green-600';
+            statusDiv.innerHTML = '✅ Question generated with AI! Review and edit as needed.';
+            statusDiv.classList.remove('hidden');
+        }
+    }
+});
+</script>
 {% endblock %}
 

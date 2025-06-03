@@ -25,6 +25,12 @@
                             class="action-button archive-button">
                         Archive
                     </button>
+                    {# Delete Button #}
+                    <button data-url="{{ url_for('api_delete_session', session_id=s.id) }}" data-item-type="session"
+                            class="action-button bg-red-500 hover:bg-red-600 delete-button"
+                            onclick="return confirm('Are you sure? This will permanently delete the session if it has no responses, or move it to trash if it has responses.')">
+                        Delete
+                    </button>
                 </div>
             </div>
         </li>
@@ -53,6 +59,12 @@
                      <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
                              class="action-button archive-button">
                          Archive
+                     </button>
+                     {# Delete Button #}
+                     <button data-url="{{ url_for('api_delete_session', session_id=s.id) }}" data-item-type="session"
+                             class="action-button bg-red-500 hover:bg-red-600 delete-button"
+                             onclick="return confirm('Are you sure? This will permanently delete the session if it has no responses, or move it to trash if it has responses.')">
+                         Delete
                      </button>
                  </div>
             </div>

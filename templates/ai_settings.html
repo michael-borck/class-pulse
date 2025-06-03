@@ -1,0 +1,159 @@
+{% extends "layout.html" %}
+{% block title %}AI Settings{% endblock %}
+
+{% block content %}
+<h2 class="text-3xl font-semibold mb-6">AI Question Generation Settings</h2>
+
+<div class="bg-white p-6 rounded-lg shadow-md max-w-2xl">
+    <form method="post">
+        {# AI Enabled Toggle #}
+        <div class="mb-6">
+            <label class="flex items-center">
+                <input type="checkbox" name="ai_enabled" value="1" 
+                       class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                       {{ 'checked' if user.ai_enabled }}>
+                <span class="text-lg font-medium">Enable AI Question Generation</span>
+            </label>
+            <p class="text-sm text-gray-600 mt-1">Use AI to automatically generate questions from simple prompts</p>
+        </div>
+
+        {# Provider Preference #}
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Preferred Provider</label>
+            <select name="preferred_provider" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="ollama" {{ 'selected' if user.preferred_provider == 'ollama' }}>Ollama (Local) - Try first</option>
+                <option value="cloud" {{ 'selected' if user.preferred_provider == 'cloud' }}>Cloud API - Try first</option>
+            </select>
+            <p class="text-sm text-gray-600 mt-1">System will fallback to the other provider if the preferred one fails</p>
+        </div>
+
+        <hr class="my-6">
+
+        {# Cloud API Configuration #}
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-4">Cloud API Configuration</h3>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">API URL</label>
+                <input type="url" name="cloud_api_url" 
+                       value="{{ user.cloud_api_url or 'https://api.openai.com/v1' }}"
+                       placeholder="https://api.openai.com/v1"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p class="text-sm text-gray-600 mt-1">OpenAI-compatible API endpoint</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                <input type="password" name="cloud_api_key" 
+                       value="{{ masked_api_key }}"
+                       placeholder="sk-..."
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p class="text-sm text-gray-600 mt-1">Your API key (encrypted when stored)</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                <input type="text" name="cloud_model" 
+                       value="{{ user.cloud_model or 'gpt-3.5-turbo' }}"
+                       placeholder="gpt-3.5-turbo"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p class="text-sm text-gray-600 mt-1">Model name (e.g., gpt-3.5-turbo, gpt-4, claude-3-sonnet)</p>
+            </div>
+        </div>
+
+        <hr class="my-6">
+
+        {# Ollama Configuration #}
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold mb-4">Ollama Configuration</h3>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ollama URL</label>
+                <input type="url" name="ollama_url" 
+                       value="{{ user.ollama_url or 'http://localhost:11434' }}"
+                       placeholder="http://localhost:11434"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p class="text-sm text-gray-600 mt-1">Local Ollama server URL</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                <input type="text" name="ollama_model" 
+                       value="{{ user.ollama_model or 'llama3.2' }}"
+                       placeholder="llama3.2"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p class="text-sm text-gray-600 mt-1">Ollama model name (must be installed locally)</p>
+            </div>
+        </div>
+
+        {# Submit Button #}
+        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
+            Save Settings
+        </button>
+    </form>
+</div>
+
+{# Test Connection Section #}
+<div class="bg-gray-50 p-6 rounded-lg shadow-md max-w-2xl mt-6">
+    <h3 class="text-lg font-semibold mb-4">Test AI Generation</h3>
+    <div id="test-section">
+        <input type="text" id="test-prompt" 
+               placeholder="Enter a test prompt (e.g., 'multiple choice question about hard disk sector size')"
+               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 mb-3">
+        <button type="button" onclick="testAIGeneration()" 
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md mr-2">
+            Test Generation
+        </button>
+        <div id="test-result" class="mt-4 p-3 rounded border hidden"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function testAIGeneration() {
+    const prompt = document.getElementById('test-prompt').value.trim();
+    const resultDiv = document.getElementById('test-result');
+    
+    if (!prompt) {
+        alert('Please enter a test prompt');
+        return;
+    }
+    
+    resultDiv.className = 'mt-4 p-3 rounded border';
+    resultDiv.innerHTML = '<div class="text-blue-600">⏳ Generating question...</div>';
+    resultDiv.classList.remove('hidden');
+    
+    fetch('{{ url_for("api_test_ai_generation") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: prompt })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.className = 'mt-4 p-3 rounded border bg-green-50 border-green-200';
+            resultDiv.innerHTML = `
+                <div class="text-green-800">
+                    <strong>✅ Success!</strong><br>
+                    <strong>Type:</strong> ${data.question_type}<br>
+                    <strong>Question:</strong> ${data.title}<br>
+                    <strong>Options:</strong> ${JSON.stringify(data.options, null, 2)}<br>
+                    <strong>Confidence:</strong> ${data.confidence}
+                </div>
+            `;
+        } else {
+            resultDiv.className = 'mt-4 p-3 rounded border bg-red-50 border-red-200';
+            resultDiv.innerHTML = `<div class="text-red-800"><strong>❌ Error:</strong> ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        resultDiv.className = 'mt-4 p-3 rounded border bg-red-50 border-red-200';
+        resultDiv.innerHTML = `<div class="text-red-800"><strong>❌ Error:</strong> ${error.message}</div>`;
+    });
+}
+</script>
+{% endblock %}

@@ -71,6 +71,7 @@
                     <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Dashboard</a>
                     <a href="{{ url_for('list_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Sessions</a>
                     <a href="{{ url_for('list_archived_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Archived</a> {# Link to archived #}
+                    <a href="{{ url_for('ai_settings') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">AI Settings</a>
                     {# Use is_admin injected by context processor #}
                     {% if is_admin %}
                          <a href="{{ url_for('admin_manage_users') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Manage Users</a>
@@ -170,6 +171,11 @@
             if (button.classList.contains('unarchive-button')) actionType = 'unarchive';
             if (button.classList.contains('verify-button')) actionType = 'verify';
             if (button.classList.contains('unverify-button')) actionType = 'unverify';
+            if (button.classList.contains('delete-button')) {
+                // Delete buttons already have their own onclick confirmation
+                // Skip additional confirmation here
+                actionType = '';
+            }
 
              if (actionType) {
                  confirmAction = confirm(`Are you sure you want to ${actionType} this ${button.dataset.itemType || 'item'}?`);
@@ -230,6 +236,9 @@
                             // Handle API error reported in JSON
                             console.error("API action failed:", data.message || "Unknown error");
                             alert("Action failed: " + (data.message || "Unknown error"));
+                        } else if (data && data.success && button.classList.contains('delete-button')) {
+                            // Handle successful deletion - reload page to reflect changes
+                            window.location.reload();
                         }
                     })
                     .catch(error => {

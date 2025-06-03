@@ -25,6 +25,8 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import qrcode as qr_code_lib
 from PIL import Image
 import base64
+import requests
+from cryptography.fernet import Fernet
 
 # --- Flask App Configuration ---
 app = Flask(__name__)
@@ -48,6 +50,14 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False) # New: Admin flag
     is_verified = db.Column(db.Boolean, default=False, nullable=False) # New: Verification flag
     is_archived = db.Column(db.Boolean, default=False, nullable=False) # New: Archive flag
+    # AI Configuration fields
+    ai_enabled = db.Column(db.Boolean, default=True, nullable=False)
+    cloud_api_url = db.Column(db.String(255), default='https://api.openai.com/v1')
+    cloud_api_key = db.Column(db.Text) # Encrypted storage
+    cloud_model = db.Column(db.String(100), default='gpt-3.5-turbo')
+    ollama_url = db.Column(db.String(255), default='http://localhost:11434')
+    ollama_model = db.Column(db.String(100), default='llama3.2')
+    preferred_provider = db.Column(db.String(20), default='ollama') # 'cloud' or 'ollama'
     sessions = db.relationship('Session', backref='creator', lazy=True)
 
 class Session(db.Model):
@@ -58,6 +68,7 @@ class Session(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     active = db.Column(db.Boolean, default=True, nullable=False)
     archived = db.Column(db.Boolean, default=False, nullable=False) # New field for archiving
+    deleted = db.Column(db.Boolean, default=False, nullable=False) # New field for soft deletion
     questions = db.relationship('Question', backref='session', lazy=True, order_by='Question.order, Question.created_at')
     responses = db.relationship('Response', backref='session', lazy=True)
 
@@ -84,6 +95,10 @@ class Response(db.Model):
 DEFAULT_ADMIN_USER = "admin"
 DEFAULT_ADMIN_PASS = "admin123" # Change this!
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
+
+# AI Configuration
+ENCRYPTION_KEY = base64.urlsafe_b64encode(secrets.token_bytes(32))
+fernet = Fernet(ENCRYPTION_KEY)
 
 # Basic English stop words list (can be expanded)
 STOP_WORDS = set([
@@ -180,6 +195,148 @@ def verify_password(stored_password_hash: str, provided_password: str) -> bool:
         return secrets.compare_digest(stored_hash, provided_hash)
     except (ValueError, IndexError):
         return False
+
+# --- AI Service Functions ---
+
+def encrypt_api_key(api_key: str) -> str:
+    """Encrypts an API key for storage."""
+    if not api_key:
+        return ""
+    return fernet.encrypt(api_key.encode()).decode()
+
+def decrypt_api_key(encrypted_key: str) -> str:
+    """Decrypts an API key from storage."""
+    if not encrypted_key:
+        return ""
+    try:
+        return fernet.decrypt(encrypted_key.encode()).decode()
+    except Exception:
+        return ""
+
+def call_ollama_api(url: str, model: str, prompt: str) -> Dict[str, Any]:
+    """Calls Ollama API for question generation."""
+    try:
+        response = requests.post(
+            f"{url}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json"
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        result = response.json()
+        return {"success": True, "response": result.get("response", "")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def call_openai_compatible_api(url: str, api_key: str, model: str, prompt: str) -> Dict[str, Any]:
+    """Calls OpenAI-compatible API for question generation."""
+    try:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(
+            f"{url}/chat/completions",
+            headers=headers,
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant that generates educational questions. Always respond with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 500
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        return {"success": True, "response": content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def parse_ai_response(response_text: str) -> Dict[str, Any]:
+    """Parses AI response and extracts question data."""
+    try:
+        # Try to extract JSON from response
+        import re
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group()
+            data = json.loads(json_str)
+            
+            # Validate required fields
+            if "question_type" in data and "title" in data:
+                question_type = data["question_type"].lower().replace(" ", "_")
+                if question_type in ["multiple_choice", "word_cloud", "rating"]:
+                    return {
+                        "success": True,
+                        "question_type": question_type,
+                        "title": data["title"][:255],  # Limit length
+                        "options": data.get("options", []),
+                        "confidence": data.get("confidence", 0.8)
+                    }
+        
+        return {"success": False, "error": "Could not parse valid question format from AI response"}
+    except Exception as e:
+        return {"success": False, "error": f"Error parsing AI response: {str(e)}"}
+
+def generate_question_prompt(user_input: str) -> str:
+    """Generates the prompt for AI question generation."""
+    return f"""Analyze this prompt and generate an educational question: '{user_input}'
+
+Respond in JSON format only:
+{{
+  "question_type": "multiple_choice" | "word_cloud" | "rating",
+  "title": "the question text (clear and concise)",
+  "options": [...] for multiple_choice, {{"max_rating": 5}} for rating, [] for word_cloud,
+  "confidence": 0.0-1.0
+}}
+
+Guidelines:
+- For multiple_choice: Include 4 realistic options in the "options" array
+- For word_cloud: Use a single prompt word/phrase that will generate interesting responses
+- For rating: Include max_rating in options object (typically 5 or 10)
+- Set confidence < 0.5 if the question type is unclear from the prompt
+- Keep questions educational and appropriate"""
+
+def generate_question_with_ai(user_input: str, user_id: int) -> Dict[str, Any]:
+    """Main function to generate a question using AI services."""
+    # Get user configuration
+    user = db.session.get(User, user_id)
+    if not user or not user.ai_enabled:
+        return {"success": False, "error": "AI question generation is disabled"}
+    
+    prompt = generate_question_prompt(user_input)
+    
+    # Try preferred provider first
+    if user.preferred_provider == "cloud" and user.cloud_api_key:
+        api_key = decrypt_api_key(user.cloud_api_key)
+        if api_key:
+            result = call_openai_compatible_api(
+                user.cloud_api_url or "https://api.openai.com/v1",
+                api_key,
+                user.cloud_model or "gpt-3.5-turbo",
+                prompt
+            )
+            if result["success"]:
+                return parse_ai_response(result["response"])
+    
+    # Fallback to Ollama
+    result = call_ollama_api(
+        user.ollama_url or "http://localhost:11434",
+        user.ollama_model or "llama3.2",
+        prompt
+    )
+    if result["success"]:
+        return parse_ai_response(result["response"])
+    
+    return {"success": False, "error": "All AI providers failed. Please check your configuration."}
 
 # Decorator for routes requiring login
 def login_required(f):
@@ -359,14 +516,72 @@ def register():
     # GET request
     return render_template('register.html')
 
+@app.route('/settings/ai', methods=['GET', 'POST'])
+@login_required
+def ai_settings():
+    """Handle AI configuration settings for users."""
+    user = g.user  # Set by @login_required decorator
+    
+    if request.method == 'POST':
+        # Update AI settings
+        user.ai_enabled = bool(request.form.get('ai_enabled'))
+        user.preferred_provider = request.form.get('preferred_provider', 'ollama')
+        
+        # Cloud API settings
+        user.cloud_api_url = request.form.get('cloud_api_url', '').strip() or 'https://api.openai.com/v1'
+        user.cloud_model = request.form.get('cloud_model', '').strip() or 'gpt-3.5-turbo'
+        
+        # Handle API key encryption
+        cloud_api_key = request.form.get('cloud_api_key', '').strip()
+        if cloud_api_key:
+            if cloud_api_key != "••••••••":  # Only update if not masked
+                user.cloud_api_key = encrypt_api_key(cloud_api_key)
+        elif not cloud_api_key:  # Empty field means clear the key
+            user.cloud_api_key = None
+        
+        # Ollama settings
+        user.ollama_url = request.form.get('ollama_url', '').strip() or 'http://localhost:11434'
+        user.ollama_model = request.form.get('ollama_model', '').strip() or 'llama3.2'
+        
+        try:
+            db.session.commit()
+            flash("AI settings updated successfully!", "success")
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error updating settings: {str(e)}", "danger")
+        
+        return redirect(url_for('ai_settings'))
+    
+    # GET request - prepare data for template
+    # Mask the API key for display
+    masked_api_key = "••••••••" if user.cloud_api_key else ""
+    
+    return render_template('ai_settings.html', 
+                         user=user, 
+                         masked_api_key=masked_api_key)
+
+@app.route('/api/test-ai-generation', methods=['POST'])
+@login_required
+def api_test_ai_generation():
+    """API endpoint to test AI question generation."""
+    try:
+        data = request.get_json()
+        if not data or 'prompt' not in data:
+            return jsonify({"success": False, "error": "No prompt provided"}), 400
+        
+        result = generate_question_with_ai(data['prompt'], session['user_id'])
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 # --- Presenter Routes ---
 @app.route('/')
 @login_required
 def dashboard():
     user_id = session['user_id'] # Use Flask session
-    # Filter out archived sessions
-    user_sessions = Session.query.filter_by(user_id=user_id, archived=False).order_by(Session.created_at.desc()).all()
+    # Filter out archived and deleted sessions
+    user_sessions = Session.query.filter_by(user_id=user_id, archived=False, deleted=False).order_by(Session.created_at.desc()).all()
     active_sessions = [s for s in user_sessions if s.active]
     inactive_sessions = [s for s in user_sessions if not s.active]
     # Optionally, get archived sessions for a separate view/link
@@ -380,8 +595,8 @@ def dashboard():
 @login_required
 def list_sessions():
     user_id = session['user_id'] # Use Flask session
-    # Filter out archived sessions
-    user_sessions = Session.query.filter_by(user_id=user_id, archived=False).order_by(Session.created_at.desc()).all()
+    # Filter out archived and deleted sessions
+    user_sessions = Session.query.filter_by(user_id=user_id, archived=False, deleted=False).order_by(Session.created_at.desc()).all()
     return render_template('sessions_list.html', sessions=user_sessions)
 
 # Optional: Route to view archived sessions
@@ -389,7 +604,7 @@ def list_sessions():
 @login_required
 def list_archived_sessions():
     user_id = session['user_id']
-    archived_sessions = Session.query.filter_by(user_id=user_id, archived=True).order_by(Session.created_at.desc()).all()
+    archived_sessions = Session.query.filter_by(user_id=user_id, archived=True, deleted=False).order_by(Session.created_at.desc()).all()
     return render_template('sessions_archived.html', sessions=archived_sessions) # Need to create this template
 
 
@@ -408,7 +623,8 @@ def new_session():
             code=code,
             user_id=session['user_id'], # Use Flask session
             active=True,
-            archived=False # Explicitly set archived to False
+            archived=False, # Explicitly set archived to False
+            deleted=False  # Explicitly set deleted to False
         )
         db.session.add(new_session)
         db.session.commit()
@@ -423,10 +639,13 @@ def manage_session(session_id):
     # Query using Flask session for user_id
     # Use 'current_session' to avoid conflict with Flask session
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-    # Don't show archived sessions via direct URL unless intended
+    # Don't show archived or deleted sessions via direct URL unless intended
     if current_session.archived:
         flash("This session is archived.", "info")
         return redirect(url_for('list_sessions')) # Or redirect to archived list
+    if current_session.deleted:
+        flash("This session has been deleted.", "warning")
+        return redirect(url_for('list_sessions'))
 
     # Use 'code' instead of 'session_code' in url_for
     join_url = url_for('audience_view', code=current_session.code, _external=True)
@@ -444,10 +663,13 @@ def present_mode(session_id):
     # Query using Flask session for user_id
     # Use 'current_session' to avoid conflict with Flask session
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-    # Prevent presenting archived sessions
+    # Prevent presenting archived or deleted sessions
     if current_session.archived:
         flash("Cannot present an archived session.", "warning")
         return redirect(url_for('manage_session', session_id=session_id))
+    if current_session.deleted:
+        flash("Cannot present a deleted session.", "warning")
+        return redirect(url_for('list_sessions'))
 
     active_questions = [q for q in current_session.questions if q.active]
     # Use 'code' instead of 'session_code' in url_for
@@ -468,10 +690,13 @@ def new_question(session_id, q_type):
     # Query using Flask session for user_id
     # RENAME db_session to current_session for clarity and consistency
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-    # Prevent adding questions to archived sessions
+    # Prevent adding questions to archived or deleted sessions
     if current_session.archived:
         flash("Cannot add questions to an archived session.", "warning")
         return redirect(url_for('manage_session', session_id=session_id))
+    if current_session.deleted:
+        flash("Cannot add questions to a deleted session.", "warning")
+        return redirect(url_for('list_sessions'))
 
     valid_types = ['multiple_choice', 'word_cloud', 'rating']
     if q_type not in valid_types:
@@ -544,9 +769,11 @@ def admin_manage_users():
 def api_toggle_session(session_id):
      # Query using Flask session for user_id
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-    # Cannot toggle archived sessions
+    # Cannot toggle archived or deleted sessions
     if current_session.archived:
          return jsonify({"success": False, "message": "Cannot toggle archived session."}), 400
+    if current_session.deleted:
+         return jsonify({"success": False, "message": "Cannot toggle deleted session."}), 400
     current_session.active = not current_session.active
     db.session.commit()
     # Return new status or updated HTML fragment if using HTMX
@@ -560,9 +787,11 @@ def api_toggle_question(question_id):
     if question.session.user_id != session['user_id']:
         # Return JSON error instead of aborting for API endpoint
         return jsonify({"success": False, "message": "Permission denied."}), 403
-    # Cannot toggle questions in archived sessions
+    # Cannot toggle questions in archived or deleted sessions
     if question.session.archived:
          return jsonify({"success": False, "message": "Cannot toggle question in archived session."}), 400
+    if question.session.deleted:
+         return jsonify({"success": False, "message": "Cannot toggle question in deleted session."}), 400
     question.active = not question.active
     db.session.commit()
     # Return new status or updated HTML fragment if using HTMX
@@ -573,6 +802,10 @@ def api_toggle_question(question_id):
 def api_archive_session(session_id):
     """API endpoint to toggle session archive status."""
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    # Cannot archive deleted sessions
+    if current_session.deleted:
+        flash("Cannot archive a deleted session.", "warning")
+        return redirect(url_for('list_sessions'))
     current_session.archived = not current_session.archived
     # Optionally deactivate when archiving
     if current_session.archived:
@@ -586,6 +819,66 @@ def api_archive_session(session_id):
     else:
         # If unarchiving, maybe redirect back to the archived list or the main list
         return redirect(request.referrer or url_for('list_archived_sessions'))
+
+@app.route('/api/questions/<int:question_id>/delete', methods=['POST'])
+@login_required
+def api_delete_question(question_id):
+    """API endpoint to delete a question (only if no responses exist)."""
+    question = Question.query.get_or_404(question_id)
+    # Verify ownership through Flask session
+    if question.session.user_id != session['user_id']:
+        return jsonify({"success": False, "message": "Permission denied."}), 403
+    
+    # Cannot delete questions in archived or deleted sessions
+    if question.session.archived or question.session.deleted:
+        return jsonify({"success": False, "message": "Cannot delete question in archived or deleted session."}), 400
+    
+    # Check if question has any responses
+    response_count = Response.query.filter_by(question_id=question_id).count()
+    if response_count > 0:
+        return jsonify({
+            "success": False, 
+            "message": f"Cannot delete question with {response_count} response(s). Deactivate instead."
+        }), 400
+    
+    # Safe to delete - no responses exist
+    session_id = question.session_id
+    question_title = question.title
+    db.session.delete(question)
+    db.session.commit()
+    
+    flash(f"Question '{question_title}' deleted successfully.", "success")
+    return jsonify({"success": True, "message": "Question deleted successfully."})
+
+@app.route('/api/sessions/<int:session_id>/delete', methods=['POST'])
+@login_required
+def api_delete_session(session_id):
+    """API endpoint to delete a session (soft delete with data, hard delete if empty)."""
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    
+    # Cannot delete already deleted sessions
+    if current_session.deleted:
+        return jsonify({"success": False, "message": "Session is already deleted."}), 400
+    
+    # Check if session has any responses
+    response_count = Response.query.filter_by(session_id=session_id).count()
+    
+    if response_count > 0:
+        # Soft delete - has responses, so preserve data
+        current_session.deleted = True
+        current_session.active = False  # Deactivate when soft deleting
+        db.session.commit()
+        flash(f"Session '{current_session.name}' moved to trash (has {response_count} responses).", "info")
+        return redirect(url_for('list_sessions'))
+    else:
+        # Hard delete - no responses, safe to permanently delete
+        session_name = current_session.name
+        # Delete all questions first (cascade should handle this, but being explicit)
+        Question.query.filter_by(session_id=session_id).delete()
+        db.session.delete(current_session)
+        db.session.commit()
+        flash(f"Session '{session_name}' permanently deleted (no responses).", "info")
+        return redirect(url_for('list_sessions'))
 
 
 # --- Admin API Routes ---
@@ -632,8 +925,8 @@ def api_toggle_archive_user(user_id):
 def join():
     if request.method == 'POST':
         code = request.form.get('code', '').upper()
-        # Use current_session as variable name, check not archived
-        current_session = Session.query.filter_by(code=code, active=True, archived=False).first()
+        # Use current_session as variable name, check not archived or deleted
+        current_session = Session.query.filter_by(code=code, active=True, archived=False, deleted=False).first()
 
         if current_session:
             # Generate respondent ID if not present
@@ -645,7 +938,7 @@ def join():
             response.set_cookie(RESPONDENT_COOKIE_NAME, respondent_id, max_age=60*60*24*30) # 30 days
             return response
         else:
-            flash("Invalid, inactive, or archived session code. Please try again.", "danger")
+            flash("Invalid, inactive, archived, or deleted session code. Please try again.", "danger")
             return render_template('join.html', code=code)
 
     return render_template('join.html')
@@ -654,10 +947,10 @@ def join():
 @app.route('/audience/<code>')
 def audience_view(code):
     session_code = code.upper()
-    # Use current_session as variable name, check not archived
-    current_session = Session.query.filter_by(code=session_code, active=True, archived=False).first()
+    # Use current_session as variable name, check not archived or deleted
+    current_session = Session.query.filter_by(code=session_code, active=True, archived=False, deleted=False).first()
     if not current_session:
-        flash("Session not found, is inactive, or has been archived.", "warning")
+        flash("Session not found, is inactive, archived, or has been deleted.", "warning")
         return redirect(url_for('join'))
 
     respondent_id = request.cookies.get(RESPONDENT_COOKIE_NAME)
@@ -682,8 +975,8 @@ def audience_view(code):
 @app.route('/audience/respond/<int:question_id>', methods=['POST'])
 def process_response(question_id):
     question = Question.query.get_or_404(question_id)
-    # Check if question or session is inactive or archived
-    if not question.active or not question.session.active or question.session.archived:
+    # Check if question or session is inactive, archived, or deleted
+    if not question.active or not question.session.active or question.session.archived or question.session.deleted:
         flash("Sorry, this question or session is no longer active.", "warning")
         return redirect(url_for('audience_view', code=question.session.code)) # Redirect back
 
