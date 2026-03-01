@@ -1,5 +1,9 @@
 # ClassPulse
 
+<!-- BADGES:START -->
+[![audience-engagement](https://img.shields.io/badge/-audience--engagement-blue?style=flat-square)](https://github.com/topics/audience-engagement) [![data-visualization](https://img.shields.io/badge/-data--visualization-blue?style=flat-square)](https://github.com/topics/data-visualization) [![flask](https://img.shields.io/badge/-flask-000000?style=flat-square)](https://github.com/topics/flask) [![html](https://img.shields.io/badge/-html-e34f26?style=flat-square)](https://github.com/topics/html) [![interactive-presentation](https://img.shields.io/badge/-interactive--presentation-blue?style=flat-square)](https://github.com/topics/interactive-presentation) [![python](https://img.shields.io/badge/-python-3776ab?style=flat-square)](https://github.com/topics/python) [![qr-code](https://img.shields.io/badge/-qr--code-blue?style=flat-square)](https://github.com/topics/qr-code) [![real-time](https://img.shields.io/badge/-real--time-blue?style=flat-square)](https://github.com/topics/real-time) [![user-management](https://img.shields.io/badge/-user--management-blue?style=flat-square)](https://github.com/topics/user-management) [![edtech](https://img.shields.io/badge/-edtech-4caf50?style=flat-square)](https://github.com/topics/edtech)
+<!-- BADGES:END -->
+
 ClassPulse is a real-time audience engagement web application built with Flask. It allows presenters to create interactive sessions with different question types and receive instant feedback from their audience.
 
 ## Features
