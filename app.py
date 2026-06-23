@@ -8,6 +8,9 @@ import hashlib
 import secrets
 import io
 import csv
+import socket
+import ipaddress
+from urllib.parse import urlparse
 from datetime import datetime # Added datetime import
 from typing import List, Dict, Optional, Tuple, Any
 from functools import wraps
@@ -25,6 +28,7 @@ from flask import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_wtf.csrf import CSRFProtect
 
 # External Libraries (Ensure these are installed)
 import qrcode as qr_code_lib
@@ -57,6 +61,12 @@ if _SECRET_KEY_IS_EPHEMERAL:
         "survive restarts and will break across multiple workers. Set SECRET_KEY "
         "in the environment (or .env) for any non-trivial deployment."
     )
+
+# --- CSRF Protection ---
+# Protects all state-changing requests (forms + AJAX). Tokens have no time limit
+# so long-lived presentation/audience pages don't fail mid-session on submit.
+app.config['WTF_CSRF_TIME_LIMIT'] = None
+csrf = CSRFProtect(app)
 
 # --- Database Setup (using Flask-SQLAlchemy) ---
 db = SQLAlchemy(app)
@@ -240,6 +250,38 @@ def decrypt_api_key(encrypted_key: str) -> str:
     except Exception:
         return ""
 
+def is_safe_ai_url(url: str) -> bool:
+    """SSRF guard for user-supplied AI provider URLs.
+
+    Allows only http/https and rejects hosts that resolve to link-local,
+    multicast, or unspecified addresses — most importantly the cloud metadata
+    endpoint 169.254.169.254. Loopback and private ranges are allowed on purpose
+    so a local Ollama (http://localhost:11434) and self-hosted internal models
+    keep working. (Note: link-local must be checked before any private/loopback
+    allowance, since ipaddress treats 169.254.0.0/16 as private too.)
+    """
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None)
+    except Exception:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
+            return False
+    return True
+
+
 def call_ollama_api(url: str, model: str, prompt: str) -> Dict[str, Any]:
     """Calls Ollama API for question generation."""
     try:
@@ -343,20 +385,24 @@ def generate_question_with_ai(user_input: str, user_id: int) -> Dict[str, Any]:
     
     # Try preferred provider first
     if user.preferred_provider == "cloud" and user.cloud_api_key:
+        cloud_url = user.cloud_api_url or "https://api.openai.com/v1"
         api_key = decrypt_api_key(user.cloud_api_key)
-        if api_key:
+        if api_key and is_safe_ai_url(cloud_url):
             result = call_openai_compatible_api(
-                user.cloud_api_url or "https://api.openai.com/v1",
+                cloud_url,
                 api_key,
                 user.cloud_model or "gpt-3.5-turbo",
                 prompt
             )
             if result["success"]:
                 return parse_ai_response(result["response"])
-    
+
     # Fallback to Ollama
+    ollama_url = user.ollama_url or "http://localhost:11434"
+    if not is_safe_ai_url(ollama_url):
+        return {"success": False, "error": "Configured AI provider URL is not allowed."}
     result = call_ollama_api(
-        user.ollama_url or "http://localhost:11434",
+        ollama_url,
         user.ollama_model or "llama3.2",
         prompt
     )
@@ -550,14 +596,23 @@ def ai_settings():
     user = g.user  # Set by @login_required decorator
     
     if request.method == 'POST':
+        # Validate provider URLs up front (SSRF guard) so bad values are never stored.
+        cloud_api_url = request.form.get('cloud_api_url', '').strip() or 'https://api.openai.com/v1'
+        ollama_url = request.form.get('ollama_url', '').strip() or 'http://localhost:11434'
+        for label, candidate in (("Cloud API URL", cloud_api_url), ("Ollama URL", ollama_url)):
+            if not is_safe_ai_url(candidate):
+                flash(f"{label} is not allowed (must be http/https and not a "
+                      "link-local/metadata address).", "danger")
+                return redirect(url_for('ai_settings'))
+
         # Update AI settings
         user.ai_enabled = bool(request.form.get('ai_enabled'))
         user.preferred_provider = request.form.get('preferred_provider', 'ollama')
-        
+
         # Cloud API settings
-        user.cloud_api_url = request.form.get('cloud_api_url', '').strip() or 'https://api.openai.com/v1'
+        user.cloud_api_url = cloud_api_url
         user.cloud_model = request.form.get('cloud_model', '').strip() or 'gpt-3.5-turbo'
-        
+
         # Handle API key encryption
         cloud_api_key = request.form.get('cloud_api_key', '').strip()
         if cloud_api_key:
@@ -567,7 +622,7 @@ def ai_settings():
             user.cloud_api_key = None
         
         # Ollama settings
-        user.ollama_url = request.form.get('ollama_url', '').strip() or 'http://localhost:11434'
+        user.ollama_url = ollama_url
         user.ollama_model = request.form.get('ollama_model', '').strip() or 'llama3.2'
         
         try:

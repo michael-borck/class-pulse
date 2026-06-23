@@ -32,6 +32,7 @@
 
 {# FIX: Use current_session passed from the route in action URL #}
 <form action="{{ url_for('new_question', session_id=current_session.id, q_type=q_type) }}" method="post" class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {# Common field: Title #}
     <div class="mb-4">
         <label for="title" class="block text-sm font-medium text-gray-700">Question Title</label>
@@ -84,6 +85,7 @@ function generateWithAI() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
         },
         body: JSON.stringify({ prompt: prompt })
     })

@@ -4,6 +4,7 @@
 {% block content %}
 <h2 class="text-2xl font-semibold mb-6 text-center">Create New Session</h2>
 <form action="{{ url_for('new_session') }}" method="post" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="mb-6">
         <label for="name" class="block text-sm font-medium text-gray-700">Session Name</label>
         <input type="text" id="name" name="name" required placeholder="e.g., Weekly Team Meeting"

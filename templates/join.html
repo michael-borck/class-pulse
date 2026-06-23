@@ -4,6 +4,7 @@
 {% block content %}
 <h2 class="text-2xl font-semibold mb-6 text-center">Join a Session</h2>
 <form action="{{ url_for('join') }}" method="post" class="max-w-xs mx-auto bg-white p-8 rounded-lg shadow-md">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="mb-6">
         <label for="code" class="block text-sm font-medium text-gray-700">Session Code (6 characters)</label>
         <input type="text" id="code" name="code" required maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="ABC123"

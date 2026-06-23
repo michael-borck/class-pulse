@@ -19,6 +19,10 @@ requests==2.32.3
 # Environment variable loading (.env support)
 python-dotenv==1.0.1
 
+# CSRF protection and rate limiting
+flask-wtf==1.2.1
+flask-limiter==3.8.0
+
 # Cryptography
 cryptography==45.0.0
 
