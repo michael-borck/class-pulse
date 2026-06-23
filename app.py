@@ -29,6 +29,8 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # External Libraries (Ensure these are installed)
 import qrcode as qr_code_lib
@@ -55,6 +57,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Session cookie hardening. Secure is opt-in via env so local HTTP dev still
+# works; set SESSION_COOKIE_SECURE=true when serving over HTTPS.
+COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', '').lower() in ('1', 'true', 'yes')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = COOKIE_SECURE
+
 if _SECRET_KEY_IS_EPHEMERAL:
     app.logger.warning(
         "SECRET_KEY is not set; generated a temporary key. Sessions will not "
@@ -67,6 +76,16 @@ if _SECRET_KEY_IS_EPHEMERAL:
 # so long-lived presentation/audience pages don't fail mid-session on submit.
 app.config['WTF_CSRF_TIME_LIMIT'] = None
 csrf = CSRFProtect(app)
+
+# --- Rate Limiting ---
+# Default in-memory store: adequate for a single-process classroom deployment.
+# For multi-worker gunicorn, set RATELIMIT_STORAGE_URI (e.g. redis://...).
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    storage_uri=os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'),
+    default_limits=[],
+)
 
 # --- Database Setup (using Flask-SQLAlchemy) ---
 db = SQLAlchemy(app)
@@ -134,8 +153,30 @@ DEFAULT_ADMIN_PASS = os.environ.get("DEFAULT_ADMIN_PASS")  # may be None -> rand
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
 # AI Configuration
-ENCRYPTION_KEY = base64.urlsafe_b64encode(secrets.token_bytes(32))
-fernet = Fernet(ENCRYPTION_KEY)
+# The Fernet key encrypts stored cloud API keys. It MUST be persistent: if it is
+# regenerated each boot, every stored key becomes undecryptable after a restart.
+# Provide it via ENCRYPTION_KEY (generate with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# ). If unset we generate an ephemeral key and warn — stored keys won't survive a restart.
+_ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
+if _ENCRYPTION_KEY:
+    ENCRYPTION_KEY = _ENCRYPTION_KEY.encode()
+else:
+    ENCRYPTION_KEY = base64.urlsafe_b64encode(secrets.token_bytes(32))
+    app.logger.warning(
+        "ENCRYPTION_KEY is not set; generated a temporary one. Stored cloud API "
+        "keys will not be decryptable after a restart. Set ENCRYPTION_KEY in the "
+        "environment to persist them."
+    )
+
+try:
+    fernet = Fernet(ENCRYPTION_KEY)
+except (ValueError, TypeError):
+    # An invalid ENCRYPTION_KEY is a config error worth surfacing immediately.
+    raise RuntimeError(
+        "ENCRYPTION_KEY is invalid. Generate one with: "
+        "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+    )
 
 # Basic English stop words list (can be expanded)
 STOP_WORDS = set([
@@ -491,6 +532,7 @@ app.jinja_env.filters['fromjson'] = fromjson_filter
 
 # --- Authentication Routes ---
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=["POST"])
 def login():
     if 'user_id' in session: # Use Flask session
         return redirect(url_for('dashboard'))
@@ -547,7 +589,7 @@ def register():
         if not username: errors.append("Username is required.")
         if not email: errors.append("Email is required.")
         if not password: errors.append("Password is required.")
-        if len(password) < 6: errors.append("Password must be at least 6 characters long.") # Basic length check
+        if len(password or "") < 10: errors.append("Password must be at least 10 characters long.")
         if password != confirm_password: errors.append("Passwords do not match.")
         # Basic email format check
         if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
@@ -630,7 +672,8 @@ def ai_settings():
             flash("AI settings updated successfully!", "success")
         except Exception as e:
             db.session.rollback()
-            flash(f"Error updating settings: {str(e)}", "danger")
+            app.logger.exception("Error updating AI settings")
+            flash("Could not update settings. Please try again.", "danger")
         
         return redirect(url_for('ai_settings'))
     
@@ -653,8 +696,9 @@ def api_test_ai_generation():
         
         result = generate_question_with_ai(data['prompt'], session['user_id'])
         return jsonify(result)
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception:
+        app.logger.exception("AI test generation failed")
+        return jsonify({"success": False, "error": "Question generation failed."}), 500
 
 
 # --- Presenter Routes ---
@@ -1017,7 +1061,14 @@ def join():
                 respondent_id = str(uuid.uuid4())
 
             response = make_response(redirect(url_for('audience_view', code=code))) # Use 'code' here
-            response.set_cookie(RESPONDENT_COOKIE_NAME, respondent_id, max_age=60*60*24*30) # 30 days
+            response.set_cookie(
+                RESPONDENT_COOKIE_NAME,
+                respondent_id,
+                max_age=60 * 60 * 24 * 30,  # 30 days
+                httponly=True,
+                samesite='Lax',
+                secure=COOKIE_SECURE,
+            )
             return response
         else:
             flash("Invalid, inactive, archived, or deleted session code. Please try again.", "danger")
