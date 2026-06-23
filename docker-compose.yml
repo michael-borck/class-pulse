@@ -7,7 +7,9 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY:-default_key_change_me}
+      # No fallback: compose refuses to start unless SECRET_KEY is set (e.g. in .env).
+      # Generate one with:  python -c "import secrets; print(secrets.token_hex(32))"
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set (see .env.example)}
       - SOCKETIO_ASYNC_MODE=threading
     volumes:
       - ./instance:/app/instance

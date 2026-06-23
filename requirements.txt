@@ -16,6 +16,9 @@ qrcode==8.2
 # HTTP requests
 requests==2.32.3
 
+# Environment variable loading (.env support)
+python-dotenv==1.0.1
+
 # Cryptography
 cryptography==45.0.0
 

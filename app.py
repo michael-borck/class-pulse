@@ -13,6 +13,11 @@ from typing import List, Dict, Optional, Tuple, Any
 from functools import wraps
 import re # For email validation
 
+# Load environment variables from a .env file if present (no-op if missing).
+# This makes the variables documented in .env.example actually take effect.
+from dotenv import load_dotenv
+load_dotenv()
+
 # Flask and Extensions
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -30,9 +35,28 @@ from cryptography.fernet import Fernet
 
 # --- Flask App Configuration ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = secrets.token_hex(32) # Replace with env var in production
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///classpulse_flask.db'
+
+# SECRET_KEY signs the session cookie (which stores user_id), so a known or
+# shared key lets anyone forge a session and impersonate any user/admin. It MUST
+# come from the environment in production. If unset, we fall back to an ephemeral
+# random key so local/dev runs still work — but that key does not survive a
+# restart and differs across gunicorn workers, so logins break. We warn loudly.
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+_SECRET_KEY_IS_EPHEMERAL = not app.config['SECRET_KEY']
+if _SECRET_KEY_IS_EPHEMERAL:
+    app.config['SECRET_KEY'] = secrets.token_hex(32)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    os.environ.get('DATABASE_URL') or 'sqlite:///classpulse_flask.db'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+if _SECRET_KEY_IS_EPHEMERAL:
+    app.logger.warning(
+        "SECRET_KEY is not set; generated a temporary key. Sessions will not "
+        "survive restarts and will break across multiple workers. Set SECRET_KEY "
+        "in the environment (or .env) for any non-trivial deployment."
+    )
 
 # --- Database Setup (using Flask-SQLAlchemy) ---
 db = SQLAlchemy(app)
@@ -92,8 +116,11 @@ class Response(db.Model):
     created_at = db.Column(db.String, default=lambda: datetime.now().isoformat())
 
 # --- Constants & Config ---
-DEFAULT_ADMIN_USER = "admin"
-DEFAULT_ADMIN_PASS = "admin123" # Change this!
+# Bootstrap admin credentials come from the environment. There is deliberately
+# NO hardcoded default password: if DEFAULT_ADMIN_PASS is unset, a strong random
+# password is generated on first run and printed once to the logs.
+DEFAULT_ADMIN_USER = os.environ.get("DEFAULT_ADMIN_USER", "admin")
+DEFAULT_ADMIN_PASS = os.environ.get("DEFAULT_ADMIN_PASS")  # may be None -> random
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
 # AI Configuration
@@ -1219,8 +1246,26 @@ def create_default_admin():
     with app.app_context():
         admin_exists = User.query.filter_by(username=DEFAULT_ADMIN_USER).first()
         if not admin_exists:
-            print(f"Creating default admin user: {DEFAULT_ADMIN_USER} / {DEFAULT_ADMIN_PASS}")
-            password_h = hash_password(DEFAULT_ADMIN_PASS)
+            # Use the configured password, or generate a strong random one and
+            # surface it exactly once so it never ships as a known default.
+            admin_pass = DEFAULT_ADMIN_PASS
+            generated = False
+            if not admin_pass:
+                admin_pass = secrets.token_urlsafe(16)
+                generated = True
+
+            password_h = hash_password(admin_pass)
+            if generated:
+                print(
+                    "\n" + "=" * 70 +
+                    f"\nCreated admin user '{DEFAULT_ADMIN_USER}' with a GENERATED password:"
+                    f"\n\n    {admin_pass}\n\n"
+                    "Save it now and change it after first login. This is shown only once.\n"
+                    "(Set DEFAULT_ADMIN_PASS in the environment to choose your own.)\n"
+                    + "=" * 70 + "\n"
+                )
+            else:
+                print(f"Creating admin user '{DEFAULT_ADMIN_USER}' from DEFAULT_ADMIN_PASS.")
             admin = User(
                 username=DEFAULT_ADMIN_USER,
                 password_hash=password_h,
@@ -1243,13 +1288,26 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all() # Create database tables if they don't exist
     create_default_admin()
-    # Use eventlet or gevent for SocketIO
-    # Example using eventlet: pip install eventlet
-    print("Starting Flask-SocketIO server on http://localhost:5002")
-    # Set use_reloader=False if reloading causes issues with SocketIO/DB creation
-    # Set async_mode='threading' or 'eventlet' or 'gevent' based on installation
-    # Added allow_unsafe_werkzeug=True for newer SocketIO/Werkzeug versions if needed
-    # Note: use_reloader=True might cause create_default_admin to run twice
-    socketio.run(app, host='0.0.0.0', port=5002, debug=True, use_reloader=False, allow_unsafe_werkzeug=True) # Changed use_reloader to False
+
+    # Debug is OFF unless explicitly enabled, because the Werkzeug debugger
+    # exposes an interactive console (remote code execution) and full source
+    # tracebacks. Enable only for local development via FLASK_ENV=development
+    # or DEBUG=true.
+    debug_mode = (
+        os.environ.get('FLASK_ENV') == 'development'
+        or os.environ.get('DEBUG', '').lower() in ('1', 'true', 'yes')
+    )
+    host = os.environ.get('HOST', '0.0.0.0')
+    port = int(os.environ.get('PORT', 5002))
+
+    print(f"Starting Flask-SocketIO server on http://{host}:{port} (debug={debug_mode})")
+    socketio.run(
+        app,
+        host=host,
+        port=port,
+        debug=debug_mode,
+        use_reloader=debug_mode,
+        allow_unsafe_werkzeug=True,
+    )
 
 
