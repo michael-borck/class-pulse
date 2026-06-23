@@ -4,14 +4,10 @@ This file enables running the application with production WSGI servers like Guni
 """
 
 import os
-from app import app, socketio
+from app import app, db, create_default_admin
 
-# Override configurations with environment variables if present
-if os.environ.get('SECRET_KEY'):
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-
-if os.environ.get('DATABASE_URL'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+# Note: SECRET_KEY / DATABASE_URL are already read from the environment in
+# app.py, so no override is needed here.
 
 # Check the environment variable FLASK_ENV to determine if we're in debug mode
 debug = os.environ.get('FLASK_ENV') == 'development'
@@ -34,5 +30,15 @@ if not debug:
     app.logger.setLevel(logging.INFO)
     app.logger.info('ClassPulse startup')
 
-# This will be used by Gunicorn
-application = socketio.WSGIApp(app)
+# Initialize the schema and bootstrap the admin on startup. The __main__ block
+# in app.py only runs under `python app.py`, so production (gunicorn) relies on
+# this. Both operations are idempotent.
+with app.app_context():
+    db.create_all()
+create_default_admin()
+
+# This will be used by Gunicorn. For Flask-SocketIO the WSGI callable is the
+# Flask app itself — SocketIO installs middleware that handles /socket.io/.
+# (For true websockets, run gunicorn with an eventlet/gevent worker class;
+# with sync/gthread workers Socket.IO falls back to HTTP long-polling.)
+application = app

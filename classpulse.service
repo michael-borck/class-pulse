@@ -3,17 +3,31 @@ Description=ClassPulse Web Application
 After=network.target
 
 [Service]
-Type=forking
+# gunicorn's master stays in the foreground, so simple (not forking) is correct.
+Type=simple
 User=michael
 Group=michael
 WorkingDirectory=/home/michael/projects/class-pulse
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/michael/projects/class-pulse/venv/bin"
+# Load secrets (SECRET_KEY, ENCRYPTION_KEY, ...) from a root-owned env file.
+EnvironmentFile=-/home/michael/projects/class-pulse/.env
 ExecStart=/bin/bash /home/michael/projects/class-pulse/start.sh
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=classpulse
+
+# --- Sandboxing (reduce blast radius) ---
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
 
 [Install]
 WantedBy=multi-user.target

@@ -77,7 +77,10 @@
                     {% if is_admin %}
                          <a href="{{ url_for('admin_manage_users') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Manage Users</a>
                     {% endif %}
-                    <a href="{{ url_for('logout') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Logout ({{ session.get('display_name', 'User') }})</a>
+                    <form action="{{ url_for('logout') }}" method="post" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Logout ({{ session.get('display_name', 'User') }})</button>
+                    </form>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Login</a>
                     <a href="{{ url_for('register') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Register</a> {# Link to register #}

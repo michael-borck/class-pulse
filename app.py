@@ -564,7 +564,7 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 @login_required # Keep login_required to ensure g.user might be set for logging, etc.
 def logout():
     session.clear() # Use Flask session
