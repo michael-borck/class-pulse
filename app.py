@@ -902,6 +902,8 @@ def api_toggle_session(session_id):
          return jsonify({"success": False, "message": "Cannot toggle deleted session."}), 400
     current_session.active = not current_session.active
     db.session.commit()
+    # Notify audience members so an inactive session boots them out live
+    broadcast_questions_changed(current_session.id)
     # Return new status or updated HTML fragment if using HTMX
     return jsonify({"success": True, "active": current_session.active, "new_text": "Deactivate" if current_session.active else "Activate"})
 
@@ -920,6 +922,8 @@ def api_toggle_question(question_id):
          return jsonify({"success": False, "message": "Cannot toggle question in deleted session."}), 400
     question.active = not question.active
     db.session.commit()
+    # Push the new active-question set to any audience members watching live
+    broadcast_questions_changed(question.session_id)
     # Return new status or updated HTML fragment if using HTMX
     return jsonify({"success": True, "active": question.active, "new_text": "Deactivate" if question.active else "Activate"})
 
@@ -972,7 +976,9 @@ def api_delete_question(question_id):
     question_title = question.title
     db.session.delete(question)
     db.session.commit()
-    
+    # A deleted question may have been active; refresh audience views
+    broadcast_questions_changed(session_id)
+
     flash(f"Question '{question_title}' deleted successfully.", "success")
     return jsonify({"success": True, "message": "Question deleted successfully."})
 
@@ -1102,25 +1108,38 @@ def audience_view(code):
     return render_template('audience_view.html',
                            current_session=current_session,
                            questions=active_questions,
+                           active_question_ids=[q.id for q in active_questions],
                            previous_responses=previous_responses)
 
 
 @app.route('/audience/respond/<int:question_id>', methods=['POST'])
 def process_response(question_id):
+    # Audience view submits via fetch() with this header; fall back to the
+    # classic redirect/flash flow for non-JS clients.
+    wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     question = Question.query.get_or_404(question_id)
     # Check if question or session is inactive, archived, or deleted
     if not question.active or not question.session.active or question.session.archived or question.session.deleted:
-        flash("Sorry, this question or session is no longer active.", "warning")
+        msg = "Sorry, this question or session is no longer active."
+        if wants_json:
+            return jsonify({"success": False, "message": msg, "inactive": True}), 409
+        flash(msg, "warning")
         return redirect(url_for('audience_view', code=question.session.code)) # Redirect back
 
     respondent_id = request.cookies.get(RESPONDENT_COOKIE_NAME)
     if not respondent_id:
-        flash("Could not identify you. Please try rejoining the session.", "warning")
+        msg = "Could not identify you. Please try rejoining the session."
+        if wants_json:
+            return jsonify({"success": False, "message": msg, "needs_rejoin": True}), 400
+        flash(msg, "warning")
         return redirect(url_for('join'))
 
     response_value = request.form.get(f'response-{question_id}')
     if response_value is None:
-        flash("No response value submitted.", "warning")
+        msg = "No response value submitted."
+        if wants_json:
+            return jsonify({"success": False, "message": msg}), 400
+        flash(msg, "warning")
         return redirect(url_for('audience_view', code=question.session.code))
 
     # Check for existing response and update, or create new
@@ -1146,7 +1165,13 @@ def process_response(question_id):
     # Notify presenters via WebSocket
     broadcast_results(question_id)
 
-    # Using flash for confirmation, could return JSON for JS/HTMX
+    if wants_json:
+        return jsonify({
+            "success": True,
+            "message": "Your response was submitted!",
+            "response_value": response_value,
+        })
+    # Using flash for confirmation (non-JS fallback)
     flash(f"Your response was submitted!", "success")
     return redirect(url_for('audience_view', code=question.session.code))
 
@@ -1291,6 +1316,26 @@ def broadcast_results(question_id: int):
     print(f"Emitted update for room {room_name}")
 
 
+def broadcast_questions_changed(session_id: int):
+    """Notify audience members in a session room that the set of active
+    questions (or the session's own active state) has changed, so their page
+    can update live instead of requiring a manual refresh."""
+    with app.app_context():
+        s = db.session.get(Session, session_id)
+        active_ids = [q.id for q in s.questions if q.active] if s else []
+        session_active = bool(s and s.active and not s.archived and not s.deleted)
+    socketio.emit(
+        'questions_changed',
+        {
+            'session_id': session_id,
+            'active_question_ids': active_ids,
+            'session_active': session_active,
+        },
+        room=f'session_{session_id}',
+    )
+    print(f"Emitted questions_changed for room session_{session_id}")
+
+
 @socketio.on('connect')
 def handle_connect():
     # Authentication check could happen here if needed for presenters
@@ -1328,6 +1373,20 @@ def handle_join_room(data):
             print(f"Invalid question_id received for join: {question_id}")
         except Exception as e:
              print(f"Error handling join room for question {question_id}: {e}")
+
+
+@socketio.on('join_session')
+def handle_join_session(data):
+    """Audience clients join a room scoped to the whole session so they get
+    notified when the presenter activates/deactivates questions."""
+    session_id = data.get('session_id')
+    if session_id is not None:
+        try:
+            s_id = int(session_id)
+            join_room(f'session_{s_id}')
+            print(f"Client {request.sid} joined session room session_{s_id}")
+        except (ValueError, TypeError):
+            print(f"Invalid session_id received for join_session: {session_id}")
 
 
 @socketio.on('leave')
