@@ -28,7 +28,7 @@
                 <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
             </div>
             <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
-                 <a href="{{ url_for('present_mode', session_id=s.id) }}" class="action-button bg-green-500 hover:bg-green-600">Present</a>
+                 <a href="{{ url_for('present_mode', session_id=s.id) }}" class="action-button bg-purple-600 hover:bg-purple-700">Present</a>
                  <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
                  <a href="{{ url_for('export_session_results', session_id=s.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export</a>
                  {# Archive Button #}

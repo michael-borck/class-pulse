@@ -15,7 +15,7 @@
         {{ 'Deactivate' if current_session.active else 'Activate' }}
     </button>
      {# Use current_session passed from the route #}
-    <a href="{{ url_for('present_mode', session_id=current_session.id) }}" class="action-button bg-purple-500 hover:bg-purple-600">Present Mode</a>
+    <a href="{{ url_for('present_mode', session_id=current_session.id) }}" class="action-button bg-purple-600 hover:bg-purple-700">Present Mode</a>
      {# Use current_session passed from the route #}
     <a href="{{ url_for('export_session_results', session_id=current_session.id) }}" class="action-button bg-yellow-500 hover:bg-yellow-600" target="_blank">Export Session Results</a>
      {# Archive Button #}
