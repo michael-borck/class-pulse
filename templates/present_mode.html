@@ -4,40 +4,38 @@
 
 {% block content %}
 {# Use current_session passed from the route #}
-<div class="bg-indigo-700 p-4 rounded-lg shadow-lg mb-6 flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
+<div class="bg-indigo-700 p-4 rounded-lg shadow-lg mb-4 flex justify-between items-center flex-wrap">
     <h2 class="text-2xl font-semibold text-white mb-2 md:mb-0">Presenting: {{ current_session.name }}</h2>
     <div class="flex items-center space-x-4">
         <span class="text-lg font-mono bg-gray-700 text-white px-3 py-1 rounded">Join Code: {{ current_session.code }}</span>
-        {# qr_code_data_url is passed separately from the route #}
         {% if qr_code_data_url %}
-        <img src="{{ qr_code_data_url }}" alt="QR Code" class="w-16 h-16 border-2 border-white rounded hidden sm:block"> {# Hide on small screens #}
+        <img src="{{ qr_code_data_url }}" alt="QR Code" class="w-16 h-16 border-2 border-white rounded hidden sm:block">
         {% endif %}
-         {# Use current_session passed from the route #}
         <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage Session</a>
     </div>
 </div>
 
-{# active_questions is passed separately from the route #}
 {% if active_questions %}
-<div class="space-y-6">
-    {% for q in active_questions %}
-    <div class="bg-white p-6 rounded-lg shadow-md">
-        <h3 class="text-xl font-semibold mb-3 text-gray-800">{{ q.title }}</h3>
-        {# This div will be updated by WebSocket #}
-        <div id="results-question-{{ q.id }}">
-            <p class="text-gray-500 italic">Waiting for results...</p>
-            {# Placeholder for chart canvas or word cloud div #}
-            {% if q.type == 'multiple_choice' or q.type == 'rating' %}
-                <div class="h-64 md:h-80 relative mt-4">
-                    <canvas id="chart-{{ q.id }}"></canvas>
-                </div>
-            {% elif q.type == 'word_cloud' %}
-                <div id="wordcloud-{{ q.id }}" class="w-full h-64 md:h-80 border rounded-md bg-gray-50 mt-4"></div>
-            {% endif %}
-             <p id="response-count-{{ q.id }}" class="text-sm text-gray-600 mt-2">Total Responses: 0</p>
-        </div>
+{# View switcher — presenter chooses how results are laid out #}
+<div id="view-switcher" class="flex items-center gap-2 mb-5 text-sm">
+    <span class="text-gray-500">Layout:</span>
+    <div class="inline-flex rounded-md border border-gray-300 overflow-hidden">
+        <button type="button" data-view="focus" class="pv-btn px-3 py-1.5 font-medium">Focus</button>
+        <button type="button" data-view="grid" class="pv-btn px-3 py-1.5 font-medium border-l border-gray-300">Grid</button>
+        <button type="button" data-view="stack" class="pv-btn px-3 py-1.5 font-medium border-l border-gray-300">Stack</button>
     </div>
-    {% endfor %}
+</div>
+
+<div id="present-content"></div>
+
+{# Persistent overlay used by the Grid view #}
+<div id="overlay" class="hidden fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 relative">
+        <button type="button" id="ov-close" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+        <h3 id="ov-title" class="text-2xl font-semibold mb-1 text-gray-800 pr-8"></h3>
+        <p id="ov-cnt" class="text-sm text-gray-500 mb-4"></p>
+        <div id="ov-host"></div>
+    </div>
 </div>
 {% else %}
 <p class="text-gray-600 text-center text-lg">No active questions in this session.</p>
@@ -47,147 +45,177 @@
 
 {% block scripts %}
 <script>
-    const socket = io(); // Connect to Socket.IO server
-
-    socket.on('connect', () => {
-        console.log('Socket.IO connected for presenter view');
-        // Join rooms for all active questions on this page
-        {% for q in active_questions %}
-            socket.emit('join', { question_id: {{ q.id }} });
-            console.log('Joined room for question {{ q.id }}');
+    const QUESTIONS = [
+        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }} },
         {% endfor %}
-    });
+    ];
+    const stats = {};                 // question_id -> latest stats from the server
+    let overlayQid = null;
+    let focusIdx = 0;
 
-    socket.on('disconnect', () => {
-        console.log('Socket.IO disconnected');
-    });
+    const VIEWS = ['focus', 'grid', 'stack'];
+    let view = localStorage.getItem('cp_present_view') || 'focus';
+    if (!VIEWS.includes(view)) view = 'focus';
 
-    socket.on('update_results', (data) => {
-        console.log('Received results update:', data);
-        const questionId = data.question_id;
-        const stats = data.stats;
-        const resultsContainer = document.getElementById(`results-question-${questionId}`);
-        const responseCountEl = document.getElementById(`response-count-${questionId}`);
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
-        if (!resultsContainer) return;
+    // --- Socket: live results ---
+    const socket = io();
+    socket.on('connect', () => { QUESTIONS.forEach(q => socket.emit('join', { question_id: q.id })); });
+    socket.on('update_results', (d) => { stats[d.question_id] = d.stats; refresh(d.question_id); });
 
-        if (responseCountEl) {
-             responseCountEl.textContent = `Total Responses: ${stats.total_responses || 0}`;
+    // --- Chart config from stats ---
+    function chartConfig(q, s) {
+        if (s.type === 'multiple_choice') {
+            const labels = s.options || Object.keys(s.results || {});
+            return { type: 'bar',
+                data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => (s.results || {})[l] || 0), backgroundColor: 'rgba(79,70,229,0.75)' }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } } };
         }
+        const max = s.max_rating || 5;
+        const labels = Array.from({ length: max }, (_, i) => `${i + 1} ⭐`);
+        return { type: 'bar',
+            data: { labels, datasets: [{ label: 'Ratings', data: labels.map((_, i) => (s.results || {})[String(i + 1)] || 0), backgroundColor: 'rgba(249,115,22,0.75)' }] },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } } };
+    }
 
-        // Common chart options
-        const chartOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: stats.type === 'multiple_choice' } }
-        };
+    // Markup for a single result host (canvas or word-cloud div) + response count.
+    function hostMarkup(q, hClass) {
+        const inner = (q.type === 'word_cloud')
+            ? `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`
+            : `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
+        const total = stats[q.id] ? (stats[q.id].total_responses || 0) : 0;
+        return inner + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
+    }
 
-        // Specific options for bar charts
-        const barChartOptions = {
-            ...chartOptions,
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-        };
-
-        // Specific options for horizontal bar charts (rating)
-        const horizontalBarChartOptions = {
-             ...chartOptions,
-             indexAxis: 'y',
-             scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
-             plugins: {
-                 legend: { display: false },
-                 tooltip: {
-                     callbacks: {
-                         label: function(context) {
-                             let label = context.dataset.label || '';
-                             if (label) {
-                                 label += ': ';
-                             }
-                             if (context.parsed.x !== null) {
-                                 label += `${context.parsed.x} ⭐`;
-                             }
-                             return label;
-                         }
-                     }
-                 }
-             }
-        };
-
-        if (stats.type === 'multiple_choice' && stats.results) {
-            const canvasId = `chart-${questionId}`;
-            const labels = stats.options || Object.keys(stats.results);
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Votes',
-                    data: labels.map(label => stats.results[label] || 0),
-                    backgroundColor: 'rgba(79, 70, 229, 0.7)'
-                }]
-            };
-            initChart(canvasId, 'bar', chartData, barChartOptions);
-        } else if (stats.type === 'rating' && stats.results) {
-            const canvasId = `chart-${questionId}`;
-            const maxRating = stats.max_rating || 5;
-            const labels = Array.from({ length: maxRating }, (_, i) => `${i + 1} ⭐`);
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Ratings',
-                    data: labels.map((_, i) => stats.results[String(i + 1)] || 0),
-                    backgroundColor: 'rgba(249, 115, 22, 0.7)'
-                }]
-            };
-            initChart(canvasId, 'bar', chartData, horizontalBarChartOptions);
-        } else if (stats.type === 'word_cloud' && stats.results) {
-            const cloudId = `wordcloud-${questionId}`;
-            initWordCloud(cloudId, stats.results);
-        } else {
-             // Clear previous content if no results or unknown type
-             const chartCanvas = document.getElementById(`chart-${questionId}`);
-             const wordCloudDiv = document.getElementById(`wordcloud-${questionId}`);
-             if (chartCanvas) {
-                 let existingChart = Chart.getChart(chartCanvas);
-                 if (existingChart) { existingChart.destroy(); }
-             }
-             if (wordCloudDiv) $(wordCloudDiv).empty();
-
-             // Reset placeholder using JavaScript based on stats.type
-             let placeholderHTML = `<p class="text-gray-500 italic">Waiting for results...</p>`;
-
-             if (stats.type === 'multiple_choice' || stats.type === 'rating') {
-                 placeholderHTML += `<div class="h-64 md:h-80 relative mt-4"><canvas id="chart-${questionId}"></canvas></div>`;
-             } else if (stats.type === 'word_cloud') {
-                 placeholderHTML += `<div id="wordcloud-${questionId}" class="w-full h-64 md:h-80 border rounded-md bg-gray-50 mt-4"></div>`;
-             }
-
-             placeholderHTML += `<p id="response-count-${questionId}" class="text-sm text-gray-600 mt-2">Total Responses: ${stats.total_responses || 0}</p>`;
-
-             resultsContainer.innerHTML = placeholderHTML;
-
-             // Re-initialize empty chart/cloud if needed
-             if (stats.type === 'multiple_choice' || stats.type === 'rating') {
-                 initChart(`chart-${questionId}`, 'bar', { labels: [], datasets: [] }, barChartOptions);
-             } else if (stats.type === 'word_cloud') {
-                 initWordCloud(`wordcloud-${questionId}`, []);
-             }
+    // Instantiate / refresh the chart or cloud for a question that's currently in the DOM.
+    function instantiate(qid) {
+        const q = QUESTIONS.find(x => x.id == qid);
+        const s = stats[qid];
+        const cnt = document.getElementById('cnt-' + qid);
+        if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
+        if (!s || !s.results) return;
+        if (q.type === 'word_cloud') {
+            if (document.getElementById('wc-' + qid)) initWordCloud('wc-' + qid, s.results);
+        } else if (document.getElementById('cv-' + qid)) {
+            const cfg = chartConfig(q, s);
+            initChart('cv-' + qid, cfg.type, cfg.data, cfg.options);
         }
-    });
+    }
 
-    // Initial setup for charts/clouds on page load
+    function destroyVisibleCharts() {
+        document.querySelectorAll('#present-content canvas, #overlay canvas').forEach(cv => {
+            const ch = Chart.getChart(cv); if (ch) ch.destroy();
+        });
+    }
+
+    // Called when new results arrive — update whatever is on screen for that question.
+    function refresh(qid) {
+        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid)) instantiate(qid);
+        if (overlayQid === qid) instantiateOverlay(qid);
+    }
+
+    // --- View renderers ---
+    function renderView() {
+        document.querySelectorAll('.pv-btn').forEach(b => {
+            const on = b.dataset.view === view;
+            b.classList.toggle('bg-indigo-600', on);
+            b.classList.toggle('text-white', on);
+            b.classList.toggle('bg-white', !on);
+            b.classList.toggle('text-gray-700', !on);
+        });
+        const content = document.getElementById('present-content');
+        if (!content) return;
+        destroyVisibleCharts();
+
+        if (view === 'stack') {
+            content.innerHTML = QUESTIONS.map(q => `
+                <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h3 class="text-xl font-semibold mb-2 text-gray-800">${esc(q.title)}</h3>
+                    ${hostMarkup(q, 'h-64 md:h-80')}
+                </div>`).join('');
+            QUESTIONS.forEach(q => instantiate(q.id));
+
+        } else if (view === 'grid') {
+            content.innerHTML = `<p class="text-sm text-gray-500 mb-3">Overview — click any card to enlarge</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${
+                QUESTIONS.map(q => `
+                    <button type="button" data-open="${q.id}" class="text-left bg-white p-4 rounded-lg shadow hover:shadow-lg hover:ring-2 hover:ring-indigo-400 transition">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-1 truncate">${esc(q.title)}</h3>
+                        ${hostMarkup(q, 'h-40')}
+                    </button>`).join('')}</div>`;
+            QUESTIONS.forEach(q => instantiate(q.id));
+            content.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openOverlay(parseInt(b.dataset.open, 10))));
+
+        } else { // focus
+            const q = QUESTIONS[focusIdx];
+            content.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <button type="button" id="f-prev" class="px-4 py-2 rounded-md font-semibold text-indigo-700 hover:bg-indigo-50">← Prev</button>
+                    <div class="flex gap-2 items-center">${QUESTIONS.map((_, i) => `<span class="w-3 h-3 rounded-full ${i === focusIdx ? 'bg-indigo-600' : 'bg-gray-300'}"></span>`).join('')}</div>
+                    <button type="button" id="f-next" class="px-4 py-2 rounded-md font-semibold text-indigo-700 hover:bg-indigo-50">Next →</button>
+                </div>
+                <div class="bg-white p-8 rounded-xl shadow-lg">
+                    <div class="flex justify-between items-baseline mb-2 flex-wrap gap-2">
+                        <h3 class="text-3xl font-bold text-gray-800">${esc(q.title)}</h3>
+                        <span class="text-sm text-gray-500">Question ${focusIdx + 1} of ${QUESTIONS.length}</span>
+                    </div>
+                    ${hostMarkup(q, 'h-[60vh]')}
+                </div>
+                <p class="text-center text-xs text-gray-400 mt-3">Tip: ← / → arrow keys move between questions</p>`;
+            instantiate(q.id);
+            document.getElementById('f-prev').addEventListener('click', () => fnav(-1));
+            document.getElementById('f-next').addEventListener('click', () => fnav(1));
+        }
+    }
+
+    function fnav(d) { focusIdx = (focusIdx + d + QUESTIONS.length) % QUESTIONS.length; renderView(); }
+
+    function instantiateOverlay(qid) {
+        const q = QUESTIONS.find(x => x.id == qid);
+        const s = stats[qid];
+        document.getElementById('ov-title').textContent = q.title;
+        document.getElementById('ov-cnt').textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
+        const host = document.getElementById('ov-host');
+        host.innerHTML = (q.type === 'word_cloud')
+            ? `<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>`
+            : `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`;
+        if (s && s.results) {
+            if (q.type === 'word_cloud') initWordCloud('ov-wc', s.results);
+            else { const cfg = chartConfig(q, s); initChart('ov-cv', cfg.type, cfg.data, cfg.options); }
+        }
+    }
+
+    function openOverlay(qid) {
+        overlayQid = qid;
+        document.getElementById('overlay').classList.remove('hidden');
+        instantiateOverlay(qid);
+    }
+    function closeOverlay() {
+        const ov = document.getElementById('overlay');
+        if (!ov) return;
+        const cv = ov.querySelector('canvas'); if (cv) { const ch = Chart.getChart(cv); if (ch) ch.destroy(); }
+        ov.classList.add('hidden');
+        overlayQid = null;
+    }
+
+    function setView(v) { view = v; localStorage.setItem('cp_present_view', v); renderView(); }
+
     document.addEventListener('DOMContentLoaded', () => {
-         {% for q in active_questions %}
-            {% if q.type == 'multiple_choice' %}
-                const mcCanvasId = `chart-{{ q.id }}`;
-                initChart(mcCanvasId, 'bar', { labels: [], datasets: [] }, { scales: { y: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false });
-            {% elif q.type == 'rating' %}
-                const ratingCanvasId = `chart-{{ q.id }}`;
-                initChart(ratingCanvasId, 'bar', { labels: [], datasets: [] }, { indexAxis: 'y', scales: { x: { beginAtZero: true } }, responsive: true, maintainAspectRatio: false });
-            {% elif q.type == 'word_cloud' %}
-                const cloudId = `wordcloud-{{ q.id }}`;
-                initWordCloud(cloudId, []);
-            {% endif %}
-         {% endfor %}
+        if (!QUESTIONS.length) return;
+        document.querySelectorAll('.pv-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+        const ovClose = document.getElementById('ov-close');
+        if (ovClose) ovClose.addEventListener('click', closeOverlay);
+        const overlay = document.getElementById('overlay');
+        if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
+        document.addEventListener('keydown', (e) => {
+            if (overlayQid !== null && e.key === 'Escape') return closeOverlay();
+            if (view === 'focus' && overlayQid === null) {
+                if (e.key === 'ArrowLeft') fnav(-1);
+                if (e.key === 'ArrowRight') fnav(1);
+            }
+        });
+        renderView();
     });
-
 </script>
 {% endblock %}
-
