@@ -163,10 +163,15 @@ cython_debug/
 .vscode/
 *.code-workspace
 
+# Node / Tailwind build tooling
+node_modules/
+npm-debug.log*
+
 # Project specific
 *.db
 *.sqlite3
 .DS_Store
+._*
 .sesskey
 classpulse.db
 

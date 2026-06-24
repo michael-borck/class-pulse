@@ -1,4 +1,4 @@
-.PHONY: setup setup-prod format lint type-check test coverage clean run dev prod docker-build docker-up docker-down help
+.PHONY: setup setup-prod format lint type-check test coverage clean run dev prod docker-build docker-up docker-down build-css watch-css help
 
 # Variables
 PYTHON = python3
@@ -22,6 +22,8 @@ help:
 	@echo "  docker-build  Build Docker image"
 	@echo "  docker-up     Start application with Docker Compose"
 	@echo "  docker-down   Stop Docker Compose services"
+	@echo "  build-css     Compile Tailwind CSS to static/css/tailwind.css (minified)"
+	@echo "  watch-css     Rebuild Tailwind CSS on change (dev)"
 	@echo "  db-init       Initialize the database"
 	@echo "  db-upgrade    Upgrade database using flask-migrate (if implemented)"
 
@@ -74,6 +76,13 @@ clean:
 
 run:
 	$(PYTHON) app.py
+
+build-css:
+	npm install
+	npm run build:css
+
+watch-css:
+	npm run watch:css
 
 db-init:
 	$(PYTHON) -c "from app import app, db; app.app_context().push(); db.create_all()"

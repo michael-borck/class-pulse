@@ -35,6 +35,20 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
    ```
 4. Access the application at http://localhost:5002
 
+## Styling (Tailwind CSS)
+
+The UI is styled with Tailwind, compiled ahead of time to `static/css/tailwind.css`
+(this built file is committed, so the app runs without Node). If you change the
+markup in `templates/` you need to rebuild the stylesheet:
+
+```
+make build-css        # one-off minified build (runs npm install + npm run build:css)
+make watch-css        # rebuild automatically while developing
+```
+
+Requires Node.js / npm. The Tailwind source lives in `static/src/input.css` and the
+content/safelist config in `tailwind.config.js`.
+
 ## Default Admin Access
 
 - Username: admin

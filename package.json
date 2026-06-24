@@ -1,0 +1,13 @@
+{
+  "name": "classpulse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build tooling for ClassPulse CSS (Tailwind).",
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/src/input.css -o ./static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./static/src/input.css -o ./static/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.13"
+  }
+}
