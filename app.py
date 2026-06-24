@@ -701,21 +701,89 @@ def api_test_ai_generation():
         return jsonify({"success": False, "error": "Question generation failed."}), 500
 
 
+# --- Serialization helpers (used by the unified dashboard + its AJAX API) ---
+def _question_to_dict(q):
+    """Serialize a Question for the builder UI."""
+    try:
+        parsed = json.loads(q.options) if q.options else {}
+    except (json.JSONDecodeError, TypeError):
+        parsed = {}
+    data = {
+        'id': q.id,
+        'type': q.type,
+        'title': q.title,
+        'active': q.active,
+        'response_count': Response.query.filter_by(question_id=q.id).count(),
+        'options': parsed if (q.type == 'multiple_choice' and isinstance(parsed, list)) else [],
+        'max_rating': 5,
+    }
+    if q.type == 'rating' and isinstance(parsed, dict):
+        try:
+            data['max_rating'] = int(parsed.get('max_rating', 5))
+        except (ValueError, TypeError):
+            data['max_rating'] = 5
+    return data
+
+
+def _session_to_dict(s, include_questions=False):
+    d = {
+        'id': s.id, 'name': s.name, 'code': s.code,
+        'active': s.active, 'archived': s.archived,
+        'question_count': len(s.questions),
+    }
+    if include_questions:
+        d['questions'] = [_question_to_dict(q) for q in s.questions]
+    return d
+
+
+def _parse_question_payload(data):
+    """Validate/normalise an add/edit question payload.
+    Returns (error_message_or_None, q_type, title, options_value)."""
+    q_type = data.get('type')
+    if q_type not in ('multiple_choice', 'word_cloud', 'rating'):
+        return ('Invalid question type.', None, None, None)
+    title = (data.get('title') or '').strip()
+    if not title:
+        return ('Question title is required.', None, None, None)
+    if q_type == 'multiple_choice':
+        opts = data.get('options') or []
+        if isinstance(opts, str):
+            opts = opts.splitlines()
+        opts = [str(o).strip() for o in opts if str(o).strip()]
+        if len(opts) < 2:
+            return ('Add at least two options.', None, None, None)
+        return (None, q_type, title, opts)
+    if q_type == 'rating':
+        try:
+            mx = int(data.get('max_rating', 5))
+        except (ValueError, TypeError):
+            mx = 5
+        return (None, q_type, title, {'max_rating': max(2, min(10, mx))})
+    return (None, q_type, title, {})  # word_cloud carries no config
+
+
+def _render_dashboard(selected_id=None):
+    """Render the unified master-detail dashboard. Used at / (no selection) and
+    /sessions/<id> (a session selected, which doubles as the deep link)."""
+    user_id = session['user_id']
+    # Include archived (client filters via the Active/Archived tabs); exclude deleted.
+    user_sessions = Session.query.filter_by(user_id=user_id, deleted=False).order_by(Session.created_at.desc()).all()
+    sessions_data = [_session_to_dict(s) for s in user_sessions]
+    selected = None
+    if selected_id is not None:
+        sel = next((s for s in user_sessions if s.id == selected_id), None)
+        if sel:
+            selected = _session_to_dict(sel, include_questions=True)
+            selected['join_url'] = url_for('audience_view', code=sel.code, _external=True)
+            selected['qr'] = create_qr_code_data(selected['join_url'])
+    return render_template('dashboard.html', sessions=sessions_data, selected=selected)
+
+
 # --- Presenter Routes ---
 @app.route('/')
 @login_required
 def dashboard():
-    user_id = session['user_id'] # Use Flask session
-    # Filter out archived and deleted sessions
-    user_sessions = Session.query.filter_by(user_id=user_id, archived=False, deleted=False).order_by(Session.created_at.desc()).all()
-    active_sessions = [s for s in user_sessions if s.active]
-    inactive_sessions = [s for s in user_sessions if not s.active]
-    # Optionally, get archived sessions for a separate view/link
-    # archived_sessions = Session.query.filter_by(user_id=user_id, archived=True).order_by(Session.created_at.desc()).all()
-    return render_template('dashboard.html',
-                           active_sessions=active_sessions,
-                           inactive_sessions=inactive_sessions)
-                           # archived_sessions=archived_sessions) # Pass archived if needed
+    return _render_dashboard()
 
 @app.route('/sessions')
 @login_required
@@ -762,26 +830,13 @@ def new_session():
 @app.route('/sessions/<int:session_id>')
 @login_required
 def manage_session(session_id):
-    # Query using Flask session for user_id
-    # Use 'current_session' to avoid conflict with Flask session
+    # The session builder is the unified dashboard with this session selected;
+    # this URL is also the shareable deep link.
     current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-    # Don't show archived or deleted sessions via direct URL unless intended
-    if current_session.archived:
-        flash("This session is archived.", "info")
-        return redirect(url_for('list_sessions')) # Or redirect to archived list
     if current_session.deleted:
         flash("This session has been deleted.", "warning")
-        return redirect(url_for('list_sessions'))
-
-    # Use 'code' instead of 'session_code' in url_for
-    join_url = url_for('audience_view', code=current_session.code, _external=True)
-    qr_code_data_url = create_qr_code_data(join_url)
-    # Pass database session object as 'current_session'
-    return render_template('session_manage.html',
-                           current_session=current_session,
-                           questions=current_session.questions, # Already ordered by model definition
-                           join_url=join_url,
-                           qr_code_data_url=qr_code_data_url)
+        return redirect(url_for('dashboard'))
+    return _render_dashboard(selected_id=session_id)
 
 @app.route('/present/<int:session_id>')
 @login_required
@@ -806,7 +861,25 @@ def present_mode(session_id):
                            current_session=current_session,
                            active_questions=active_questions,
                            join_url=join_url,
-                           qr_code_data_url=qr_code_data_url)
+                           qr_code_data_url=qr_code_data_url,
+                           mode='present')
+
+
+@app.route('/sessions/<int:session_id>/results')
+@login_required
+def session_results(session_id):
+    """Post-hoc results view — same Focus/Grid/Stack layouts as Present, over
+    all questions, available even when the session is no longer active."""
+    current_session = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    if current_session.deleted:
+        flash("This session has been deleted.", "warning")
+        return redirect(url_for('dashboard'))
+    return render_template('present_mode.html',
+                           current_session=current_session,
+                           active_questions=list(current_session.questions),
+                           join_url=None,
+                           qr_code_data_url=None,
+                           mode='results')
 
 
 # --- Question Routes ---
@@ -1011,6 +1084,106 @@ def api_delete_session(session_id):
         db.session.commit()
         flash(f"Session '{session_name}' permanently deleted (no responses).", "info")
         return redirect(url_for('list_sessions'))
+
+
+# --- Session/Question authoring API (used by the unified dashboard) ---
+@app.route('/api/sessions', methods=['POST'])
+@login_required
+def api_create_session():
+    """Create a new (inactive) session and return it for the builder."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or 'Untitled session').strip() or 'Untitled session'
+    s = Session(name=name, code=generate_session_code(), user_id=session['user_id'],
+                active=False, archived=False, deleted=False)
+    db.session.add(s)
+    db.session.commit()
+    return jsonify({"success": True, "session": _session_to_dict(s, include_questions=True)})
+
+
+@app.route('/api/sessions/<int:session_id>/rename', methods=['POST'])
+@login_required
+def api_rename_session(session_id):
+    s = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
+    if not name:
+        return jsonify({"success": False, "message": "Name is required."}), 400
+    s.name = name
+    db.session.commit()
+    return jsonify({"success": True, "name": s.name})
+
+
+@app.route('/api/sessions/<int:session_id>/questions', methods=['GET', 'POST'])
+@login_required
+def api_session_questions(session_id):
+    s = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    if request.method == 'GET':
+        return jsonify({"success": True, "questions": [_question_to_dict(q) for q in s.questions]})
+    # POST: create
+    if s.archived or s.deleted:
+        return jsonify({"success": False, "message": "Cannot add questions to this session."}), 400
+    err, q_type, title, opts = _parse_question_payload(request.get_json(silent=True) or {})
+    if err:
+        return jsonify({"success": False, "message": err}), 400
+    next_order = max([q.order for q in s.questions], default=0) + 1
+    q = Question(session_id=s.id, type=q_type, title=title, options=json.dumps(opts),
+                 active=True, order=next_order)
+    db.session.add(q)
+    db.session.commit()
+    return jsonify({"success": True, "question": _question_to_dict(q)})
+
+
+@app.route('/api/questions/<int:question_id>/edit', methods=['POST'])
+@login_required
+def api_edit_question(question_id):
+    q = Question.query.get_or_404(question_id)
+    if q.session.user_id != session['user_id']:
+        return jsonify({"success": False, "message": "Permission denied."}), 403
+    if q.session.archived or q.session.deleted:
+        return jsonify({"success": False, "message": "Cannot edit this question."}), 400
+    err, q_type, title, opts = _parse_question_payload(request.get_json(silent=True) or {})
+    if err:
+        return jsonify({"success": False, "message": err}), 400
+    # Title can always change; structural edits are blocked once responses exist
+    # (they would orphan the recorded answers) — duplicate instead.
+    structural = (q_type != q.type) or (json.dumps(opts) != (q.options or ''))
+    if structural and Response.query.filter_by(question_id=q.id).count() > 0:
+        q.title = title
+        db.session.commit()
+        return jsonify({"success": False, "partial": True,
+                        "message": "Saved the title. Options/type can't change once responses exist — duplicate the question instead.",
+                        "question": _question_to_dict(q)})
+    q.type, q.title, q.options = q_type, title, json.dumps(opts)
+    db.session.commit()
+    return jsonify({"success": True, "question": _question_to_dict(q)})
+
+
+@app.route('/api/questions/<int:question_id>/duplicate', methods=['POST'])
+@login_required
+def api_duplicate_question(question_id):
+    q = Question.query.get_or_404(question_id)
+    if q.session.user_id != session['user_id']:
+        return jsonify({"success": False, "message": "Permission denied."}), 403
+    if q.session.archived or q.session.deleted:
+        return jsonify({"success": False, "message": "Cannot modify this session."}), 400
+    next_order = max([x.order for x in q.session.questions], default=0) + 1
+    c = Question(session_id=q.session_id, type=q.type, title=f"{q.title} (copy)",
+                 options=q.options, active=True, order=next_order)
+    db.session.add(c)
+    db.session.commit()
+    return jsonify({"success": True, "question": _question_to_dict(c)})
+
+
+@app.route('/api/sessions/<int:session_id>/questions/reorder', methods=['POST'])
+@login_required
+def api_reorder_questions(session_id):
+    s = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+    order = (request.get_json(silent=True) or {}).get('order') or []
+    pos = {qid: i for i, qid in enumerate(order)}
+    for q in s.questions:
+        if q.id in pos:
+            q.order = pos[q.id]
+    db.session.commit()
+    return jsonify({"success": True})
 
 
 # --- Admin API Routes ---

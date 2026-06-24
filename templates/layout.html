@@ -25,9 +25,7 @@
             <div class="flex items-center space-x-2 md:space-x-4 flex-wrap"> {# Added flex-wrap and reduced spacing #}
                  {# Use Flask session here #}
                 {% if session.get('user_id') %}
-                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Dashboard</a>
-                    <a href="{{ url_for('list_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Sessions</a>
-                    <a href="{{ url_for('list_archived_sessions') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Archived</a> {# Link to archived #}
+                    <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Sessions</a>
                     <a href="{{ url_for('ai_settings') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">AI Settings</a>
                     {# Use is_admin injected by context processor #}
                     {% if is_admin %}

@@ -1,93 +1,323 @@
 {% extends "layout.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}My Sessions{% endblock %}
 
 {% block content %}
-{# Use Flask session here #}
-<h2 class="text-3xl font-semibold mb-6">Welcome, {{ session.get('display_name', 'Presenter') }}!</h2>
+<div class="grid md:grid-cols-3 gap-4">
 
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Active Sessions</h3>
-    {% if active_sessions %}
-    <ul class="space-y-2">
-        {% for s in active_sessions %}
-        <li class="bg-white p-4 rounded-lg shadow">
-            <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
-                <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
-                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-indigo-700 hover:underline">{{ s.name }}</a>
-                    <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
-                    <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
+    {# ===== Left: sessions list ===== #}
+    <aside class="md:col-span-1 {{ 'hidden md:block' if selected else 'block' }}">
+        <button id="new-session" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-md mb-3">+ New session</button>
+        <input id="session-search" placeholder="Search sessions…"
+               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
+        <div class="flex gap-2 text-xs mb-3">
+            <button data-tab="active" class="tab-btn px-2 py-1 rounded bg-indigo-600 text-white">Active</button>
+            <button data-tab="archived" class="tab-btn px-2 py-1 rounded bg-white border">Archived</button>
+        </div>
+        <div id="session-list" class="space-y-2">
+            {% for s in sessions %}
+            <a href="{{ url_for('manage_session', session_id=s.id) }}"
+               class="session-row block bg-white rounded-lg shadow p-3 {{ 'ring-2 ring-indigo-500' if selected and selected.id == s.id }}"
+               data-name="{{ s.name|lower }}" data-archived="{{ '1' if s.archived else '0' }}">
+                <div class="flex items-center justify-between">
+                    <span class="font-medium text-gray-800 truncate">{{ s.name }}</span>
+                    {% if s.active %}<span class="shrink-0 ml-2 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">LIVE</span>{% endif %}
                 </div>
-                <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
-                    <a href="{{ url_for('present_mode', session_id=s.id) }}" class="action-button bg-purple-600 hover:bg-purple-700">Present</a>
-                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
-                    {# Archive Button #}
-                    <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
-                            class="action-button archive-button">
-                        Archive
-                    </button>
-                    {# Delete Button #}
-                    <button data-url="{{ url_for('api_delete_session', session_id=s.id) }}" data-item-type="session"
-                            class="action-button bg-red-500 hover:bg-red-600 delete-button"
-                            onclick="return confirm('Are you sure? This will permanently delete the session if it has no responses, or move it to trash if it has responses.')">
-                        Delete
-                    </button>
+                <div class="text-xs text-gray-500 mt-0.5">{{ s.question_count }} question{{ '' if s.question_count == 1 else 's' }} · {{ s.code }}</div>
+            </a>
+            {% endfor %}
+            <p id="list-empty" class="text-sm text-gray-400 px-1 {{ 'hidden' if sessions }}">No sessions yet — create your first one.</p>
+        </div>
+    </aside>
+
+    {# ===== Right: selected session ===== #}
+    <section class="md:col-span-2 {{ 'block' if selected else 'hidden md:block' }}">
+    {% if selected %}
+        <a href="{{ url_for('dashboard') }}" class="md:hidden inline-block text-indigo-700 font-semibold text-sm mb-2">← Sessions</a>
+
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <input id="session-name" value="{{ selected.name }}"
+                       class="text-2xl font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-1 max-w-full">
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="font-mono bg-gray-200 px-2 py-1 rounded">{{ selected.code }}</span>
+                    {% if selected.qr %}<img src="{{ selected.qr }}" alt="Join QR" class="w-10 h-10 border rounded">{% endif %}
                 </div>
             </div>
-        </li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-gray-500">No active sessions.</p>
-    {% endif %}
-</div>
+            <p class="text-xs text-gray-500 mt-1">Join link: <a href="{{ selected.join_url }}" target="_blank" class="text-indigo-600 hover:underline">{{ selected.join_url }}</a></p>
 
-<div class="mb-8">
-    <h3 class="text-xl font-semibold mb-4">Inactive Sessions</h3>
-     {% if inactive_sessions %}
-    <ul class="space-y-2">
-        {% for s in inactive_sessions %}
-         <li class="bg-gray-100 p-4 rounded-lg shadow">
-            <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
-                <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
-                    <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-gray-700 hover:underline">{{ s.name }}</a>
-                     <span class="text-sm text-gray-600 ml-4 block sm:inline">Code: {{ s.code }}</span> {# Added block/inline #}
-                     <span class="text-sm text-gray-500 ml-4 block sm:inline">Created: {{ s.created_at | format_datetime }}</span> {# Added block/inline #}
-                </div>
-                 <div class="flex-shrink-0 mt-2 sm:mt-0 space-x-1"> {# Prevent buttons from wrapping awkwardly, add spacing #}
-                     <a href="{{ url_for('manage_session', session_id=s.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage</a>
-                     {# Archive Button #}
-                     <button data-url="{{ url_for('api_archive_session', session_id=s.id) }}" data-item-type="session"
-                             class="action-button archive-button">
-                         Archive
-                     </button>
-                     {# Delete Button #}
-                     <button data-url="{{ url_for('api_delete_session', session_id=s.id) }}" data-item-type="session"
-                             class="action-button bg-red-500 hover:bg-red-600 delete-button"
-                             onclick="return confirm('Are you sure? This will permanently delete the session if it has no responses, or move it to trash if it has responses.')">
-                         Delete
-                     </button>
-                 </div>
+            <div class="flex flex-wrap gap-2 mt-4">
+                <button id="pill-activate" class="text-white font-bold px-3 py-1.5 rounded-full text-xs {{ 'bg-orange-500 hover:bg-orange-600' if selected.active else 'bg-green-500 hover:bg-green-600' }}">
+                    {{ 'Deactivate' if selected.active else 'Activate' }}
+                </button>
+                {% if selected.active %}
+                <a href="{{ url_for('present_mode', session_id=selected.id) }}" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-3 py-1.5 rounded-full text-xs">Present</a>
+                {% else %}
+                <span class="bg-purple-300 text-white font-bold px-3 py-1.5 rounded-full text-xs cursor-not-allowed" title="Activate the session first">Present</span>
+                {% endif %}
+                <a href="{{ url_for('session_results', session_id=selected.id) }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Results</a>
+                <a href="{{ url_for('export_session_results', session_id=selected.id) }}" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Export</a>
+                <button id="pill-archive" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Archive</button>
+                <button id="pill-delete" class="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Delete</button>
             </div>
-        </li>
-        {% endfor %}
-    </ul>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold">Questions <span id="q-count" class="text-gray-400 text-sm font-normal"></span></h3>
+                <button id="add-question" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-md text-sm">+ Add question</button>
+            </div>
+            <div id="question-list" class="space-y-2"></div>
+            <p id="q-empty" class="text-sm text-gray-400 hidden">No questions yet. Click <span class="font-medium">+ Add question</span> to create your first one — multiple choice, word cloud, or a rating scale.</p>
+        </div>
     {% else %}
-    <p class="text-gray-500">No inactive sessions.</p>
+        <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+            Select a session from the list, or create one to get started.
+        </div>
     {% endif %}
+    </section>
 </div>
 
-<a href="{{ url_for('new_session') }}" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">
-    Create New Session
-</a>
-
-{# Optional: Link to view archived sessions #}
-{# <p class="mt-6"><a href="{{ url_for('list_archived_sessions') }}" class="text-sm text-gray-600 hover:underline">View Archived Sessions</a></p> #}
-
+{# Question editor overlay #}
+<div id="modal" class="hidden fixed inset-0 z-40 bg-black/60 flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-2xl shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto">
+        <button id="modal-close" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+        <div id="modal-body"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Add page-specific JS for dashboard if needed
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const SID = {{ selected.id if selected else 'null' }};
+let questions = {{ (selected.questions if selected else []) | tojson }};
+const TYPES = { multiple_choice:'Multiple Choice', word_cloud:'Word Cloud', rating:'Rating Scale' };
+const esc = s => { const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; };
+
+async function api(url, body) {
+    const r = await fetch(url, { method:'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+        body: body ? JSON.stringify(body) : null });
+    let d = {}; try { d = await r.json(); } catch(e) {}
+    return { ok: r.ok, data: d };
+}
+
+/* ---------- session list: search + tabs ---------- */
+let tab = 'active';
+function filterList() {
+    const term = (document.getElementById('session-search')?.value || '').toLowerCase();
+    document.querySelectorAll('.session-row').forEach(row => {
+        const archived = row.dataset.archived === '1';
+        const matchTab = (tab === 'archived') === archived;
+        const matchTerm = row.dataset.name.includes(term);
+        row.style.display = (matchTab && matchTerm) ? '' : 'none';
+    });
+}
+document.getElementById('session-search')?.addEventListener('input', filterList);
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+    tab = b.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(x => {
+        const on = x.dataset.tab === tab;
+        x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
+        x.classList.toggle('bg-white', !on); x.classList.toggle('border', !on);
+    });
+    filterList();
+}));
+filterList();
+
+document.getElementById('new-session').addEventListener('click', async () => {
+    const { ok, data } = await api('{{ url_for("api_create_session") }}', { name: 'Untitled session' });
+    if (ok && data.success) window.location.href = '/sessions/' + data.session.id;
+    else alert((data && data.message) || 'Could not create session.');
+});
+
+/* ---------- per-session actions ---------- */
+if (SID !== null) {
+    document.getElementById('session-name').addEventListener('change', async (e) => {
+        const name = e.target.value.trim();
+        if (name) await api(`/api/sessions/${SID}/rename`, { name });
+    });
+    document.getElementById('pill-activate').addEventListener('click', async () => {
+        const { ok, data } = await api(`/api/sessions/${SID}/toggle`);
+        if (ok && data.success) window.location.reload(); else alert((data && data.message) || 'Failed.');
+    });
+    document.getElementById('pill-archive').addEventListener('click', async () => {
+        if (!confirm('Archive this session?')) return;
+        await fetch(`/api/sessions/${SID}/archive`, { method:'POST', headers:{ 'X-CSRFToken': CSRF } });
+        window.location.href = '{{ url_for("dashboard") }}';
+    });
+    document.getElementById('pill-delete').addEventListener('click', async () => {
+        if (!confirm('Delete this session? Sessions with responses are moved to trash.')) return;
+        await fetch(`/api/sessions/${SID}/delete`, { method:'POST', headers:{ 'X-CSRFToken': CSRF } });
+        window.location.href = '{{ url_for("dashboard") }}';
+    });
+}
+
+/* ---------- question list ---------- */
+function summary(q) {
+    return q.type === 'multiple_choice' ? `${q.options.length} options`
+         : q.type === 'rating' ? `1–${q.max_rating} scale` : 'free-text';
+}
+function renderQuestions() {
+    const list = document.getElementById('question-list');
+    if (!list) return;
+    document.getElementById('q-count').textContent = `(${questions.length})`;
+    document.getElementById('q-empty').classList.toggle('hidden', questions.length > 0);
+    list.innerHTML = questions.map((q, i) => {
+        const live = q.active
+            ? `<button data-act="toggle" data-id="${q.id}" class="text-green-700" title="Shown in Present — click to hide">● Live</button>`
+            : `<button data-act="toggle" data-id="${q.id}" class="text-gray-400" title="Hidden from Present — click to show">○ Hidden</button>`;
+        return `<div class="border border-gray-200 rounded-lg p-3 flex items-start justify-between">
+            <div class="flex gap-2">
+                <div class="flex flex-col text-gray-400 pt-0.5">
+                    <button data-act="up" data-id="${q.id}" class="${i===0?'opacity-20':'hover:text-gray-700'} leading-none">▲</button>
+                    <button data-act="down" data-id="${q.id}" class="${i===questions.length-1?'opacity-20':'hover:text-gray-700'} leading-none">▼</button>
+                </div>
+                <div>
+                    <span class="text-[11px] font-semibold text-indigo-700">${i+1}. ${TYPES[q.type]} · ${summary(q)}</span>
+                    <p class="font-medium text-gray-800">${esc(q.title)}</p>
+                </div>
+            </div>
+            <div class="flex gap-3 text-xs shrink-0 items-start">
+                ${live}
+                <button data-act="edit" data-id="${q.id}" class="text-indigo-600 hover:underline">Edit</button>
+                <button data-act="dup" data-id="${q.id}" class="text-gray-500 hover:underline">Duplicate</button>
+                <button data-act="del" data-id="${q.id}" class="text-red-600 hover:underline">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function moveQuestion(id, dir) {
+    const i = questions.findIndex(q => q.id === id), j = i + dir;
+    if (j < 0 || j >= questions.length) return;
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+    renderQuestions();
+    await api(`/api/sessions/${SID}/questions/reorder`, { order: questions.map(q => q.id) });
+}
+
+if (SID !== null) {
+    document.getElementById('question-list').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-act]'); if (!btn) return;
+        const id = parseInt(btn.dataset.id, 10);
+        const act = btn.dataset.act;
+        if (act === 'up') return moveQuestion(id, -1);
+        if (act === 'down') return moveQuestion(id, 1);
+        if (act === 'edit') return openEditor('edit', id);
+        if (act === 'toggle') {
+            const { ok, data } = await api(`/api/questions/${id}/toggle`);
+            if (ok && data.success) { const q = questions.find(x => x.id === id); q.active = data.active; renderQuestions(); }
+            return;
+        }
+        if (act === 'dup') {
+            const { ok, data } = await api(`/api/questions/${id}/duplicate`);
+            if (ok && data.success) { questions.push(data.question); renderQuestions(); }
+            else alert((data && data.message) || 'Could not duplicate.');
+            return;
+        }
+        if (act === 'del') {
+            if (!confirm('Delete this question?')) return;
+            const { ok, data } = await api(`/api/questions/${id}/delete`);
+            if (ok && data.success) { questions = questions.filter(q => q.id !== id); renderQuestions(); }
+            else alert((data && data.message) || 'Could not delete.');
+            return;
+        }
+    });
+    document.getElementById('add-question').addEventListener('click', () => openEditor('add'));
+    renderQuestions();
+}
+
+/* ---------- editor overlay ---------- */
+let editor = { mode: null, id: null };
+const modal = document.getElementById('modal');
+document.getElementById('modal-close').addEventListener('click', closeEditor);
+modal.addEventListener('click', e => { if (e.target === modal) closeEditor(); });
+
+function typeFields(type, q) {
+    if (type === 'multiple_choice') return `<label class="block text-sm font-medium text-gray-700 mt-3">Options (one per line)</label>
+        <textarea id="ed-options" rows="4" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${q && q.type==='multiple_choice' ? esc(q.options.join('\n')) : ''}</textarea>`;
+    if (type === 'rating') return `<label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
+        <input id="ed-max" type="number" min="2" max="10" value="${q && q.type==='rating' ? q.max_rating : 5}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">`;
+    return `<p class="text-sm text-gray-500 mt-3">Audience submits words / short phrases — no extra config.</p>`;
+}
+function editorHTML() {
+    const q = editor.mode === 'edit' ? questions.find(x => x.id === editor.id) : null;
+    const type = q ? q.type : 'multiple_choice';
+    const locked = q && q.response_count > 0;
+    return `<h3 class="text-lg font-semibold mb-3">${editor.mode==='edit' ? 'Edit question' : 'Add question'}</h3>
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-md p-3 mb-4 flex gap-2">
+            <input id="ed-ai" placeholder="✨ Describe a question for AI to draft…" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
+            <button type="button" id="ed-ai-btn" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-3 rounded-md">Generate</button>
+        </div>
+        ${locked ? '<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">This question has responses — only the title can be changed. Duplicate it to alter options.</p>' : ''}
+        <label class="block text-sm font-medium text-gray-700">Type</label>
+        <select id="ed-type" ${locked ? 'disabled' : ''} class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm ${locked ? 'bg-gray-100' : ''}">
+            ${Object.entries(TYPES).map(([v,l]) => `<option value="${v}" ${v===type?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <label class="block text-sm font-medium text-gray-700 mt-3">Question title</label>
+        <input id="ed-title" value="${q ? esc(q.title) : ''}" placeholder="Enter your question" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+        <div id="ed-fields" class="${locked ? 'opacity-50 pointer-events-none' : ''}">${typeFields(type, q)}</div>
+        <div id="ed-status" class="text-sm mt-3 hidden"></div>
+        <div class="flex gap-2 mt-5">
+            <button type="button" id="ed-save" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm">${editor.mode==='edit' ? 'Save changes' : 'Add to session'}</button>
+            <button type="button" id="ed-cancel" class="text-gray-600 hover:bg-gray-100 font-semibold py-2 px-4 rounded-md text-sm">Cancel</button>
+        </div>`;
+}
+function wireEditor() {
+    document.getElementById('ed-type').addEventListener('change', e => {
+        document.getElementById('ed-fields').innerHTML = typeFields(e.target.value, null);
+    });
+    document.getElementById('ed-cancel').addEventListener('click', closeEditor);
+    document.getElementById('ed-save').addEventListener('click', saveEditor);
+    document.getElementById('ed-ai-btn').addEventListener('click', aiGenerate);
+}
+function openEditor(mode, id) {
+    editor = { mode, id: id ?? null };
+    document.getElementById('modal-body').innerHTML = editorHTML();
+    wireEditor();
+    modal.classList.remove('hidden');
+}
+function closeEditor() { modal.classList.add('hidden'); }
+
+function readForm() {
+    const type = document.getElementById('ed-type').value;
+    const body = { type, title: document.getElementById('ed-title').value.trim() };
+    if (type === 'multiple_choice') body.options = document.getElementById('ed-options').value;
+    if (type === 'rating') body.max_rating = parseInt(document.getElementById('ed-max').value, 10) || 5;
+    return body;
+}
+async function saveEditor() {
+    const body = readForm();
+    const url = editor.mode === 'edit' ? `/api/questions/${editor.id}/edit` : `/api/sessions/${SID}/questions`;
+    const { ok, data } = await api(url, body);
+    if (ok && data.success) {
+        if (editor.mode === 'edit') { const i = questions.findIndex(q => q.id === editor.id); questions[i] = data.question; }
+        else questions.push(data.question);
+        renderQuestions(); closeEditor();
+    } else if (data && data.partial) {
+        const i = questions.findIndex(q => q.id === editor.id); if (i >= 0) questions[i] = data.question;
+        renderQuestions();
+        const st = document.getElementById('ed-status');
+        st.className = 'text-sm mt-3 text-amber-700'; st.textContent = data.message; st.classList.remove('hidden');
+    } else {
+        const st = document.getElementById('ed-status');
+        st.className = 'text-sm mt-3 text-red-600'; st.textContent = (data && data.message) || 'Could not save.'; st.classList.remove('hidden');
+    }
+}
+async function aiGenerate() {
+    const prompt = document.getElementById('ed-ai').value.trim();
+    const st = document.getElementById('ed-status');
+    if (!prompt) { st.className='text-sm mt-3 text-red-600'; st.textContent='Describe the question first.'; st.classList.remove('hidden'); return; }
+    st.className='text-sm mt-3 text-blue-600'; st.textContent='⏳ Generating…'; st.classList.remove('hidden');
+    const { ok, data } = await api('{{ url_for("api_test_ai_generation") }}', { prompt });
+    if (ok && data.success) {
+        const typeSel = document.getElementById('ed-type');
+        if (data.question_type) { typeSel.value = data.question_type; document.getElementById('ed-fields').innerHTML = typeFields(data.question_type, null); }
+        document.getElementById('ed-title').value = data.title || '';
+        if (data.question_type === 'multiple_choice' && Array.isArray(data.options)) document.getElementById('ed-options').value = data.options.join('\n');
+        if (data.question_type === 'rating' && data.options && data.options.max_rating) document.getElementById('ed-max').value = data.options.max_rating;
+        st.className='text-sm mt-3 text-green-600'; st.textContent='✅ Drafted — review and save.';
+    } else { st.className='text-sm mt-3 text-red-600'; st.textContent='❌ ' + ((data && data.error) || 'Generation failed.'); }
+}
 </script>
 {% endblock %}
-

@@ -4,14 +4,17 @@
 
 {% block content %}
 {# Use current_session passed from the route #}
+{% set mode = mode|default('present') %}
 <div class="bg-indigo-700 p-4 rounded-lg shadow-lg mb-4 flex justify-between items-center flex-wrap">
-    <h2 class="text-2xl font-semibold text-white mb-2 md:mb-0">Presenting: {{ current_session.name }}</h2>
+    <h2 class="text-2xl font-semibold text-white mb-2 md:mb-0">{{ 'Results' if mode == 'results' else 'Presenting' }}: {{ current_session.name }}</h2>
     <div class="flex items-center space-x-4">
+        {% if mode != 'results' %}
         <span class="text-lg font-mono bg-gray-700 text-white px-3 py-1 rounded">Join Code: {{ current_session.code }}</span>
         {% if qr_code_data_url %}
         <img src="{{ qr_code_data_url }}" alt="QR Code" class="w-16 h-16 border-2 border-white rounded hidden sm:block">
         {% endif %}
-        <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Manage Session</a>
+        {% endif %}
+        <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Back to session</a>
     </div>
 </div>
 
