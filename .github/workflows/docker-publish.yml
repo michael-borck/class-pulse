@@ -1,0 +1,81 @@
+name: Build & Publish Docker Image
+
+# Builds the multi-arch image and publishes it to GitHub Container Registry.
+# Your VPS (Caddy in front) pulls the image and runs it — no deploy step here.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']          # v1.0.0, v2.1.3, ... → semver tags
+  pull_request:
+    branches: [main]      # build-only on PRs (no publish)
+  workflow_dispatch:      # manual run from the Actions tab
+
+# Superseded runs on the same ref are cancelled to save CI minutes.
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  # github.repository is lowercased by docker/metadata-action, so this is
+  # fork/rename-safe (no hardcoded owner).
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write      # lets GITHUB_TOKEN push to GHCR
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Emulate arm64 so a single build serves amd64 (DigitalOcean, Linode)
+      # and arm64 (Hetzner ARM, Oracle Cloud Ampere) VPS hosts.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Only authenticate on events that should publish (skip PR builds).
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # latest on main; semver + sha + branch tags otherwise.
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=short
+            type=ref,event=branch
+          labels: |
+            org.opencontainers.image.title=ClassPulse
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Disable default provenance attestation so `latest` resolves to a
+          # clean multi-arch manifest (avoids confusing image-list artifacts).
+          provenance: false
