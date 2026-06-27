@@ -343,34 +343,65 @@ def call_ai(prompt: str) -> Dict[str, Any]:
     return adapter(AI_BASE_URL, AI_API_KEY, AI_MODEL, prompt)
 
 def parse_ai_response(response_text: str) -> Dict[str, Any]:
-    """Parses AI response and extracts question data."""
+    """Parse the AI's JSON response into a question dict."""
     try:
-        # Try to extract JSON from response
         import re
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if json_match:
-            json_str = json_match.group()
-            data = json.loads(json_str)
-            
-            # Validate required fields
+            data = json.loads(json_match.group())
             if "question_type" in data and "title" in data:
                 question_type = data["question_type"].lower().replace(" ", "_")
                 if question_type in ["multiple_choice", "word_cloud", "rating"]:
                     return {
                         "success": True,
                         "question_type": question_type,
-                        "title": data["title"][:255],  # Limit length
+                        "title": data["title"][:255],
                         "options": data.get("options", []),
-                        "confidence": data.get("confidence", 0.8)
+                        "change_summary": (data.get("change_summary") or "")[:120],
+                        "confidence": data.get("confidence", 0.8),
                     }
-        
         return {"success": False, "error": "Could not parse valid question format from AI response"}
     except Exception as e:
         return {"success": False, "error": f"Error parsing AI response: {str(e)}"}
 
-def generate_question_prompt(user_input: str) -> str:
-    """Generates the prompt for AI question generation."""
-    return f"""Analyze this prompt and generate an educational question: '{user_input}'
+
+def build_ai_prompt(*, mode: str, instruction: str = None, title: str = None,
+                    options: Any = None, hint: str = None, qtype: str = None) -> str:
+    """Build the LLM prompt for generating a fresh question or refining an existing one."""
+    if mode == "refine":
+        if isinstance(options, list):
+            opts_str = ", ".join(str(o) for o in options) or "none"
+        elif isinstance(options, dict):
+            opts_str = ", ".join(f"{k}={v}" for k, v in options.items()) or "none"
+        else:
+            opts_str = options or "none"
+        steer = (hint or "").strip() or "Improve clarity and quality."
+        return f"""You are refining an existing educational question. Apply the requested change and return the improved question.
+
+Current question:
+- Type: {qtype or 'unspecified'}
+- Title: "{title or ''}"
+- Options: {opts_str}
+
+Requested change: "{steer}"
+
+Respond in JSON format only:
+{{
+  "question_type": "multiple_choice" | "word_cloud" | "rating",
+  "title": "the improved question text (clear and concise)",
+  "options": [...] for multiple_choice, {{"max_rating": 5}} for rating, [] for word_cloud,
+  "change_summary": "2-6 words describing what you changed (e.g. 'raised difficulty', 'added a 5th option')",
+  "confidence": 0.0-1.0
+}}
+
+Guidelines:
+- Keep the same question_type unless the change explicitly asks to switch.
+- For multiple_choice: keep about 4 realistic options (add or remove as the change asks).
+- Keep questions educational and appropriate."""
+
+    # generate mode (default)
+    instruction = (instruction or "").strip()
+    return f"""Analyze this prompt and generate an educational question: '{instruction}'
 
 Respond in JSON format only:
 {{
@@ -387,11 +418,15 @@ Guidelines:
 - Set confidence < 0.5 if the question type is unclear from the prompt
 - Keep questions educational and appropriate"""
 
-def generate_question_with_ai(user_input: str) -> Dict[str, Any]:
-    """Generate a question via the globally-configured AI provider."""
+
+def generate_question_with_ai(*, mode: str = "generate", instruction: str = None,
+                              title: str = None, options: Any = None, hint: str = None,
+                              qtype: str = None) -> Dict[str, Any]:
+    """Generate a fresh question or refine an existing one via the configured AI provider."""
     if not AI_ENABLED:
         return {"success": False, "error": "AI question generation is not configured."}
-    prompt = generate_question_prompt(user_input)
+    prompt = build_ai_prompt(mode=mode, instruction=instruction, title=title,
+                             options=options, hint=hint, qtype=qtype)
     result = call_ai(prompt)
     if result["success"]:
         return parse_ai_response(result["response"])
@@ -579,16 +614,32 @@ def register():
 @app.route('/api/test-ai-generation', methods=['POST'])
 @login_required
 def api_test_ai_generation():
-    """API endpoint to test AI question generation."""
+    """Generate or refine a question with AI.
+
+    JSON payload: {"mode": "generate"|"refine", ...}. Defaults to "generate".
+    Backward compatible with the legacy {"prompt": "..."} (treated as generate).
+      - generate: {"mode":"generate","instruction":"..."}  (or {"prompt":"..."})
+      - refine:   {"mode":"refine","type":"...","title":"...","options":[...],"hint":"..."}
+    """
     try:
-        data = request.get_json()
-        if not data or 'prompt' not in data:
-            return jsonify({"success": False, "error": "No prompt provided"}), 400
-        
-        result = generate_question_with_ai(data['prompt'])
+        data = request.get_json() or {}
+        mode = (data.get("mode") or "generate").strip().lower()
+        if mode == "refine":
+            result = generate_question_with_ai(
+                mode="refine",
+                title=data.get("title"),
+                options=data.get("options"),
+                hint=data.get("hint"),
+                qtype=data.get("type"),
+            )
+        else:
+            instruction = data.get("instruction") or data.get("prompt")
+            if not instruction:
+                return jsonify({"success": False, "error": "No instruction provided"}), 400
+            result = generate_question_with_ai(mode="generate", instruction=instruction)
         return jsonify(result)
     except Exception:
-        app.logger.exception("AI test generation failed")
+        app.logger.exception("AI generation failed")
         return jsonify({"success": False, "error": "Question generation failed."}), 500
 
 

@@ -5,41 +5,51 @@
 {% block content %}
 <h2 class="text-2xl font-semibold mb-6 text-center">Create {{ page_title }}</h2>
 <div class="mb-4">
-     {# FIX: Use current_session passed from the route #}
+     {# Use current_session passed from the route #}
      <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="text-indigo-600 hover:underline">&laquo; Back to Session: {{ current_session.name }}</a>
 </div>
 
-{# AI Generation Section #}
-{% if ai_enabled %}
-<div class="max-w-lg mx-auto bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-lg shadow-md mb-6">
-    <h3 class="text-lg font-semibold mb-4 text-purple-800">✨ Generate with AI</h3>
-    <div class="mb-4">
-        <input type="text" id="ai-prompt" 
-               placeholder="Describe your question (e.g., 'multiple choice about hard disk sector size')"
-               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-    </div>
-    <button type="button" onclick="generateWithAI()" 
-            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md mr-2">
-        Generate Question
-    </button>
-    <button type="button" onclick="clearForm()" 
-            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md">
-        Clear Form
-    </button>
-    <div id="ai-status" class="mt-3 text-sm hidden"></div>
-</div>
-{% endif %}
-
-{# FIX: Use current_session passed from the route in action URL #}
 <form action="{{ url_for('new_question', session_id=current_session.id, q_type=q_type) }}" method="post" class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {# Common field: Title #}
+
+    {# Title + (optional) AI actions #}
     <div class="mb-4">
-        <label for="title" class="block text-sm font-medium text-gray-700">Question Title</label>
+        <div class="flex items-center justify-between">
+            <label for="title" class="block text-sm font-medium text-gray-700">Question Title</label>
+            {% if ai_enabled %}
+            <div class="flex gap-1.5">
+                <button type="button" id="ai-refine-btn" onclick="aiRefine()" disabled
+                        title="Add some question content first"
+                        class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">✨ Refine</button>
+                <button type="button" onclick="aiGenerateOpen()"
+                        class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
+            </div>
+            {% endif %}
+        </div>
         <input type="text" id="title" name="title" required placeholder="Enter your question"
                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                value="{{ title or '' }}">
     </div>
+
+    {% if ai_enabled %}
+    {# Refine panel — revealed on demand #}
+    <div id="ai-refine-panel" class="hidden mb-4 bg-purple-50 border border-purple-200 rounded-md p-3">
+        <div class="text-xs font-semibold text-purple-800 mb-2">Steer the refinement <span class="font-normal text-purple-500">(optional — pick one or type your own)</span></div>
+        <div id="ai-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+        <input id="ai-custom" type="text" placeholder="Custom… e.g. add a sub-question about X"
+               class="block w-full px-2 py-1.5 border border-purple-300 rounded-md text-sm mb-2">
+        <div class="flex gap-2">
+            <button type="button" onclick="runRefine()" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Refine</button>
+            <button type="button" onclick="closeRefine()" class="text-sm text-gray-500 hover:text-gray-700 py-1 px-2">Cancel</button>
+        </div>
+    </div>
+    {# Refine result — what changed + revert #}
+    <div id="ai-refine-result" class="hidden mb-4 text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md px-3 py-2 flex items-center justify-between gap-2">
+        <span id="ai-whatchanged"></span>
+        <button type="button" onclick="revertAI()" class="text-xs bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-700 font-semibold py-1 px-2 rounded-md shrink-0">↩ Revert</button>
+    </div>
+    <div id="ai-status" class="mt-1 mb-3 text-sm hidden"></div>
+    {% endif %}
 
     {# Type-specific fields #}
     {% if q_type == 'multiple_choice' %}
@@ -63,121 +73,247 @@
         Create Question
     </button>
 </form>
+
+{% if ai_enabled %}
+{# Generate overlay #}
+<div id="ai-gen-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center" style="background:rgba(15,23,42,.55)">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+        <h3 class="text-lg font-semibold mb-1 text-indigo-800">✨ Generate a new question</h3>
+        <p class="text-xs text-gray-500 mb-3">Describe what you want. AI creates a fresh question from this.</p>
+        <input id="ai-gen-input" type="text" placeholder="e.g. a multiple-choice question on the water cycle"
+               class="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3">
+        <div id="ai-gen-overwrite" class="hidden mb-3 text-xs bg-amber-50 border border-amber-300 text-amber-800 rounded px-2 py-1.5">⚠ This will replace your current question.</div>
+        <div id="ai-gen-status" class="text-sm mb-2 hidden"></div>
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="aiGenerateClose()" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="runGenerate()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1.5 px-4 rounded-md">Generate</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if ai_enabled %}
 <script>
-function generateWithAI() {
-    const prompt = document.getElementById('ai-prompt').value.trim();
-    const statusDiv = document.getElementById('ai-status');
-    
-    if (!prompt) {
-        alert('Please enter a description for your question');
-        return;
-    }
-    
-    // Show loading status
-    statusDiv.className = 'mt-3 text-sm text-blue-600';
-    statusDiv.innerHTML = '⏳ Generating question with AI...';
-    statusDiv.classList.remove('hidden');
-    
-    fetch('{{ url_for("api_test_ai_generation") }}', {
+const QTYPE = '{{ q_type }}';
+const AI_URL = '{{ url_for("api_test_ai_generation") }}';
+const REDIRECT_URL = '{{ url_for("new_question", session_id=current_session.id, q_type="PLACEHOLDER") }}';
+const CHIPS = {
+    universal: ['Make it harder', 'Make it easier', 'Simplify the wording', 'Make it more specific', 'Shorten it', '8th-grade level'],
+    multiple_choice: ['Add a 5th option', 'Make distractors plausible', 'Rebalance options'],
+    rating: ['Switch to a 1–10 scale', 'Reframe as an opinion'],
+    word_cloud: ['Make it more open-ended']
+};
+let selectedChip = '';
+let aiSnapshot = null;
+
+const csrf = () => document.querySelector('meta[name="csrf-token"]').content;
+const val = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+
+function postAI(payload) {
+    return fetch(AI_URL, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
-        },
-        body: JSON.stringify({ prompt: prompt })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Check if generated type matches current page type
-            const currentType = '{{ q_type }}';
-            if (data.question_type !== currentType) {
-                // Redirect to correct question type page
-                const newUrl = '{{ url_for("new_question", session_id=current_session.id, q_type="PLACEHOLDER") }}'.replace('PLACEHOLDER', data.question_type);
-                window.location.href = newUrl + '?ai_title=' + encodeURIComponent(data.title) + 
-                                     '&ai_options=' + encodeURIComponent(JSON.stringify(data.options));
-                return;
-            }
-            
-            // Fill form with generated data
-            fillFormWithAIData(data);
-            
-            statusDiv.className = 'mt-3 text-sm text-green-600';
-            statusDiv.innerHTML = '✅ Question generated successfully! Review and edit as needed.';
-        } else {
-            statusDiv.className = 'mt-3 text-sm text-red-600';
-            statusDiv.innerHTML = '❌ ' + data.error;
-        }
-    })
-    .catch(error => {
-        statusDiv.className = 'mt-3 text-sm text-red-600';
-        statusDiv.innerHTML = '❌ Error: ' + error.message;
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+        body: JSON.stringify(payload)
+    }).then(r => r.json());
+}
+
+/* ---- form helpers ---- */
+function formHasContent() {
+    if (val('title')) return true;
+    const o = document.getElementById('options');
+    return !!(o && o.value.trim().length > 0);
+}
+function snapshotForm() {
+    const s = { title: document.getElementById('title').value };
+    const o = document.getElementById('options'); if (o) s.options = o.value;
+    const m = document.getElementById('max_rating'); if (m) s.max_rating = m.value;
+    return s;
+}
+function restoreForm(s) {
+    document.getElementById('title').value = s.title || '';
+    const o = document.getElementById('options'); if (o) o.value = s.options || '';
+    const m = document.getElementById('max_rating'); if (m) m.value = s.max_rating || 5;
+    updateRefineButton();
+}
+function currentOptionsForSend() {
+    if (QTYPE === 'multiple_choice') {
+        const o = document.getElementById('options');
+        return o ? o.value.split('\n').map(x => x.trim()).filter(Boolean) : [];
+    }
+    if (QTYPE === 'rating') {
+        const m = document.getElementById('max_rating');
+        return { max_rating: m ? parseInt(m.value || '5', 10) : 5 };
+    }
+    return [];
+}
+function fillFormWithAIData(data) {
+    document.getElementById('title').value = data.title || '';
+    if (QTYPE === 'multiple_choice' && Array.isArray(data.options)) {
+        document.getElementById('options').value = data.options.join('\n');
+    } else if (QTYPE === 'rating' && data.options && data.options.max_rating) {
+        document.getElementById('max_rating').value = data.options.max_rating;
+    }
+    updateRefineButton();
+}
+
+/* ---- status line ---- */
+function showStatus(kind, msg) {
+    const s = document.getElementById('ai-status');
+    if (!s) return;
+    s.className = 'mt-1 mb-3 text-sm ' + (kind === 'err' ? 'text-red-600' : kind === 'refining' ? 'text-blue-600' : 'text-green-600');
+    s.textContent = msg;
+    s.classList.remove('hidden');
+}
+
+/* ---- refine button enable/disable ---- */
+function updateRefineButton() {
+    const b = document.getElementById('ai-refine-btn');
+    if (!b) return;
+    b.disabled = !formHasContent();
+    b.title = formHasContent() ? 'Refine the current content with AI' : 'Add some question content first';
+}
+document.getElementById('title').addEventListener('input', updateRefineButton);
+(function () {
+    const o = document.getElementById('options');
+    if (o) o.addEventListener('input', updateRefineButton);
+})();
+
+/* ---- chips ---- */
+function renderChips() {
+    const wrap = document.getElementById('ai-chips');
+    if (!wrap) return;
+    const list = (CHIPS.universal || []).concat(CHIPS[QTYPE] || []);
+    wrap.innerHTML = '';
+    list.forEach(label => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.className = 'text-xs px-2 py-1 rounded-full border ' +
+            (selectedChip === label
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-100');
+        b.onclick = () => {
+            selectedChip = (selectedChip === label) ? '' : label;
+            if (selectedChip) document.getElementById('ai-custom').value = '';
+            renderChips();
+        };
+        wrap.appendChild(b);
     });
 }
 
-function fillFormWithAIData(data) {
-    // Fill title
-    document.getElementById('title').value = data.title;
-    
-    // Fill type-specific fields
-    const currentType = '{{ q_type }}';
-    if (currentType === 'multiple_choice' && Array.isArray(data.options)) {
-        document.getElementById('options').value = data.options.join('\n');
-    } else if (currentType === 'rating' && data.options && data.options.max_rating) {
-        document.getElementById('max_rating').value = data.options.max_rating;
-    }
+/* ---- refine flow ---- */
+function aiRefine() {
+    const b = document.getElementById('ai-refine-btn');
+    if (b && b.disabled) return;
+    selectedChip = '';
+    const c = document.getElementById('ai-custom'); if (c) c.value = '';
+    renderChips();
+    document.getElementById('ai-refine-panel').classList.remove('hidden');
+}
+function closeRefine() {
+    document.getElementById('ai-refine-panel').classList.add('hidden');
+}
+document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'ai-custom') { selectedChip = ''; renderChips(); }
+});
+
+function runRefine() {
+    const hint = val('ai-custom') || selectedChip || '';
+    aiSnapshot = snapshotForm();
+    closeRefine();
+    showStatus('refining', '⏳ Refining…');
+    postAI({ mode: 'refine', type: QTYPE, title: val('title'), options: currentOptionsForSend(), hint })
+        .then(data => {
+            if (data.success) {
+                fillFormWithAIData(data);
+                document.getElementById('ai-whatchanged').textContent =
+                    '✨ ' + (data.change_summary || 'refined') + ' — review or revert.';
+                document.getElementById('ai-refine-result').classList.remove('hidden');
+                showStatus('ok', '✅ Refined — review or revert.');
+            } else {
+                showStatus('err', '❌ ' + (data.error || 'Refine failed.'));
+            }
+        })
+        .catch(e => showStatus('err', '❌ ' + e.message));
+}
+function revertAI() {
+    if (!aiSnapshot) return;
+    restoreForm(aiSnapshot);
+    aiSnapshot = null;
+    document.getElementById('ai-refine-result').classList.add('hidden');
+    showStatus('ok', '↩ Reverted to your original.');
 }
 
-function clearForm() {
-    document.getElementById('title').value = '';
-    {% if q_type == 'multiple_choice' %}
-    document.getElementById('options').value = '';
-    {% elif q_type == 'rating' %}
-    document.getElementById('max_rating').value = '5';
-    {% endif %}
-    document.getElementById('ai-prompt').value = '';
-    document.getElementById('ai-status').classList.add('hidden');
+/* ---- generate flow ---- */
+function aiGenerateOpen() {
+    document.getElementById('ai-gen-overwrite').classList.toggle('hidden', !formHasContent());
+    document.getElementById('ai-gen-input').value = '';
+    const gs = document.getElementById('ai-gen-status');
+    gs.classList.add('hidden'); gs.textContent = '';
+    document.getElementById('ai-gen-modal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('ai-gen-input').focus(), 0);
+}
+function aiGenerateClose() {
+    document.getElementById('ai-gen-modal').classList.add('hidden');
+}
+function genStatus(msg, kind) {
+    const s = document.getElementById('ai-gen-status');
+    s.className = 'text-sm mb-2 ' + (kind === 'err' ? 'text-red-600' : 'text-blue-600');
+    s.textContent = msg;
+    s.classList.remove('hidden');
+}
+function runGenerate() {
+    const instruction = val('ai-gen-input');
+    if (!instruction) { genStatus('Describe what to generate first.', 'err'); return; }
+    genStatus('⏳ Generating…');
+    postAI({ mode: 'generate', instruction })
+        .then(data => {
+            if (data.success) {
+                if (data.question_type && data.question_type !== QTYPE) {
+                    const newUrl = REDIRECT_URL.replace('PLACEHOLDER', data.question_type);
+                    window.location.href = newUrl + '?ai_title=' + encodeURIComponent(data.title) +
+                                           '&ai_options=' + encodeURIComponent(JSON.stringify(data.options));
+                    return;
+                }
+                aiGenerateClose();
+                aiSnapshot = null;
+                document.getElementById('ai-refine-result').classList.add('hidden');
+                fillFormWithAIData(data);
+                showStatus('ok', '✅ Generated — review & edit.');
+            } else {
+                genStatus('❌ ' + (data.error || 'Generation failed.'), 'err');
+            }
+        })
+        .catch(e => genStatus('❌ ' + e.message, 'err'));
 }
 
-// Check for AI data in URL parameters (from redirects)
-window.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const aiTitle = urlParams.get('ai_title');
-    const aiOptions = urlParams.get('ai_options');
-    
+/* ---- pre-fill from a generate redirect (?ai_title) ---- */
+window.addEventListener('DOMContentLoaded', function () {
+    updateRefineButton();
+    const p = new URLSearchParams(window.location.search);
+    const aiTitle = p.get('ai_title');
+    const aiOptions = p.get('ai_options');
     if (aiTitle) {
         document.getElementById('title').value = decodeURIComponent(aiTitle);
-        
         if (aiOptions) {
             try {
                 const options = JSON.parse(decodeURIComponent(aiOptions));
-                const currentType = '{{ q_type }}';
-                
-                if (currentType === 'multiple_choice' && Array.isArray(options)) {
+                if (QTYPE === 'multiple_choice' && Array.isArray(options)) {
                     document.getElementById('options').value = options.join('\n');
-                } else if (currentType === 'rating' && options.max_rating) {
+                } else if (QTYPE === 'rating' && options && options.max_rating) {
                     document.getElementById('max_rating').value = options.max_rating;
                 }
             } catch (e) {
                 console.error('Error parsing AI options:', e);
             }
         }
-        
-        // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Show success message
-        const statusDiv = document.getElementById('ai-status');
-        if (statusDiv) {
-            statusDiv.className = 'mt-3 text-sm text-green-600';
-            statusDiv.innerHTML = '✅ Question generated with AI! Review and edit as needed.';
-            statusDiv.classList.remove('hidden');
-        }
+        showStatus('ok', '✅ Question generated with AI! Review and edit as needed.');
+        updateRefineButton();
     }
 });
 </script>
+{% endif %}
 {% endblock %}
-
