@@ -91,7 +91,17 @@
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const SID = {{ selected.id if selected else 'null' }};
 let questions = {{ (selected.questions if selected else []) | tojson }};
-const TYPES = { multiple_choice:'Multiple Choice', word_cloud:'Word Cloud', rating:'Rating Scale' };
+const TYPES = {
+    multiple_choice:'Multiple Choice',
+    word_cloud:'Word Cloud',
+    rating:'Rating Scale',
+    multi_select:'Select All',
+    short_answer:'Short Answer',
+    ranking:'Ranking',
+    numeric:'Numeric',
+    image_choice:'Image Choice',
+    multiple_choice_other:'Poll w/ Other'
+};
 const esc = s => { const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; };
 const AI_ENABLED = {{ ai_enabled|tojson }};
 const AI_URL = '{{ url_for("api_test_ai_generation") }}';
@@ -99,7 +109,13 @@ const CHIPS = {
     universal: ['Make it harder', 'Make it easier', 'Simplify the wording', 'Make it more specific', 'Shorten it', '8th-grade level'],
     multiple_choice: ['Add a 5th option', 'Make distractors plausible', 'Rebalance options'],
     rating: ['Switch to a 1–10 scale', 'Reframe as an opinion'],
-    word_cloud: ['Make it more open-ended']
+    word_cloud: ['Make it more open-ended'],
+    multi_select: ['Limit to 3 selections', 'Make options more distinct', 'Tighten wording'],
+    short_answer: ['Make it more open-ended', 'Encourage detail', 'Shorten the prompt'],
+    ranking: ['Reduce to 3 items', 'Make items more distinct', 'Reorder by importance'],
+    numeric: ['Change the range', 'Make it a 0–10 scale', 'Make it a 0–100 scale'],
+    image_choice: ['Use clearer images', 'Reduce to 2 images', 'Add a 4th image'],
+    multiple_choice_other: ["Add an 'Other' option", 'Make options more distinct', 'Add a 5th option']
 };
 let edSelectedChip = '';
 let edSnapshot = null;
@@ -165,8 +181,15 @@ if (SID !== null) {
 
 /* ---------- question list ---------- */
 function summary(q) {
-    return q.type === 'multiple_choice' ? `${q.options.length} options`
-         : q.type === 'rating' ? `1–${q.max_rating} scale` : 'free-text';
+    const t = q.type;
+    if (t === 'multiple_choice' || t === 'multi_select' || t === 'multiple_choice_other')
+        return `${(q.options||[]).length} options`;
+    if (t === 'ranking') return `${(q.options||[]).length} items`;
+    if (t === 'image_choice') return `${(q.options||[]).length} images`;
+    if (t === 'rating') return `1–${q.max_rating} scale`;
+    if (t === 'numeric') return 'numeric';
+    if (t === 'short_answer') return 'short answer';
+    return 'free-text';
 }
 function renderQuestions() {
     const list = document.getElementById('question-list');
@@ -244,10 +267,31 @@ document.getElementById('modal-close').addEventListener('click', closeEditor);
 modal.addEventListener('click', e => { if (e.target === modal) closeEditor(); });
 
 function typeFields(type, q) {
-    if (type === 'multiple_choice') return `<label class="block text-sm font-medium text-gray-700 mt-3">Options (one per line)</label>
-        <textarea id="ed-options" rows="4" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${q && q.type==='multiple_choice' ? esc(q.options.join('\n')) : ''}</textarea>`;
+    const LIST = ['multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other'];
+    if (LIST.includes(type)) {
+        const v = (q && LIST.includes(q.type)) ? esc((q.options||[]).join('\n')) : '';
+        return `<label class="block text-sm font-medium text-gray-700 mt-3">Options (one per line)</label>
+        <textarea id="ed-options" rows="4" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${v}</textarea>`;
+    }
+    if (type === 'image_choice') {
+        const v = (q && q.type === 'image_choice') ? esc((q.options||[]).map(o => o.url ? `${o.label}|${o.url}` : `${o.label||o.url||''}`).join('\n')) : '';
+        return `<label class="block text-sm font-medium text-gray-700 mt-3">Images (one per line: <code>label|url</code>)</label>
+        <textarea id="ed-options" rows="4" placeholder="Cat|https://example.com/cat.png" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${v}</textarea>`;
+    }
+    if (type === 'numeric') {
+        const o = (q && q.type === 'numeric' && q.numeric) ? q.numeric : {};
+        return `<div class="grid grid-cols-3 gap-3 mt-3">
+            <div><label class="block text-sm font-medium text-gray-700">Min</label>
+            <input id="ed-min" type="number" step="any" value="${o.min != null ? o.min : ''}" placeholder="(any)" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
+            <div><label class="block text-sm font-medium text-gray-700">Max</label>
+            <input id="ed-max" type="number" step="any" value="${o.max != null ? o.max : ''}" placeholder="(any)" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
+            <div><label class="block text-sm font-medium text-gray-700">Step</label>
+            <input id="ed-step" type="number" step="any" value="${o.step != null ? o.step : ''}" placeholder="(any)" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
+        </div>`;
+    }
     if (type === 'rating') return `<label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
         <input id="ed-max" type="number" min="2" max="10" value="${q && q.type==='rating' ? q.max_rating : 5}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">`;
+    // word_cloud, short_answer — no config
     return `<p class="text-sm text-gray-500 mt-3">Audience submits words / short phrases — no extra config.</p>`;
 }
 function editorHTML() {
@@ -330,8 +374,14 @@ function closeEditor() { modal.classList.add('hidden'); }
 function readForm() {
     const type = document.getElementById('ed-type').value;
     const body = { type, title: document.getElementById('ed-title').value.trim() };
-    if (type === 'multiple_choice') body.options = document.getElementById('ed-options').value;
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other','image_choice'].includes(type)) {
+        body.options = document.getElementById('ed-options').value;
+    }
     if (type === 'rating') body.max_rating = parseInt(document.getElementById('ed-max').value, 10) || 5;
+    if (type === 'numeric') {
+        const num = id => { const e = document.getElementById(id); const x = e ? e.value.trim() : ''; return x === '' ? null : Number(x); };
+        body.min = num('ed-min'); body.max = num('ed-max'); body.step = num('ed-step');
+    }
     return body;
 }
 async function saveEditor() {
@@ -402,13 +452,21 @@ function restoreEditor(s) {
 }
 function currentEditorOptions() {
     const t = document.getElementById('ed-type').value;
-    if (t === 'multiple_choice') {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other'].includes(t)) {
         const o = document.getElementById('ed-options');
         return o ? o.value.split('\n').map(x => x.trim()).filter(Boolean) : [];
+    }
+    if (t === 'image_choice') {
+        const o = document.getElementById('ed-options');
+        return o ? o.value : '';
     }
     if (t === 'rating') {
         const m = document.getElementById('ed-max');
         return { max_rating: m ? parseInt(m.value || '5', 10) : 5 };
+    }
+    if (t === 'numeric') {
+        const num = id => { const e = document.getElementById(id); const x = e ? e.value.trim() : ''; return x === '' ? null : Number(x); };
+        return { min: num('ed-min'), max: num('ed-max'), step: num('ed-step') };
     }
     return [];
 }
@@ -422,10 +480,20 @@ function fillEditorFromAI(data) {
     }
     document.getElementById('ed-title').value = data.title || '';
     const t = document.getElementById('ed-type').value;
-    if (t === 'multiple_choice' && Array.isArray(data.options)) {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other'].includes(t) && Array.isArray(data.options)) {
         const o = document.getElementById('ed-options'); if (o) o.value = data.options.join('\n');
+    } else if (t === 'image_choice' && data.options != null) {
+        const o = document.getElementById('ed-options');
+        if (o) {
+            o.value = Array.isArray(data.options)
+                ? data.options.map(x => (x && typeof x === 'object') ? `${x.label||''}|${x.url||''}` : String(x)).join('\n')
+                : String(data.options);
+        }
     } else if (t === 'rating' && data.options && data.options.max_rating) {
         const m = document.getElementById('ed-max'); if (m) m.value = data.options.max_rating;
+    } else if (t === 'numeric' && data.options && typeof data.options === 'object') {
+        const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = (val == null) ? '' : val; };
+        set('ed-min', data.options.min); set('ed-max', data.options.max); set('ed-step', data.options.step);
     }
     renderChips(); updateRefineButton();
 }

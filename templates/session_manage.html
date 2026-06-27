@@ -45,11 +45,20 @@
 </div>
 
 <h3 class="text-xl font-semibold mb-4">Questions</h3>
-<div class="mb-6 space-x-2"> {# Question creation buttons #}
+<div class="mb-6 flex flex-wrap gap-2"> {# Question creation buttons #}
      {# Use current_session passed from the route #}
     <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multiple_choice') }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm">New Multiple Choice</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multi_select') }}" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-3 rounded text-sm">New Select All</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multiple_choice_other') }}" class="bg-violet-500 hover:bg-violet-600 text-white font-bold py-2 px-3 rounded text-sm">New Poll w/ Other</a>
     <a href="{{ url_for('new_question', session_id=current_session.id, q_type='word_cloud') }}" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-2 px-3 rounded text-sm">New Word Cloud</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='short_answer') }}" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-3 rounded text-sm">New Short Answer</a>
     <a href="{{ url_for('new_question', session_id=current_session.id, q_type='rating') }}" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-3 rounded text-sm">New Rating Scale</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='ranking') }}" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-3 rounded text-sm">New Ranking</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='numeric') }}" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-3 rounded text-sm">New Numeric</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='image_choice') }}" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-3 rounded text-sm">New Image Choice</a>
+    <span class="text-gray-400 text-xs self-center">Quick:</span>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multiple_choice', preset='yesno') }}" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-3 rounded text-sm">⚡ Yes/No</a>
+    <a href="{{ url_for('new_question', session_id=current_session.id, q_type='multiple_choice', preset='emoji') }}" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-3 rounded text-sm">⚡ Emoji</a>
 </div>
 
 {# Use questions variable passed from route #}

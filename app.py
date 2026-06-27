@@ -116,7 +116,7 @@ class Session(db.Model):
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey('session.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False) # 'multiple_choice', 'word_cloud', 'rating'
+    type = db.Column(db.String(50), nullable=False) # see VALID_QUESTION_TYPES for the full list
     title = db.Column(db.String(255), nullable=False)
     options = db.Column(db.Text, default='{}') # JSON string for options/config
     active = db.Column(db.Boolean, default=True, nullable=False)
@@ -351,7 +351,7 @@ def parse_ai_response(response_text: str) -> Dict[str, Any]:
             data = json.loads(json_match.group())
             if "question_type" in data and "title" in data:
                 question_type = data["question_type"].lower().replace(" ", "_")
-                if question_type in ["multiple_choice", "word_cloud", "rating"]:
+                if question_type in VALID_QUESTION_TYPES:
                     return {
                         "success": True,
                         "question_type": question_type,
@@ -387,9 +387,9 @@ Requested change: "{steer}"
 
 Respond in JSON format only:
 {{
-  "question_type": "multiple_choice" | "word_cloud" | "rating",
+  "question_type": one of multiple_choice | word_cloud | rating | multi_select | short_answer | ranking | numeric | image_choice | multiple_choice_other,
   "title": "the improved question text (clear and concise)",
-  "options": [...] for multiple_choice, {{"max_rating": 5}} for rating, [] for word_cloud,
+  "options": a list of strings for multiple_choice/multi_select/ranking/multiple_choice_other; [{{"label":"..","url":".."}},..] for image_choice; {{"max_rating":5}} for rating; {{"min":0,"max":100}} for numeric; [] for word_cloud/short_answer,
   "change_summary": "2-6 words describing what you changed (e.g. 'raised difficulty', 'added a 5th option')",
   "confidence": 0.0-1.0
 }}
@@ -405,9 +405,9 @@ Guidelines:
 
 Respond in JSON format only:
 {{
-  "question_type": "multiple_choice" | "word_cloud" | "rating",
+  "question_type": one of multiple_choice | word_cloud | rating | multi_select | short_answer | ranking | numeric | image_choice | multiple_choice_other,
   "title": "the question text (clear and concise)",
-  "options": [...] for multiple_choice, {{"max_rating": 5}} for rating, [] for word_cloud,
+  "options": a list of strings for multiple_choice/multi_select/ranking/multiple_choice_other; [{{"label":"..","url":".."}},..] for image_choice; {{"max_rating":5}} for rating; {{"min":0,"max":100}} for numeric; [] for word_cloud/short_answer,
   "confidence": 0.0-1.0
 }}
 
@@ -656,7 +656,7 @@ def _question_to_dict(q):
         'title': q.title,
         'active': q.active,
         'response_count': Response.query.filter_by(question_id=q.id).count(),
-        'options': parsed if (q.type == 'multiple_choice' and isinstance(parsed, list)) else [],
+        'options': parsed if (q.type in ('multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other', 'image_choice') and isinstance(parsed, list)) else [],
         'max_rating': 5,
     }
     if q.type == 'rating' and isinstance(parsed, dict):
@@ -664,6 +664,8 @@ def _question_to_dict(q):
             data['max_rating'] = int(parsed.get('max_rating', 5))
         except (ValueError, TypeError):
             data['max_rating'] = 5
+    if q.type == 'numeric' and isinstance(parsed, dict):
+        data['numeric'] = {k: parsed[k] for k in ('min', 'max', 'step') if k in parsed}
     return data
 
 
@@ -678,30 +680,74 @@ def _session_to_dict(s, include_questions=False):
     return d
 
 
-def _parse_question_payload(data):
-    """Validate/normalise an add/edit question payload.
-    Returns (error_message_or_None, q_type, title, options_value)."""
-    q_type = data.get('type')
-    if q_type not in ('multiple_choice', 'word_cloud', 'rating'):
-        return ('Invalid question type.', None, None, None)
-    title = (data.get('title') or '').strip()
-    if not title:
-        return ('Question title is required.', None, None, None)
-    if q_type == 'multiple_choice':
-        opts = data.get('options') or []
+VALID_QUESTION_TYPES = (
+    'multiple_choice', 'word_cloud', 'rating',
+    'multi_select', 'short_answer', 'ranking', 'numeric',
+    'image_choice', 'multiple_choice_other',
+)
+
+
+def _build_options(q_type, src):
+    """Build the options JSON value for a question from a dict-like source.
+
+    `src` exposes 'options' (newline-string or list), 'max_rating', and
+    'min'/'max'/'step'. Returns (options_value, error_or_None).
+    """
+    if q_type in ('multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other'):
+        opts = src.get('options') or []
         if isinstance(opts, str):
             opts = opts.splitlines()
         opts = [str(o).strip() for o in opts if str(o).strip()]
         if len(opts) < 2:
-            return ('Add at least two options.', None, None, None)
-        return (None, q_type, title, opts)
+            return (None, 'Add at least two options.')
+        return (opts, None)
+    if q_type == 'image_choice':
+        raw = src.get('options') or []
+        if isinstance(raw, str):
+            raw = raw.splitlines()
+        items = []
+        for i, line in enumerate([str(l).strip() for l in raw if str(l).strip()], 1):
+            if '|' in line:
+                label, url = line.split('|', 1)
+                items.append({'label': label.strip(), 'url': url.strip()})
+            else:
+                seg = line.rstrip('/').split('/')[-1].split('?')[0]
+                label = seg.rsplit('.', 1)[0] if '.' in seg else seg
+                items.append({'label': label or f'Image {i}', 'url': line})
+        if len(items) < 2:
+            return (None, 'Add at least two images (one label|url per line).')
+        return (items, None)
+    if q_type == 'numeric':
+        cfg = {}
+        for k in ('min', 'max', 'step'):
+            v = src.get(k)
+            if v not in (None, ''):
+                try:
+                    cfg[k] = float(v)
+                except (ValueError, TypeError):
+                    pass
+        return (cfg, None)
     if q_type == 'rating':
         try:
-            mx = int(data.get('max_rating', 5))
+            mx = int(src.get('max_rating', 5))
         except (ValueError, TypeError):
             mx = 5
-        return (None, q_type, title, {'max_rating': max(2, min(10, mx))})
-    return (None, q_type, title, {})  # word_cloud carries no config
+        return ({'max_rating': max(2, min(10, mx))}, None)
+    # word_cloud, short_answer carry no config
+    return ({}, None)
+def _parse_question_payload(data):
+    """Validate/normalise an add/edit question payload.
+    Returns (error_message_or_None, q_type, title, options_value)."""
+    q_type = data.get('type')
+    if q_type not in VALID_QUESTION_TYPES:
+        return ('Invalid question type.', None, None, None)
+    title = (data.get('title') or '').strip()
+    if not title:
+        return ('Question title is required.', None, None, None)
+    options_value, err = _build_options(q_type, data)
+    if err:
+        return (err, None, None, None)
+    return (None, q_type, title, options_value)
 
 
 def _render_dashboard(selected_id=None):
@@ -839,8 +885,7 @@ def new_question(session_id, q_type):
         flash("Cannot add questions to a deleted session.", "warning")
         return redirect(url_for('list_sessions'))
 
-    valid_types = ['multiple_choice', 'word_cloud', 'rating']
-    if q_type not in valid_types:
+    if q_type not in VALID_QUESTION_TYPES:
         abort(400, "Invalid question type")
 
     if request.method == 'POST':
@@ -851,19 +896,10 @@ def new_question(session_id, q_type):
             # Pass current_session
             return render_template('question_new.html', current_session=current_session, q_type=q_type, title=title)
 
-        options_dict_or_list = {} # Default to dict
-        if q_type == 'multiple_choice':
-            options_text = request.form.get('options', '')
-            options_list = [opt.strip() for opt in options_text.splitlines() if opt.strip()]
-            if not options_list:
-                flash("At least one option is required for multiple choice.", "danger")
-                # Pass current_session
-                return render_template('question_new.html', current_session=current_session, q_type=q_type, title=title, options=options_text)
-            options_dict_or_list = options_list # Store list directly for MC
-        elif q_type == 'rating':
-            max_rating = request.form.get('max_rating', 5, type=int)
-            options_dict_or_list = {'max_rating': max_rating} # Store dict for rating
-        # Word cloud needs no specific options initially, empty dict is fine
+        options_dict_or_list, err = _build_options(q_type, request.form)
+        if err:
+            flash(err, "danger")
+            return render_template('question_new.html', current_session=current_session, q_type=q_type, title=title, options=request.form.get('options', ''))
 
         new_q = Question(
             session_id=session_id,
@@ -1249,13 +1285,64 @@ def process_response(question_id):
         flash(msg, "warning")
         return redirect(url_for('join'))
 
-    response_value = request.form.get(f'response-{question_id}')
-    if response_value is None:
-        msg = "No response value submitted."
+    # Assemble the response value according to question type.
+    response_value = None
+    err_msg = None
+    q_type = question.type
+    field = f'response-{question_id}'
+    if q_type == 'multi_select':
+        chosen = [v for v in request.form.getlist(field) if v.strip()]
+        if not chosen:
+            err_msg = "Please select at least one option."
+        else:
+            response_value = "\n".join(chosen)
+    elif q_type == 'ranking':
+        try:
+            opts = [str(o) for o in (json.loads(question.options) if question.options else [])]
+        except (json.JSONDecodeError, TypeError):
+            opts = []
+        assigned, ok = {}, True
+        for idx, opt in enumerate(opts):
+            raw_rank = request.form.get(f'rank-{question_id}-{idx}')
+            try:
+                assigned[opt] = int(raw_rank)
+            except (TypeError, ValueError):
+                ok = False
+        if not ok or sorted(assigned.values()) != list(range(1, len(opts) + 1)):
+            err_msg = "Assign a unique rank (1–N) to every option."
+        else:
+            ordered = [o for o, _ in sorted(assigned.items(), key=lambda kv: (kv[1], opts.index(kv[0])))]
+            response_value = "\n".join(ordered)
+    elif q_type == 'multiple_choice_other':
+        chosen = request.form.get(field)
+        if chosen == '__other__':
+            other = request.form.get(f'{field}-other', '').strip()
+            response_value = other or None
+            if not other:
+                err_msg = "Please enter your 'Other' answer."
+        elif chosen is None:
+            err_msg = "No response value submitted."
+        else:
+            response_value = chosen
+    else:
+        # single-value types: multiple_choice, word_cloud, rating,
+        # short_answer, numeric, image_choice
+        response_value = request.form.get(field)
+        if response_value is None:
+            err_msg = "No response value submitted."
+        elif q_type == 'numeric':
+            try:
+                float(response_value)
+            except (ValueError, TypeError):
+                err_msg = "Please enter a valid number."
+
+    if err_msg:
         if wants_json:
-            return jsonify({"success": False, "message": msg}), 400
-        flash(msg, "warning")
+            return jsonify({"success": False, "message": err_msg}), 400
+        flash(err_msg, "warning")
         return redirect(url_for('audience_view', code=question.session.code))
+    if response_value is None:
+        response_value = ""
 
     # Check for existing response and update, or create new
     existing_response = Response.query.filter_by(
@@ -1414,6 +1501,106 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                 results[str(resp.response_value)] += 1
         stats["results"] = results
         stats["max_rating"] = max_rating
+
+    elif question.type == 'multi_select':
+        try:
+            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
+        except (json.JSONDecodeError, TypeError):
+            options = []
+        results = {opt: 0 for opt in options}
+        for resp in all_responses:
+            for sel in str(resp.response_value).split('\n'):
+                if sel in results:
+                    results[sel] += 1
+        stats["results"] = results
+        stats["options"] = options
+
+    elif question.type == 'short_answer':
+        words = {}
+        for resp in all_responses:
+            for word in str(resp.response_value).lower().split():
+                cleaned_word = ''.join(filter(str.isalnum, word))
+                if cleaned_word and cleaned_word not in STOP_WORDS:
+                    words[cleaned_word] = words.get(cleaned_word, 0) + 1
+        stats["results"] = [{"text": w, "weight": c} for w, c in words.items()]
+
+    elif question.type == 'ranking':
+        try:
+            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
+        except (json.JSONDecodeError, TypeError):
+            options = []
+        sums, counts = {o: 0.0 for o in options}, {o: 0 for o in options}
+        for resp in all_responses:
+            for pos, opt in enumerate(str(resp.response_value).split('\n'), 1):
+                if opt in sums:
+                    sums[opt] += pos
+                    counts[opt] += 1
+        stats["results"] = {o: (round(sums[o] / counts[o], 2) if counts[o] else 0) for o in options}
+        stats["options"] = options
+
+    elif question.type == 'numeric':
+        vals = []
+        for resp in all_responses:
+            try:
+                vals.append(float(resp.response_value))
+            except (ValueError, TypeError):
+                pass
+        try:
+            cfg = json.loads(question.options) if question.options else {}
+        except (json.JSONDecodeError, TypeError):
+            cfg = {}
+        lo = hi = None
+        if isinstance(cfg, dict) and 'min' in cfg and 'max' in cfg:
+            try:
+                lo, hi = float(cfg['min']), float(cfg['max'])
+            except (ValueError, TypeError):
+                lo = hi = None
+        if lo is None and vals:
+            lo, hi = min(vals), max(vals)
+        results = {}
+        if vals and lo is not None and hi is not None and hi > lo:
+            nb, step = 10, (hi - lo) / 10
+            def _lbl(x):
+                return f"{x:.1f}".rstrip('0').rstrip('.') if not float(x).is_integer() else str(int(x))
+            for i in range(nb):
+                a, b = lo + i * step, lo + (i + 1) * step
+                key = f"{_lbl(a)}–{_lbl(b)}"
+                results[key] = sum(1 for v in vals if a <= v < b or (i == nb - 1 and v == b))
+        elif vals:
+            results[str(vals[0])] = len(vals)
+        stats["results"] = results
+        if vals:
+            stats["average"] = round(sum(vals) / len(vals), 2)
+
+    elif question.type == 'image_choice':
+        try:
+            items = json.loads(question.options) if question.options else []
+        except (json.JSONDecodeError, TypeError):
+            items = []
+        labels = [str(it.get('label', '')) for it in items] if isinstance(items, list) else []
+        results = {l: 0 for l in labels}
+        for resp in all_responses:
+            v = str(resp.response_value)
+            if v in results:
+                results[v] += 1
+        stats["results"] = results
+        stats["options"] = labels
+
+    elif question.type == 'multiple_choice_other':
+        try:
+            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
+        except (json.JSONDecodeError, TypeError):
+            options = []
+        labels = options + ['Other']
+        results = {l: 0 for l in labels}
+        for resp in all_responses:
+            v = str(resp.response_value)
+            if v in options:
+                results[v] += 1
+            else:
+                results['Other'] += 1
+        stats["results"] = results
+        stats["options"] = labels
 
     return stats
 

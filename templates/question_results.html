@@ -13,8 +13,21 @@
      <p class="text-sm text-gray-600 mb-4">Total Responses: {{ stats.total_responses }}</p>
 
     {# Placeholder for chart canvas or word cloud div #}
-    {% if stats.type == 'multiple_choice' %}
-        <h4 class="text-lg font-semibold mb-2">Multiple Choice Results</h4>
+    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'] %}
+        <h4 class="text-lg font-semibold mb-2">
+            {% if stats.type == 'multiple_choice' %}Multiple Choice Results
+            {% elif stats.type == 'multi_select' %}Select-All Results
+            {% elif stats.type == 'ranking' %}Ranking Results
+            {% elif stats.type == 'numeric' %}Numeric Results
+            {% elif stats.type == 'image_choice' %}Image Choice Results
+            {% elif stats.type == 'multiple_choice_other' %}Poll Results{% endif %}
+        </h4>
+        {% if stats.type == 'numeric' and stats.average is defined and stats.average is not none %}
+            <p class="text-sm font-medium text-gray-700 mb-2">Average: {{ stats.average }}</p>
+        {% endif %}
+        {% if stats.type == 'ranking' %}
+            <p class="text-xs text-gray-500 mb-1">lower bar = ranked better</p>
+        {% endif %}
         <div class="h-64 md:h-96 relative"> {# Increased height #}
             <canvas id="chart-mc-{{ question.id }}"></canvas>
         </div>
@@ -23,8 +36,10 @@
          <div class="h-64 md:h-96 relative"> {# Increased height #}
             <canvas id="chart-rating-{{ question.id }}"></canvas>
         </div>
-    {% elif stats.type == 'word_cloud' %}
-        <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
+    {% elif stats.type in ['word_cloud','short_answer'] %}
+        <h4 class="text-lg font-semibold mb-2">
+            {% if stats.type == 'short_answer' %}Short Answer Results{% else %}Word Cloud Results{% endif %}
+        </h4>
         <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div> {# Increased height #}
     {% else %}
         <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
@@ -83,7 +98,7 @@
         };
 
 
-        if (statsData.type === 'multiple_choice' && statsData.results) {
+        if (['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'].includes(statsData.type) && statsData.results) {
             const canvasId = `chart-mc-${questionId}`;
             const labels = statsData.options || Object.keys(statsData.results);
             const chartData = {
@@ -108,7 +123,7 @@
                 }]
             };
             initChart(canvasId, 'bar', chartData, horizontalBarChartOptions); // Use horizontal options
-        } else if (statsData.type === 'word_cloud' && statsData.results) {
+        } else if ((statsData.type === 'word_cloud' || statsData.type === 'short_answer') && statsData.results) {
             const cloudId = `wordcloud-${questionId}`;
             initWordCloud(cloudId, statsData.results);
         }

@@ -69,7 +69,7 @@
 
     // --- Chart config from stats ---
     function chartConfig(q, s) {
-        if (s.type === 'multiple_choice') {
+        if (['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'].includes(s.type)) {
             const labels = s.options || Object.keys(s.results || {});
             return { type: 'bar',
                 data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => (s.results || {})[l] || 0), backgroundColor: 'rgba(79,70,229,0.75)' }] },
@@ -82,13 +82,26 @@
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } } };
     }
 
+    // Caption / summary shown above the chart for certain types (numeric average, ranking note).
+    function captionFor(q, s) {
+        if (!s) return '';
+        if (q.type === 'numeric' && s.average != null) {
+            return `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${s.average}</p>`;
+        }
+        if (q.type === 'ranking') {
+            return `<p class="text-xs text-gray-500 mb-1">lower bar = ranked better</p>`;
+        }
+        return '';
+    }
     // Markup for a single result host (canvas or word-cloud div) + response count.
     function hostMarkup(q, hClass) {
-        const inner = (q.type === 'word_cloud')
+        const isCloud = (q.type === 'word_cloud' || q.type === 'short_answer');
+        const inner = isCloud
             ? `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`
             : `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
-        const total = stats[q.id] ? (stats[q.id].total_responses || 0) : 0;
-        return inner + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
+        const s = stats[q.id];
+        const total = s ? (s.total_responses || 0) : 0;
+        return `<div id="cap-${q.id}">${captionFor(q, s)}</div>` + inner + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
     }
 
     // Instantiate / refresh the chart or cloud for a question that's currently in the DOM.
@@ -97,8 +110,10 @@
         const s = stats[qid];
         const cnt = document.getElementById('cnt-' + qid);
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
+        const cap = document.getElementById('cap-' + qid);
+        if (cap) cap.innerHTML = captionFor(q, s);
         if (!s || !s.results) return;
-        if (q.type === 'word_cloud') {
+        if (q.type === 'word_cloud' || q.type === 'short_answer') {
             if (document.getElementById('wc-' + qid)) initWordCloud('wc-' + qid, s.results);
         } else if (document.getElementById('cv-' + qid)) {
             const cfg = chartConfig(q, s);
@@ -180,11 +195,12 @@
         document.getElementById('ov-title').textContent = q.title;
         document.getElementById('ov-cnt').textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const host = document.getElementById('ov-host');
-        host.innerHTML = (q.type === 'word_cloud')
+        const isCloud = (q.type === 'word_cloud' || q.type === 'short_answer');
+        host.innerHTML = captionFor(q, s) + (isCloud
             ? `<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>`
-            : `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`;
+            : `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`);
         if (s && s.results) {
-            if (q.type === 'word_cloud') initWordCloud('ov-wc', s.results);
+            if (isCloud) initWordCloud('ov-wc', s.results);
             else { const cfg = chartConfig(q, s); initChart('ov-cv', cfg.type, cfg.data, cfg.options); }
         }
     }

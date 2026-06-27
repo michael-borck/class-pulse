@@ -52,11 +52,35 @@
     {% endif %}
 
     {# Type-specific fields #}
-    {% if q_type == 'multiple_choice' %}
+    {% if q_type in ('multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other') %}
     <div class="mb-4">
         <label for="options" class="block text-sm font-medium text-gray-700">Options (one per line)</label>
         <textarea id="options" name="options" required rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"
                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{{ options or '' }}</textarea>
+    </div>
+    {% elif q_type == 'image_choice' %}
+    <div class="mb-4">
+        <label for="options" class="block text-sm font-medium text-gray-700">Images (one per line: <code>label|url</code>)</label>
+        <textarea id="options" name="options" required rows="4" placeholder="Cat|https://example.com/cat.png&#10;Dog|https://example.com/dog.png"
+                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{{ options or '' }}</textarea>
+    </div>
+    {% elif q_type == 'numeric' %}
+    <div class="mb-4 grid grid-cols-3 gap-3">
+        <div>
+            <label for="min" class="block text-sm font-medium text-gray-700">Min</label>
+            <input type="number" id="min" name="min" step="any" placeholder="(any)"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+        <div>
+            <label for="max" class="block text-sm font-medium text-gray-700">Max</label>
+            <input type="number" id="max" name="max" step="any" placeholder="(any)"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
+        <div>
+            <label for="step" class="block text-sm font-medium text-gray-700">Step</label>
+            <input type="number" id="step" name="step" step="any" placeholder="(any)"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        </div>
     </div>
     {% elif q_type == 'rating' %}
     <div class="mb-4">
@@ -64,7 +88,7 @@
         <input type="number" id="max_rating" name="max_rating" value="{{ max_rating or 5 }}" min="2" max="10" required
                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
     </div>
-    {% elif q_type == 'word_cloud' %}
+    {% elif q_type in ('word_cloud', 'short_answer') %}
         {# No extra fields needed #}
          <p class="text-sm text-gray-500 mb-4">Audience members will be able to submit words or short phrases.</p>
     {% endif %}
@@ -103,7 +127,13 @@ const CHIPS = {
     universal: ['Make it harder', 'Make it easier', 'Simplify the wording', 'Make it more specific', 'Shorten it', '8th-grade level'],
     multiple_choice: ['Add a 5th option', 'Make distractors plausible', 'Rebalance options'],
     rating: ['Switch to a 1–10 scale', 'Reframe as an opinion'],
-    word_cloud: ['Make it more open-ended']
+    word_cloud: ['Make it more open-ended'],
+    multi_select: ['Limit to 3 selections', 'Make options more distinct', 'Tighten wording'],
+    short_answer: ['Make it more open-ended', 'Encourage detail', 'Shorten the prompt'],
+    ranking: ['Reduce to 3 items', 'Make items more distinct', 'Reorder by importance'],
+    numeric: ['Change the range', 'Make it a 0–10 scale', 'Make it a 0–100 scale'],
+    image_choice: ['Use clearer images', 'Reduce to 2 images', 'Add a 4th image'],
+    multiple_choice_other: ["Add an 'Other' option", 'Make options more distinct', 'Add a 5th option']
 };
 let selectedChip = '';
 let aiSnapshot = null;
@@ -138,22 +168,40 @@ function restoreForm(s) {
     updateRefineButton();
 }
 function currentOptionsForSend() {
-    if (QTYPE === 'multiple_choice') {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other'].includes(QTYPE)) {
         const o = document.getElementById('options');
         return o ? o.value.split('\n').map(x => x.trim()).filter(Boolean) : [];
+    }
+    if (QTYPE === 'image_choice') {
+        const o = document.getElementById('options');
+        return o ? o.value : '';
     }
     if (QTYPE === 'rating') {
         const m = document.getElementById('max_rating');
         return { max_rating: m ? parseInt(m.value || '5', 10) : 5 };
     }
+    if (QTYPE === 'numeric') {
+        const num = id => { const e = document.getElementById(id); const x = e ? e.value.trim() : ''; return x === '' ? null : Number(x); };
+        return { min: num('min'), max: num('max'), step: num('step') };
+    }
     return [];
 }
 function fillFormWithAIData(data) {
     document.getElementById('title').value = data.title || '';
-    if (QTYPE === 'multiple_choice' && Array.isArray(data.options)) {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other'].includes(QTYPE) && Array.isArray(data.options)) {
         document.getElementById('options').value = data.options.join('\n');
+    } else if (QTYPE === 'image_choice' && data.options != null) {
+        const o = document.getElementById('options');
+        if (o) {
+            o.value = Array.isArray(data.options)
+                ? data.options.map(x => (x && typeof x === 'object') ? `${x.label||''}|${x.url||''}` : String(x)).join('\n')
+                : String(data.options);
+        }
     } else if (QTYPE === 'rating' && data.options && data.options.max_rating) {
         document.getElementById('max_rating').value = data.options.max_rating;
+    } else if (QTYPE === 'numeric' && data.options && typeof data.options === 'object') {
+        const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = (val == null) ? '' : val; };
+        set('min', data.options.min); set('max', data.options.max); set('step', data.options.step);
     }
     updateRefineButton();
 }
@@ -293,6 +341,23 @@ function runGenerate() {
 window.addEventListener('DOMContentLoaded', function () {
     updateRefineButton();
     const p = new URLSearchParams(window.location.search);
+
+    // Preset quick-create (Yes/No, Emoji) — multiple_choice only, and only when
+    // not arriving from an AI generate redirect.
+    const preset = p.get('preset');
+    if (preset && QTYPE === 'multiple_choice' && !p.get('ai_title')) {
+        let lines = null, defaultTitle = null;
+        if (preset === 'yesno') { lines = ['Yes', 'No']; defaultTitle = 'Yes or No?'; }
+        else if (preset === 'emoji') { lines = ['😀','👍','😐','👎']; defaultTitle = 'How do you feel?'; }
+        if (lines) {
+            const o = document.getElementById('options'); if (o) o.value = lines.join('\n');
+            const t = document.getElementById('title');
+            if (t && !t.value.trim()) t.value = defaultTitle;
+            updateRefineButton();
+        }
+    }
+
+    // Pre-fill from a generate redirect (?ai_title=…)
     const aiTitle = p.get('ai_title');
     const aiOptions = p.get('ai_options');
     if (aiTitle) {
@@ -300,10 +365,20 @@ window.addEventListener('DOMContentLoaded', function () {
         if (aiOptions) {
             try {
                 const options = JSON.parse(decodeURIComponent(aiOptions));
-                if (QTYPE === 'multiple_choice' && Array.isArray(options)) {
-                    document.getElementById('options').value = options.join('\n');
+                if (['multiple_choice','multi_select','ranking','multiple_choice_other'].includes(QTYPE) && Array.isArray(options)) {
+                    const o = document.getElementById('options'); if (o) o.value = options.join('\n');
+                } else if (QTYPE === 'image_choice' && options != null) {
+                    const o = document.getElementById('options');
+                    if (o) {
+                        o.value = Array.isArray(options)
+                            ? options.map(x => (x && typeof x === 'object') ? `${x.label||''}|${x.url||''}` : String(x)).join('\n')
+                            : String(options);
+                    }
                 } else if (QTYPE === 'rating' && options && options.max_rating) {
-                    document.getElementById('max_rating').value = options.max_rating;
+                    const m = document.getElementById('max_rating'); if (m) m.value = options.max_rating;
+                } else if (QTYPE === 'numeric' && options && typeof options === 'object') {
+                    const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = (val == null) ? '' : val; };
+                    set('min', options.min); set('max', options.max); set('step', options.step);
                 }
             } catch (e) {
                 console.error('Error parsing AI options:', e);

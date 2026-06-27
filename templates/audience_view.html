@@ -80,6 +80,88 @@
                  </label>
                  {% endfor %}
              </div>
+        {% elif q.type == 'multi_select' %}
+            {% set options = q.options | fromjson %}
+            {% set selected = previous_answer.split('\n') if previous_answer else [] %}
+            <div class="space-y-2">
+            {% for opt in options %}
+                <label class="flex items-center">
+                    <input type="checkbox" name="{{ input_name }}" value="{{ opt }}"
+                           class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                           {{ 'checked' if opt in selected }}>
+                    <span>{{ opt }}</span>
+                </label>
+            {% endfor %}
+            </div>
+        {% elif q.type == 'short_answer' %}
+            <textarea name="{{ input_name }}" required placeholder="Enter your answer"
+                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-3">{{ previous_answer or '' }}</textarea>
+        {% elif q.type == 'ranking' %}
+            {% set options = q.options | fromjson %}
+            {% set n = options | length %}
+            {% set prev_order = previous_answer.split('\n') if previous_answer else [] %}
+            <p class="text-sm text-gray-600 mb-2">Assign a rank to each (1 = best)</p>
+            <div class="space-y-2">
+            {% for opt in options %}
+                {% set rank_pos = prev_order.index(opt) if opt in prev_order else none %}
+                {% set current_rank = (rank_pos + 1) if rank_pos is not none else none %}
+                <label class="flex items-center">
+                    <span class="inline-block w-48 text-gray-700 mr-3">{{ opt }}</span>
+                    <select name="rank-{{ q.id }}-{{ loop.index0 }}" required
+                            class="border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="">—</option>
+                        {% for r in range(1, n + 1) %}
+                            <option value="{{ r }}" {{ 'selected' if r == current_rank }}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endfor %}
+            </div>
+        {% elif q.type == 'numeric' %}
+            {% set config = q.options | fromjson %}
+            <input type="number" name="{{ input_name }}" required
+                   {% if config.get('min') is not none %}min="{{ config.min }}"{% endif %}
+                   {% if config.get('max') is not none %}max="{{ config.max }}"{% endif %}
+                   {% if config.get('step') is not none %}step="{{ config.step }}"{% endif %}
+                   value="{{ previous_answer or '' }}"
+                   class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-3">
+        {% elif q.type == 'image_choice' %}
+            {% set options = q.options | fromjson %}
+            <div class="space-y-2">
+            {% for item in options %}
+                <label class="flex items-center">
+                    <input type="radio" name="{{ input_name }}" value="{{ item.label }}" required
+                           class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                           {{ 'checked' if item.label == previous_answer }}>
+                    <img src="{{ item.url }}" alt="{{ item.label }}"
+                         class="h-24 w-24 object-cover rounded inline-block mr-2">
+                    <span>{{ item.label }}</span>
+                </label>
+            {% endfor %}
+            </div>
+        {% elif q.type == 'multiple_choice_other' %}
+            {% set options = q.options | fromjson %}
+            {% set is_other = previous_answer is not none and previous_answer not in options %}
+            <div class="space-y-2">
+            {% for opt in options %}
+                <label class="flex items-center">
+                    <input type="radio" name="{{ input_name }}" value="{{ opt }}" required
+                           class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                           {{ 'checked' if (not is_other and opt == previous_answer) }}>
+                    <span>{{ opt }}</span>
+                </label>
+            {% endfor %}
+            <label class="flex items-center">
+                <input type="radio" name="{{ input_name }}" value="__other__"
+                       class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                       {{ 'checked' if is_other }}>
+                <span class="mr-2">Other:</span>
+                <input type="text" name="{{ input_name }}-other"
+                       value="{{ previous_answer if is_other else '' }}"
+                       placeholder="Please specify"
+                       class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </label>
+            </div>
         {% endif %}
 
         <button type="submit" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
@@ -265,6 +347,16 @@
                 button.textContent = originalText;
             } finally {
                 button.disabled = false;
+            }
+        });
+    });
+
+    // Focus the "Other" text box when its radio is selected (multiple_choice_other).
+    document.querySelectorAll('input[type="radio"][value="__other__"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                const text = radio.closest('label').querySelector('input[type="text"]');
+                if (text) text.focus();
             }
         });
     });
