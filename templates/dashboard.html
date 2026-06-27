@@ -93,6 +93,16 @@ const SID = {{ selected.id if selected else 'null' }};
 let questions = {{ (selected.questions if selected else []) | tojson }};
 const TYPES = { multiple_choice:'Multiple Choice', word_cloud:'Word Cloud', rating:'Rating Scale' };
 const esc = s => { const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; };
+const AI_ENABLED = {{ ai_enabled|tojson }};
+const AI_URL = '{{ url_for("api_test_ai_generation") }}';
+const CHIPS = {
+    universal: ['Make it harder', 'Make it easier', 'Simplify the wording', 'Make it more specific', 'Shorten it', '8th-grade level'],
+    multiple_choice: ['Add a 5th option', 'Make distractors plausible', 'Rebalance options'],
+    rating: ['Switch to a 1–10 scale', 'Reframe as an opinion'],
+    word_cloud: ['Make it more open-ended']
+};
+let edSelectedChip = '';
+let edSnapshot = null;
 
 async function api(url, body) {
     const r = await fetch(url, { method:'POST',
@@ -245,17 +255,43 @@ function editorHTML() {
     const type = q ? q.type : 'multiple_choice';
     const locked = q && q.response_count > 0;
     return `<h3 class="text-lg font-semibold mb-3">${editor.mode==='edit' ? 'Edit question' : 'Add question'}</h3>
-        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-md p-3 mb-4 flex gap-2">
-            <input id="ed-ai" placeholder="✨ Describe a question for AI to draft…" class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm">
-            <button type="button" id="ed-ai-btn" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-3 rounded-md">Generate</button>
-        </div>
         ${locked ? '<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">This question has responses — only the title can be changed. Duplicate it to alter options.</p>' : ''}
         <label class="block text-sm font-medium text-gray-700">Type</label>
         <select id="ed-type" ${locked ? 'disabled' : ''} class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm ${locked ? 'bg-gray-100' : ''}">
             ${Object.entries(TYPES).map(([v,l]) => `<option value="${v}" ${v===type?'selected':''}>${l}</option>`).join('')}
         </select>
-        <label class="block text-sm font-medium text-gray-700 mt-3">Question title</label>
+        <div class="flex items-center justify-between mt-3">
+            <label class="block text-sm font-medium text-gray-700">Question title</label>
+            ${(AI_ENABLED && !locked) ? `
+            <div class="flex gap-1.5">
+                <button type="button" id="ed-refine-btn" disabled title="Add some question content first" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">✨ Refine</button>
+                <button type="button" id="ed-generate-btn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
+            </div>` : ''}
+        </div>
         <input id="ed-title" value="${q ? esc(q.title) : ''}" placeholder="Enter your question" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+        ${(AI_ENABLED && !locked) ? `
+        <div id="ed-refine-panel" class="hidden mt-3 bg-purple-50 border border-purple-200 rounded-md p-3">
+            <div class="text-xs font-semibold text-purple-800 mb-2">Steer the refinement <span class="font-normal text-purple-500">(optional — pick one or type your own)</span></div>
+            <div id="ed-chips" class="flex flex-wrap gap-1.5 mb-2"></div>
+            <input id="ed-custom" type="text" placeholder="Custom… e.g. add a sub-question about X" class="block w-full px-2 py-1.5 border border-purple-300 rounded-md text-sm mb-2">
+            <div class="flex gap-2">
+                <button type="button" id="ed-refine-run" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Refine</button>
+                <button type="button" id="ed-refine-cancel" class="text-sm text-gray-500 hover:text-gray-700 py-1 px-2">Cancel</button>
+            </div>
+        </div>
+        <div id="ed-refine-result" class="hidden mt-3 text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md px-3 py-2 flex items-center justify-between gap-2">
+            <span id="ed-whatchanged"></span>
+            <button type="button" id="ed-revert" class="text-xs bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-700 font-semibold py-1 px-2 rounded-md shrink-0">↩ Revert</button>
+        </div>
+        <div id="ed-gen-panel" class="hidden mt-3 bg-indigo-50 border border-indigo-200 rounded-md p-3">
+            <div class="text-xs font-semibold text-indigo-800 mb-2">Describe a new question to generate</div>
+            <input id="ed-gen-input" type="text" placeholder="e.g. a multiple-choice question on the water cycle" class="block w-full px-2 py-1.5 border border-indigo-300 rounded-md text-sm mb-2">
+            <div id="ed-gen-overwrite" class="hidden mb-2 text-xs bg-amber-50 border border-amber-300 text-amber-800 rounded px-2 py-1.5">⚠ This will replace your current question.</div>
+            <div class="flex gap-2">
+                <button type="button" id="ed-gen-run" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Generate</button>
+                <button type="button" id="ed-gen-cancel" class="text-sm text-gray-500 hover:text-gray-700 py-1 px-2">Cancel</button>
+            </div>
+        </div>` : ''}
         <div id="ed-fields" class="${locked ? 'opacity-50 pointer-events-none' : ''}">${typeFields(type, q)}</div>
         <div id="ed-status" class="text-sm mt-3 hidden"></div>
         <div class="flex gap-2 mt-5">
@@ -266,10 +302,22 @@ function editorHTML() {
 function wireEditor() {
     document.getElementById('ed-type').addEventListener('change', e => {
         document.getElementById('ed-fields').innerHTML = typeFields(e.target.value, null);
+        renderChips();
+        updateRefineButton();
     });
     document.getElementById('ed-cancel').addEventListener('click', closeEditor);
     document.getElementById('ed-save').addEventListener('click', saveEditor);
-    document.getElementById('ed-ai-btn').addEventListener('click', aiGenerate);
+    if (document.getElementById('ed-refine-btn')) {
+        document.getElementById('ed-refine-btn').addEventListener('click', openRefine);
+        document.getElementById('ed-refine-run').addEventListener('click', runRefine);
+        document.getElementById('ed-refine-cancel').addEventListener('click', closeRefine);
+        document.getElementById('ed-revert').addEventListener('click', revertAI);
+        document.getElementById('ed-generate-btn').addEventListener('click', openGenerate);
+        document.getElementById('ed-gen-run').addEventListener('click', runGenerate);
+        document.getElementById('ed-gen-cancel').addEventListener('click', closeGenerate);
+        renderChips();
+        updateRefineButton();
+    }
 }
 function openEditor(mode, id) {
     editor = { mode, id: id ?? null };
@@ -304,20 +352,140 @@ async function saveEditor() {
         st.className = 'text-sm mt-3 text-red-600'; st.textContent = (data && data.message) || 'Could not save.'; st.classList.remove('hidden');
     }
 }
-async function aiGenerate() {
-    const prompt = document.getElementById('ed-ai').value.trim();
-    const st = document.getElementById('ed-status');
-    if (!prompt) { st.className='text-sm mt-3 text-red-600'; st.textContent='Describe the question first.'; st.classList.remove('hidden'); return; }
-    st.className='text-sm mt-3 text-blue-600'; st.textContent='⏳ Generating…'; st.classList.remove('hidden');
-    const { ok, data } = await api('{{ url_for("api_test_ai_generation") }}', { prompt });
-    if (ok && data.success) {
-        const typeSel = document.getElementById('ed-type');
-        if (data.question_type) { typeSel.value = data.question_type; document.getElementById('ed-fields').innerHTML = typeFields(data.question_type, null); }
-        document.getElementById('ed-title').value = data.title || '';
-        if (data.question_type === 'multiple_choice' && Array.isArray(data.options)) document.getElementById('ed-options').value = data.options.join('\n');
-        if (data.question_type === 'rating' && data.options && data.options.max_rating) document.getElementById('ed-max').value = data.options.max_rating;
-        st.className='text-sm mt-3 text-green-600'; st.textContent='✅ Drafted — review and save.';
-    } else { st.className='text-sm mt-3 text-red-600'; st.textContent='❌ ' + ((data && data.error) || 'Generation failed.'); }
+/* ---- AI: Refine / Generate (mirrors the question-creation page) ---- */
+function editorHasContent() {
+    const t = document.getElementById('ed-title');
+    if (t && t.value.trim()) return true;
+    const o = document.getElementById('ed-options');
+    return !!(o && o.value.trim());
 }
+function updateRefineButton() {
+    const b = document.getElementById('ed-refine-btn');
+    if (!b) return;
+    b.disabled = !editorHasContent();
+    b.title = editorHasContent() ? 'Refine the current content with AI' : 'Add some question content first';
+}
+function renderChips() {
+    const wrap = document.getElementById('ed-chips');
+    if (!wrap) return;
+    const type = document.getElementById('ed-type') ? document.getElementById('ed-type').value : 'multiple_choice';
+    const list = (CHIPS.universal || []).concat(CHIPS[type] || []);
+    wrap.innerHTML = '';
+    list.forEach(label => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = label;
+        b.className = 'text-xs px-2 py-1 rounded-full border ' +
+            (edSelectedChip === label ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-100');
+        b.onclick = () => { edSelectedChip = (edSelectedChip === label) ? '' : label; if (edSelectedChip) document.getElementById('ed-custom').value = ''; renderChips(); };
+        wrap.appendChild(b);
+    });
+}
+function edStatus(kind, msg) {
+    const s = document.getElementById('ed-status');
+    if (!s) return;
+    if (kind === 'hide') { s.classList.add('hidden'); return; }
+    s.className = 'text-sm mt-3 ' + (kind === 'err' ? 'text-red-600' : kind === 'refining' ? 'text-blue-600' : 'text-green-600');
+    s.textContent = msg; s.classList.remove('hidden');
+}
+function snapshotEditor() {
+    return {
+        title: document.getElementById('ed-title').value,
+        type: document.getElementById('ed-type').value,
+        fieldsHTML: document.getElementById('ed-fields').innerHTML,
+    };
+}
+function restoreEditor(s) {
+    document.getElementById('ed-type').value = s.type;
+    document.getElementById('ed-fields').innerHTML = s.fieldsHTML;
+    document.getElementById('ed-title').value = s.title;
+    renderChips(); updateRefineButton();
+}
+function currentEditorOptions() {
+    const t = document.getElementById('ed-type').value;
+    if (t === 'multiple_choice') {
+        const o = document.getElementById('ed-options');
+        return o ? o.value.split('\n').map(x => x.trim()).filter(Boolean) : [];
+    }
+    if (t === 'rating') {
+        const m = document.getElementById('ed-max');
+        return { max_rating: m ? parseInt(m.value || '5', 10) : 5 };
+    }
+    return [];
+}
+function fillEditorFromAI(data) {
+    if (data.question_type) {
+        const sel = document.getElementById('ed-type');
+        if (sel.value !== data.question_type) {
+            sel.value = data.question_type;
+            document.getElementById('ed-fields').innerHTML = typeFields(data.question_type, null);
+        }
+    }
+    document.getElementById('ed-title').value = data.title || '';
+    const t = document.getElementById('ed-type').value;
+    if (t === 'multiple_choice' && Array.isArray(data.options)) {
+        const o = document.getElementById('ed-options'); if (o) o.value = data.options.join('\n');
+    } else if (t === 'rating' && data.options && data.options.max_rating) {
+        const m = document.getElementById('ed-max'); if (m) m.value = data.options.max_rating;
+    }
+    renderChips(); updateRefineButton();
+}
+function openRefine() {
+    const b = document.getElementById('ed-refine-btn');
+    if (b && b.disabled) return;
+    edSelectedChip = '';
+    const c = document.getElementById('ed-custom'); if (c) c.value = '';
+    renderChips();
+    document.getElementById('ed-refine-panel').classList.remove('hidden');
+}
+function closeRefine() { document.getElementById('ed-refine-panel').classList.add('hidden'); }
+async function runRefine() {
+    const hint = (document.getElementById('ed-custom').value.trim()) || edSelectedChip || '';
+    edSnapshot = snapshotEditor();
+    closeRefine();
+    edStatus('refining', '⏳ Refining…');
+    const { ok, data } = await api(AI_URL, { mode: 'refine', type: document.getElementById('ed-type').value, title: document.getElementById('ed-title').value.trim(), options: currentEditorOptions(), hint });
+    if (ok && data.success) {
+        fillEditorFromAI(data);
+        document.getElementById('ed-whatchanged').textContent = '✨ ' + (data.change_summary || 'refined') + ' — review or revert.';
+        document.getElementById('ed-refine-result').classList.remove('hidden');
+        edStatus('ok', '✅ Refined — review or revert.');
+    } else {
+        edStatus('err', '❌ ' + ((data && data.error) || 'Refine failed.'));
+    }
+}
+function revertAI() {
+    if (!edSnapshot) return;
+    restoreEditor(edSnapshot); edSnapshot = null;
+    document.getElementById('ed-refine-result').classList.add('hidden');
+    edStatus('ok', '↩ Reverted to your original.');
+}
+function openGenerate() {
+    document.getElementById('ed-gen-overwrite').classList.toggle('hidden', !editorHasContent());
+    document.getElementById('ed-gen-input').value = '';
+    edStatus('hide');
+    document.getElementById('ed-gen-panel').classList.remove('hidden');
+    setTimeout(() => document.getElementById('ed-gen-input').focus(), 0);
+}
+function closeGenerate() { document.getElementById('ed-gen-panel').classList.add('hidden'); }
+async function runGenerate() {
+    const instruction = document.getElementById('ed-gen-input').value.trim();
+    if (!instruction) { edStatus('err', 'Describe what to generate first.'); return; }
+    edStatus('refining', '⏳ Generating…');
+    const { ok, data } = await api(AI_URL, { mode: 'generate', instruction });
+    if (ok && data.success) {
+        closeGenerate();
+        edSnapshot = null;
+        document.getElementById('ed-refine-result').classList.add('hidden');
+        fillEditorFromAI(data);
+        edStatus('ok', '✅ Generated — review & save.');
+    } else {
+        edStatus('err', '❌ ' + ((data && data.error) || 'Generation failed.'));
+    }
+}
+// delegated input listener (survives ed-options re-renders); bound once at load
+document.getElementById('modal-body')?.addEventListener('input', e => {
+    if (e.target && e.target.id === 'ed-custom') { edSelectedChip = ''; renderChips(); }
+    updateRefineButton();
+});
 </script>
 {% endblock %}
