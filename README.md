@@ -51,10 +51,16 @@ content/safelist config in `tailwind.config.js`.
 
 ## Default Admin Access
 
-- Username: admin
-- Password: admin123
+A bootstrap admin is created automatically on first startup:
+- **Username:** `admin`
+- **Password:** randomly generated and **printed once to the server logs** on first
+  start (search the logs for `Created admin user 'admin' with a GENERATED password`).
+  To choose your own, put `DEFAULT_ADMIN_PASS=...` in `.env` before the first run.
 
-⚠️ **Important**: Change the default admin password immediately after first login.
+On a fresh deployment, the **first person to register** also becomes a verified
+admin automatically — so you can get in without checking the logs.
+
+⚠️ Change the admin password after first login.
 
 ## Requirements
 

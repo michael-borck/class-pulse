@@ -586,21 +586,27 @@ def register():
             return render_template('register.html', username=username, email=email, display_name=display_name)
         # --- End Validation ---
 
-        # Create user (default: not admin, not verified, not archived)
+        # Create user. The first user on a fresh deployment becomes a verified
+        # admin automatically, so the app is usable without log-grepping.
+        is_first_admin = (User.query.filter_by(is_admin=True).count() == 0)
         password_h = hash_password(password)
         new_user = User(
             username=username,
             email=email,
             password_hash=password_h,
             display_name=display_name,
-            is_admin=False,
-            is_verified=False, # Require admin verification
+            is_admin=is_first_admin,
+            is_verified=is_first_admin,  # the bootstrap admin is auto-verified
             is_archived=False
             )
         db.session.add(new_user)
         try:
             db.session.commit()
-            flash("Registration successful! Your account requires verification by an administrator before you can log in.", "success") # Inform about verification
+            if is_first_admin:
+                flash("Registration successful! You're the first user, so your account is the admin — you can log in now.", "success")
+                app.logger.info(f"First user '{username}' registered as the bootstrap admin.")
+            else:
+                flash("Registration successful! Your account requires verification by an administrator before you can log in.", "success")
             return redirect(url_for('login'))
         except Exception as e:
             db.session.rollback()
