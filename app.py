@@ -133,11 +133,10 @@ class Response(db.Model):
     created_at = db.Column(db.String, default=lambda: datetime.now().isoformat())
 
 # --- Constants & Config ---
-# Bootstrap admin credentials come from the environment. There is deliberately
-# NO hardcoded default password: if DEFAULT_ADMIN_PASS is unset, a strong random
-# password is generated on first run and printed once to the logs.
-DEFAULT_ADMIN_USER = os.environ.get("DEFAULT_ADMIN_USER", "admin")
-DEFAULT_ADMIN_PASS = os.environ.get("DEFAULT_ADMIN_PASS")  # may be None -> random
+# App version (baked into the Docker image as APP_VERSION=<git sha> via the CI
+# build arg). "dev" when running locally. Shown in the footer so you can tell
+# which container/image you're running.
+APP_VERSION = os.environ.get("APP_VERSION") or "dev"
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
 # --- AI Provider Configuration (global, set via environment) ---
@@ -189,7 +188,7 @@ STOP_WORDS = set([
 @app.context_processor
 def inject_now():
     """Injects the current UTC datetime into the template context."""
-    return {'now': datetime.utcnow} # Make datetime.utcnow available as 'now'
+    return {'now': datetime.utcnow, 'app_version': APP_VERSION} # Make datetime.utcnow available as 'now'
 
 @app.context_processor
 def inject_user_and_admin_status():
@@ -1719,54 +1718,11 @@ def handle_leave_room(data):
             print(f"Error handling leave room for question {question_id}: {e}")
 
 
-# --- Initialization ---
-def create_default_admin():
-    """Creates the default admin user if none exists."""
-    with app.app_context():
-        admin_exists = User.query.filter_by(username=DEFAULT_ADMIN_USER).first()
-        if not admin_exists:
-            # Use the configured password, or generate a strong random one and
-            # surface it exactly once so it never ships as a known default.
-            admin_pass = DEFAULT_ADMIN_PASS
-            generated = False
-            if not admin_pass:
-                admin_pass = secrets.token_urlsafe(16)
-                generated = True
-
-            password_h = hash_password(admin_pass)
-            if generated:
-                print(
-                    "\n" + "=" * 70 +
-                    f"\nCreated admin user '{DEFAULT_ADMIN_USER}' with a GENERATED password:"
-                    f"\n\n    {admin_pass}\n\n"
-                    "Save it now and change it after first login. This is shown only once.\n"
-                    "(Set DEFAULT_ADMIN_PASS in the environment to choose your own.)\n"
-                    + "=" * 70 + "\n"
-                )
-            else:
-                print(f"Creating admin user '{DEFAULT_ADMIN_USER}' from DEFAULT_ADMIN_PASS.")
-            admin = User(
-                username=DEFAULT_ADMIN_USER,
-                password_hash=password_h,
-                email="admin@example.com",
-                display_name="Admin User",
-                is_admin=True,      # Make default user admin
-                is_verified=True,   # Make default user verified
-                is_archived=False
-            )
-            db.session.add(admin)
-            try:
-                db.session.commit()
-                print("Default admin user created successfully.")
-            except Exception as e:
-                db.session.rollback()
-                print(f"Failed to create default admin user: {e}")
 
 # --- Run Application ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all() # Create database tables if they don't exist
-    create_default_admin()
 
     # Debug is OFF unless explicitly enabled, because the Werkzeug debugger
     # exposes an interactive console (remote code execution) and full source

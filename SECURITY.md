@@ -11,7 +11,6 @@ Copy `.env.example` to `.env` and set at least:
 | Variable | Why it matters |
 | --- | --- |
 | `SECRET_KEY` | Signs session cookies. A known/shared value lets anyone forge an admin session. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `DEFAULT_ADMIN_PASS` | Optional. If left blank, a strong random admin password is generated and printed **once** on first run. There is no hardcoded default. |
 | `SESSION_COOKIE_SECURE` | Set to `true` when serving over HTTPS so cookies are not sent over plain HTTP. |
 
 `docker compose` will refuse to start unless `SECRET_KEY` is set.
@@ -19,7 +18,7 @@ Copy `.env.example` to `.env` and set at least:
 ## What is protected
 
 - **Session forgery** — `SECRET_KEY` is required from the environment; no known fallback ships.
-- **Default credentials** — no hardcoded admin password; random generated on first run.
+- **Default credentials** — none; no admin account is auto-created. The first registrant becomes the verified admin.
 - **Debug RCE** — the Werkzeug debugger is off unless `FLASK_ENV=development`/`DEBUG=true`.
 - **CSRF** — all state-changing form and AJAX requests require a CSRF token (Flask-WTF).
 - **Brute force** — `/login` is rate-limited (10/min). Minimum password length is 10.
@@ -31,7 +30,7 @@ Copy `.env.example` to `.env` and set at least:
 
 - Run behind an HTTPS reverse proxy and set `SESSION_COOKIE_SECURE=true`.
 - The bundled `start.sh`/Docker use gunicorn with the `wsgi:application` entrypoint,
-  which initializes the schema and bootstrap admin. With sync/gthread workers,
+  which initializes the schema. With sync/gthread workers,
   Socket.IO uses HTTP long-polling; for true websockets use an eventlet/gevent worker.
 - For multi-worker gunicorn, set a shared `RATELIMIT_STORAGE_URI` (e.g. Redis);
   the default in-memory limiter is per-process.

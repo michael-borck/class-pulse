@@ -79,3 +79,5 @@ jobs:
           # Disable default provenance attestation so `latest` resolves to a
           # clean multi-arch manifest (avoids confusing image-list artifacts).
           provenance: false
+          build-args: |
+            APP_VERSION=${{ github.sha }}

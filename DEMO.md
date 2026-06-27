@@ -19,9 +19,8 @@ The application will start on `http://localhost:5002`
 
 ## 2. Initial Setup
 
-**Login with default admin credentials:**
-- Username: `admin`
-- Password: `admin123`
+**Register the first account — it becomes the admin automatically** (there is no
+default admin account), then log in with the credentials you chose.
 
 **Access the application at:** `http://localhost:5002`
 

@@ -2,11 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# App version (passed by CI as the git commit SHA; defaults to "dev").
+ARG APP_VERSION=dev
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    APP_VERSION=$APP_VERSION
 
 # Install system dependencies
 RUN apt-get update && \

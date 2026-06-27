@@ -49,18 +49,14 @@ make watch-css        # rebuild automatically while developing
 Requires Node.js / npm. The Tailwind source lives in `static/src/input.css` and the
 content/safelist config in `tailwind.config.js`.
 
-## Default Admin Access
+## Admin Access
 
-A bootstrap admin is created automatically on first startup:
-- **Username:** `admin`
-- **Password:** randomly generated and **printed once to the server logs** on first
-  start (search the logs for `Created admin user 'admin' with a GENERATED password`).
-  To choose your own, put `DEFAULT_ADMIN_PASS=...` in `.env` before the first run.
+There is **no default admin account**. On a fresh deployment, the **first person
+to register becomes a verified admin automatically** — register, then log in.
+Subsequent registrations require admin approval.
 
-On a fresh deployment, the **first person to register** also becomes a verified
-admin automatically — so you can get in without checking the logs.
-
-⚠️ Change the admin password after first login.
+The footer of every page shows the build (a link to the exact git commit), so
+you can confirm which version/container you are running.
 
 ## Requirements
 
