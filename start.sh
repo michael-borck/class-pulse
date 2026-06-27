@@ -35,7 +35,7 @@ else
     echo "Installing dependencies from pyproject.toml..."
     "$PIP_BIN" install -e ".[prod]"
     # Also install any missing dependencies
-    "$PIP_BIN" install requests cryptography
+    "$PIP_BIN" install requests
 fi
 
 # Create instance directory if it doesn't exist

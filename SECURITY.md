@@ -11,7 +11,6 @@ Copy `.env.example` to `.env` and set at least:
 | Variable | Why it matters |
 | --- | --- |
 | `SECRET_KEY` | Signs session cookies. A known/shared value lets anyone forge an admin session. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `ENCRYPTION_KEY` | Encrypts stored cloud API keys at rest. Must be stable, or stored keys become undecryptable after a restart. Generate: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `DEFAULT_ADMIN_PASS` | Optional. If left blank, a strong random admin password is generated and printed **once** on first run. There is no hardcoded default. |
 | `SESSION_COOKIE_SECURE` | Set to `true` when serving over HTTPS so cookies are not sent over plain HTTP. |
 
@@ -23,9 +22,6 @@ Copy `.env.example` to `.env` and set at least:
 - **Default credentials** — no hardcoded admin password; random generated on first run.
 - **Debug RCE** — the Werkzeug debugger is off unless `FLASK_ENV=development`/`DEBUG=true`.
 - **CSRF** — all state-changing form and AJAX requests require a CSRF token (Flask-WTF).
-- **SSRF** — user-supplied AI provider URLs are validated; link-local/metadata
-  addresses (e.g. `169.254.169.254`) are blocked. Loopback/private are allowed so
-  local Ollama still works.
 - **Brute force** — `/login` is rate-limited (10/min). Minimum password length is 10.
 - **Cookies** — `HttpOnly`, `SameSite=Lax`, and `Secure` (opt-in) on session and respondent cookies.
 - **Info disclosure** — exception details are logged server-side, not shown to users.
@@ -39,6 +35,10 @@ Copy `.env.example` to `.env` and set at least:
   Socket.IO uses HTTP long-polling; for true websockets use an eventlet/gevent worker.
 - For multi-worker gunicorn, set a shared `RATELIMIT_STORAGE_URI` (e.g. Redis);
   the default in-memory limiter is per-process.
+- AI question generation is optional and global (one provider in `.env`):
+  `AI_PROVIDER` (`openai`|`anthropic`), `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`.
+  The API key is a plaintext secret in `.env` (0600, gitignored) — protect it like
+  `SECRET_KEY`. Leave `AI_PROVIDER` blank to disable generation.
 
 ## Known residual risks
 
@@ -50,9 +50,6 @@ Copy `.env.example` to `.env` and set at least:
   compromise could inject script. For hardened or offline/campus deployments,
   vendor the JS/CSS locally (jQuery, Chart.js, jqcloud, Socket.IO client) or add SRI
   hashes. Versions are pinned.
-- **SSRF guard allows private ranges.** A verified user could point an AI URL at an
-  internal host on the same network. Mitigated by the admin-verification gate; only
-  grant verification to trusted presenters.
 
 ## Reporting
 

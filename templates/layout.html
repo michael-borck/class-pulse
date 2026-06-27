@@ -26,7 +26,6 @@
                  {# Use Flask session here #}
                 {% if session.get('user_id') %}
                     <a href="{{ url_for('dashboard') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Sessions</a>
-                    <a href="{{ url_for('ai_settings') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">AI Settings</a>
                     {# Use is_admin injected by context processor #}
                     {% if is_admin %}
                          <a href="{{ url_for('admin_manage_users') }}" class="text-gray-300 hover:text-white px-2 py-2 rounded-md text-sm font-medium">Manage Users</a>

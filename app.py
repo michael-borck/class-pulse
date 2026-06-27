@@ -8,9 +8,6 @@ import hashlib
 import secrets
 import io
 import csv
-import socket
-import ipaddress
-from urllib.parse import urlparse
 from datetime import datetime # Added datetime import
 from typing import List, Dict, Optional, Tuple, Any
 from functools import wraps
@@ -37,7 +34,6 @@ import qrcode as qr_code_lib
 from PIL import Image
 import base64
 import requests
-from cryptography.fernet import Fernet
 
 # --- Flask App Configuration ---
 app = Flask(__name__)
@@ -103,14 +99,6 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False) # New: Admin flag
     is_verified = db.Column(db.Boolean, default=False, nullable=False) # New: Verification flag
     is_archived = db.Column(db.Boolean, default=False, nullable=False) # New: Archive flag
-    # AI Configuration fields
-    ai_enabled = db.Column(db.Boolean, default=True, nullable=False)
-    cloud_api_url = db.Column(db.String(255), default='https://api.openai.com/v1')
-    cloud_api_key = db.Column(db.Text) # Encrypted storage
-    cloud_model = db.Column(db.String(100), default='gpt-3.5-turbo')
-    ollama_url = db.Column(db.String(255), default='http://localhost:11434')
-    ollama_model = db.Column(db.String(100), default='llama3.2')
-    preferred_provider = db.Column(db.String(20), default='ollama') # 'cloud' or 'ollama'
     sessions = db.relationship('Session', backref='creator', lazy=True)
 
 class Session(db.Model):
@@ -152,30 +140,30 @@ DEFAULT_ADMIN_USER = os.environ.get("DEFAULT_ADMIN_USER", "admin")
 DEFAULT_ADMIN_PASS = os.environ.get("DEFAULT_ADMIN_PASS")  # may be None -> random
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
-# AI Configuration
-# The Fernet key encrypts stored cloud API keys. It MUST be persistent: if it is
-# regenerated each boot, every stored key becomes undecryptable after a restart.
-# Provide it via ENCRYPTION_KEY (generate with:
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# ). If unset we generate an ephemeral key and warn — stored keys won't survive a restart.
-_ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
-if _ENCRYPTION_KEY:
-    ENCRYPTION_KEY = _ENCRYPTION_KEY.encode()
-else:
-    ENCRYPTION_KEY = base64.urlsafe_b64encode(secrets.token_bytes(32))
-    app.logger.warning(
-        "ENCRYPTION_KEY is not set; generated a temporary one. Stored cloud API "
-        "keys will not be decryptable after a restart. Set ENCRYPTION_KEY in the "
-        "environment to persist them."
-    )
+# --- AI Provider Configuration (global, set via environment) ---
+# One provider serves the whole deployment (configured in .env, not per-user).
+# Two adapter families cover essentially every model:
+#   openai    -> POST {AI_BASE_URL}/chat/completions, "Authorization: Bearer"
+#                (OpenAI, Ollama's /v1, Groq, Together, vLLM, OpenRouter, ...).
+#                Leave AI_API_KEY blank for a local/keyless Ollama.
+#   anthropic -> POST {AI_BASE_URL}/messages, "x-api-key" + "anthropic-version"
+#                (api.anthropic.com direct).
+# Both AI_BASE_URL values are the "/v1" root; the adapter appends the endpoint.
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "").strip().lower()
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "").strip().rstrip("/")
+AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
+AI_MODEL = os.environ.get("AI_MODEL", "").strip()
 
-try:
-    fernet = Fernet(ENCRYPTION_KEY)
-except (ValueError, TypeError):
-    # An invalid ENCRYPTION_KEY is a config error worth surfacing immediately.
-    raise RuntimeError(
-        "ENCRYPTION_KEY is invalid. Generate one with: "
-        "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+AI_CONFIGURED = AI_PROVIDER in ("openai", "anthropic") and bool(AI_BASE_URL and AI_MODEL)
+_ai_enabled_raw = os.environ.get("AI_ENABLED", "").strip().lower()
+AI_ENABLED = (_ai_enabled_raw in ("1", "true", "yes")) if _ai_enabled_raw else AI_CONFIGURED
+
+if AI_ENABLED:
+    app.logger.info(f"AI question generation enabled: provider={AI_PROVIDER} model={AI_MODEL}")
+elif AI_PROVIDER or AI_BASE_URL or AI_MODEL:
+    app.logger.warning(
+        "AI is partially configured but disabled. Set AI_PROVIDER to 'openai' or "
+        "'anthropic', plus AI_BASE_URL and AI_MODEL (see .env.example)."
     )
 
 # Basic English stop words list (can be expanded)
@@ -217,7 +205,7 @@ def inject_user_and_admin_status():
         user = g.user
         if user:
             is_admin = user.is_admin
-    return {'current_user': user, 'is_admin': is_admin}
+    return {'current_user': user, 'is_admin': is_admin, 'ai_enabled': AI_ENABLED}
 
 # --- Utility Functions ---
 
@@ -276,81 +264,20 @@ def verify_password(stored_password_hash: str, provided_password: str) -> bool:
 
 # --- AI Service Functions ---
 
-def encrypt_api_key(api_key: str) -> str:
-    """Encrypts an API key for storage."""
-    if not api_key:
-        return ""
-    return fernet.encrypt(api_key.encode()).decode()
+def call_openai_compatible_api(base_url: str, api_key: str, model: str, prompt: str) -> Dict[str, Any]:
+    """Call an OpenAI-compatible /chat/completions endpoint.
 
-def decrypt_api_key(encrypted_key: str) -> str:
-    """Decrypts an API key from storage."""
-    if not encrypted_key:
-        return ""
-    try:
-        return fernet.decrypt(encrypted_key.encode()).decode()
-    except Exception:
-        return ""
-
-def is_safe_ai_url(url: str) -> bool:
-    """SSRF guard for user-supplied AI provider URLs.
-
-    Allows only http/https and rejects hosts that resolve to link-local,
-    multicast, or unspecified addresses — most importantly the cloud metadata
-    endpoint 169.254.169.254. Loopback and private ranges are allowed on purpose
-    so a local Ollama (http://localhost:11434) and self-hosted internal models
-    keep working. (Note: link-local must be checked before any private/loopback
-    allowance, since ipaddress treats 169.254.0.0/16 as private too.)
+    Covers OpenAI, Ollama's /v1, Groq, Together, vLLM, OpenRouter, etc. The
+    Authorization header is omitted when no key is supplied, so a local/keyless
+    Ollama works unchanged. `base_url` is the "/v1" root; "/chat/completions"
+    is appended here.
     """
-    if not url:
-        return False
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        return False
-    try:
-        infos = socket.getaddrinfo(parsed.hostname, None)
-    except Exception:
-        return False
-    for info in infos:
-        try:
-            ip = ipaddress.ip_address(info[4][0])
-        except ValueError:
-            return False
-        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
-            return False
-    return True
-
-
-def call_ollama_api(url: str, model: str, prompt: str) -> Dict[str, Any]:
-    """Calls Ollama API for question generation."""
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     try:
         response = requests.post(
-            f"{url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "format": "json"
-            },
-            timeout=30
-        )
-        response.raise_for_status()
-        result = response.json()
-        return {"success": True, "response": result.get("response", "")}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-def call_openai_compatible_api(url: str, api_key: str, model: str, prompt: str) -> Dict[str, Any]:
-    """Calls OpenAI-compatible API for question generation."""
-    try:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        response = requests.post(
-            f"{url}/chat/completions",
+            f"{base_url}/chat/completions",
             headers=headers,
             json={
                 "model": model,
@@ -364,11 +291,56 @@ def call_openai_compatible_api(url: str, api_key: str, model: str, prompt: str) 
             timeout=30
         )
         response.raise_for_status()
-        result = response.json()
-        content = result["choices"][0]["message"]["content"]
+        content = response.json()["choices"][0]["message"]["content"]
         return {"success": True, "response": content}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def call_anthropic_api(base_url: str, api_key: str, model: str, prompt: str) -> Dict[str, Any]:
+    """Call an Anthropic-native /messages endpoint (api.anthropic.com direct).
+
+    `base_url` is the "/v1" root; "/messages" is appended here. Auth uses the
+    x-api-key header plus the required anthropic-version.
+    """
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    try:
+        response = requests.post(
+            f"{base_url}/messages",
+            headers=headers,
+            json={
+                "model": model,
+                "max_tokens": 500,
+                "system": "You are a helpful assistant that generates educational questions. Always respond with valid JSON.",
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        content = response.json()["content"][0]["text"]
+        return {"success": True, "response": content}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# Dispatch table for the configured provider. Both AI_BASE_URL values are the
+# "/v1" root; each adapter appends its own endpoint path.
+_AI_ADAPTERS = {
+    "openai": call_openai_compatible_api,
+    "anthropic": call_anthropic_api,
+}
+
+
+def call_ai(prompt: str) -> Dict[str, Any]:
+    """Generate a raw completion from the globally-configured AI provider."""
+    adapter = _AI_ADAPTERS.get(AI_PROVIDER)
+    if adapter is None:
+        return {"success": False, "error": f"Unknown AI provider: {AI_PROVIDER!r}"}
+    return adapter(AI_BASE_URL, AI_API_KEY, AI_MODEL, prompt)
 
 def parse_ai_response(response_text: str) -> Dict[str, Any]:
     """Parses AI response and extracts question data."""
@@ -415,42 +387,15 @@ Guidelines:
 - Set confidence < 0.5 if the question type is unclear from the prompt
 - Keep questions educational and appropriate"""
 
-def generate_question_with_ai(user_input: str, user_id: int) -> Dict[str, Any]:
-    """Main function to generate a question using AI services."""
-    # Get user configuration
-    user = db.session.get(User, user_id)
-    if not user or not user.ai_enabled:
-        return {"success": False, "error": "AI question generation is disabled"}
-    
+def generate_question_with_ai(user_input: str) -> Dict[str, Any]:
+    """Generate a question via the globally-configured AI provider."""
+    if not AI_ENABLED:
+        return {"success": False, "error": "AI question generation is not configured."}
     prompt = generate_question_prompt(user_input)
-    
-    # Try preferred provider first
-    if user.preferred_provider == "cloud" and user.cloud_api_key:
-        cloud_url = user.cloud_api_url or "https://api.openai.com/v1"
-        api_key = decrypt_api_key(user.cloud_api_key)
-        if api_key and is_safe_ai_url(cloud_url):
-            result = call_openai_compatible_api(
-                cloud_url,
-                api_key,
-                user.cloud_model or "gpt-3.5-turbo",
-                prompt
-            )
-            if result["success"]:
-                return parse_ai_response(result["response"])
-
-    # Fallback to Ollama
-    ollama_url = user.ollama_url or "http://localhost:11434"
-    if not is_safe_ai_url(ollama_url):
-        return {"success": False, "error": "Configured AI provider URL is not allowed."}
-    result = call_ollama_api(
-        ollama_url,
-        user.ollama_model or "llama3.2",
-        prompt
-    )
+    result = call_ai(prompt)
     if result["success"]:
         return parse_ai_response(result["response"])
-    
-    return {"success": False, "error": "All AI providers failed. Please check your configuration."}
+    return {"success": False, "error": result.get("error", "AI request failed.")}
 
 # Decorator for routes requiring login
 def login_required(f):
@@ -631,60 +576,6 @@ def register():
     # GET request
     return render_template('register.html')
 
-@app.route('/settings/ai', methods=['GET', 'POST'])
-@login_required
-def ai_settings():
-    """Handle AI configuration settings for users."""
-    user = g.user  # Set by @login_required decorator
-    
-    if request.method == 'POST':
-        # Validate provider URLs up front (SSRF guard) so bad values are never stored.
-        cloud_api_url = request.form.get('cloud_api_url', '').strip() or 'https://api.openai.com/v1'
-        ollama_url = request.form.get('ollama_url', '').strip() or 'http://localhost:11434'
-        for label, candidate in (("Cloud API URL", cloud_api_url), ("Ollama URL", ollama_url)):
-            if not is_safe_ai_url(candidate):
-                flash(f"{label} is not allowed (must be http/https and not a "
-                      "link-local/metadata address).", "danger")
-                return redirect(url_for('ai_settings'))
-
-        # Update AI settings
-        user.ai_enabled = bool(request.form.get('ai_enabled'))
-        user.preferred_provider = request.form.get('preferred_provider', 'ollama')
-
-        # Cloud API settings
-        user.cloud_api_url = cloud_api_url
-        user.cloud_model = request.form.get('cloud_model', '').strip() or 'gpt-3.5-turbo'
-
-        # Handle API key encryption
-        cloud_api_key = request.form.get('cloud_api_key', '').strip()
-        if cloud_api_key:
-            if cloud_api_key != "••••••••":  # Only update if not masked
-                user.cloud_api_key = encrypt_api_key(cloud_api_key)
-        elif not cloud_api_key:  # Empty field means clear the key
-            user.cloud_api_key = None
-        
-        # Ollama settings
-        user.ollama_url = ollama_url
-        user.ollama_model = request.form.get('ollama_model', '').strip() or 'llama3.2'
-        
-        try:
-            db.session.commit()
-            flash("AI settings updated successfully!", "success")
-        except Exception as e:
-            db.session.rollback()
-            app.logger.exception("Error updating AI settings")
-            flash("Could not update settings. Please try again.", "danger")
-        
-        return redirect(url_for('ai_settings'))
-    
-    # GET request - prepare data for template
-    # Mask the API key for display
-    masked_api_key = "••••••••" if user.cloud_api_key else ""
-    
-    return render_template('ai_settings.html', 
-                         user=user, 
-                         masked_api_key=masked_api_key)
-
 @app.route('/api/test-ai-generation', methods=['POST'])
 @login_required
 def api_test_ai_generation():
@@ -694,7 +585,7 @@ def api_test_ai_generation():
         if not data or 'prompt' not in data:
             return jsonify({"success": False, "error": "No prompt provided"}), 400
         
-        result = generate_question_with_ai(data['prompt'], session['user_id'])
+        result = generate_question_with_ai(data['prompt'])
         return jsonify(result)
     except Exception:
         app.logger.exception("AI test generation failed")

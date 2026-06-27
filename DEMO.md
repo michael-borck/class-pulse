@@ -25,22 +25,42 @@ The application will start on `http://localhost:5002`
 
 **Access the application at:** `http://localhost:5002`
 
-## 3. Configure AI Settings
+## 3. Configure the AI Provider (global, in `.env`)
 
-1. **Navigate to AI Settings:**
-   - Click "AI Settings" in the top navigation menu
-   - Or go directly to: `http://localhost:5002/settings/ai`
+AI question generation uses a single provider configured for the whole
+deployment in `.env` (copy `.env.example` to `.env`). Two adapter families are
+supported:
 
-2. **Configure Ollama (Recommended for local testing):**
-   - Keep "Enable AI Question Generation" checked
-   - Set "Preferred Provider" to "Ollama (Local) - Try first"
-   - Ollama URL: `http://localhost:11434` (default)
-   - Ollama Model: `llama3.2` (or any model you have installed)
+- **`openai`** — any OpenAI-compatible `/chat/completions` endpoint: OpenAI,
+  Groq, Together, OpenRouter, and **Ollama's `/v1`** (leave `AI_API_KEY` blank
+  for a local/keyless Ollama).
+- **`anthropic`** — the native Anthropic `/messages` endpoint
+  (`api.anthropic.com`).
 
-3. **Optional - Configure Cloud API:**
-   - Set API URL (e.g., `https://api.openai.com/v1`)
-   - Add your API key
-   - Set model name (e.g., `gpt-3.5-turbo`)
+`AI_BASE_URL` is the `/v1` root for both. Examples:
+
+```bash
+# Ollama (local, no key)
+AI_PROVIDER=openai
+AI_BASE_URL=http://localhost:11434/v1
+AI_MODEL=llama3.2
+AI_API_KEY=
+
+# OpenAI
+AI_PROVIDER=openai
+AI_BASE_URL=https://api.openai.com/v1
+AI_MODEL=gpt-4o-mini
+AI_API_KEY=sk-...
+
+# Anthropic (Claude)
+AI_PROVIDER=anthropic
+AI_BASE_URL=https://api.anthropic.com/v1
+AI_MODEL=claude-3-5-haiku-latest
+AI_API_KEY=sk-ant-...
+```
+
+Leave `AI_PROVIDER` blank to disable AI generation. Restart the app after
+editing `.env`.
 
 ## 4. Install and Setup Ollama (for local testing)
 
@@ -59,29 +79,18 @@ ollama serve
 
 ## 5. Test AI Generation
 
-### Option A: Test from AI Settings Page
-1. Go to AI Settings page
-2. Scroll down to "Test AI Generation" section
-3. Enter a test prompt like:
+Generate a question from the creation flow:
+
+1. Create a new session: Dashboard → "Create New Session" → name it → Create.
+2. Add a question: click "New Multiple Choice" (or any type). You'll see the
+   purple "✨ Generate with AI" section (shown only when a provider is
+   configured).
+3. Enter a description, e.g.:
    - `"multiple choice question about hard disk sector size"`
    - `"rating question about user satisfaction"`
    - `"word cloud about favorite programming languages"`
-4. Click "Test Generation"
-5. Review the generated question structure
-
-### Option B: Test in Question Creation Flow
-1. Create a new session:
-   - Dashboard → "Create New Session"
-   - Enter session name → Create
-2. Add a question:
-   - Click "New Multiple Choice" (or any type)
-   - You'll see the purple "✨ Generate with AI" section
-3. Enter a description:
-   - `"Create a question about database normalization"`
-   - `"Make a multiple choice about Python data types"`
-4. Click "Generate Question"
-5. The form will auto-populate with AI-generated content
-6. Edit if needed and save
+4. Click "Generate Question" — the form auto-populates with AI content.
+5. Edit if needed and save.
 
 ## 6. Test Different Scenarios
 
@@ -90,12 +99,9 @@ ollama serve
 - Should redirect to word cloud creation page
 
 **Test Error Handling:**
-- Disable Ollama server and test fallback behavior
+- Stop the provider (e.g. quit Ollama, or point `AI_BASE_URL` at an invalid
+  host) and confirm you get a clear error message
 - Enter invalid prompts and see error messages
-
-**Test Cloud Fallback:**
-- Set preference to "Cloud API" without valid API key
-- Should fallback to Ollama
 
 ## 7. Verify Database Integration
 
@@ -115,7 +121,7 @@ Check that generated questions work normally:
 
 **If AI generation fails:**
 - Check browser console for JavaScript errors
-- Verify AI is enabled in settings
+- Verify AI_PROVIDER/AI_BASE_URL/AI_MODEL are set in `.env` (and the app restarted)
 - Check Flask console for Python errors
 
 **Common test prompts that work well:**
@@ -134,12 +140,13 @@ Check that generated questions work normally:
    - If you request a different question type than the current page, it automatically redirects
    - Preserves your generated content during the redirect
 
-3. **Provider Fallback:**
-   - Configure both Cloud and Ollama to test automatic fallback
-   - Disable one provider to see seamless switching
+3. **Provider variety:**
+   - Any OpenAI-compatible endpoint works (OpenAI, Ollama `/v1`, Groq,
+     OpenRouter); Anthropic uses its native `/messages` API.
+   - Ollama works keyless locally; a remote Ollama just needs `AI_API_KEY` set.
 
-4. **Security Features:**
-   - API keys are encrypted in the database
-   - Check the settings page to see masked API key display
+4. **Secret handling:**
+   - The provider key lives in `.env` (plaintext, gitignored, mode 0600) — it is
+     never stored in the database.
 
 The system is designed to be robust, so even if AI generation fails, you can always create questions manually using the traditional form fields.

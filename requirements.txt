@@ -23,9 +23,6 @@ python-dotenv==1.0.1
 flask-wtf==1.2.1
 flask-limiter==3.8.0
 
-# Cryptography
-cryptography==45.0.0
-
 # Database
 sqlalchemy==2.0.41
 

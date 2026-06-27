@@ -9,9 +9,10 @@
 #   docker compose -f docker-compose.deploy.yml logs -f    # tail
 #   docker compose -f docker-compose.deploy.yml pull       # update to latest
 #
-# Secrets come from ./.env (auto-loaded by Compose for ${VAR} interpolation).
-# NEVER regenerate them — changing SECRET_KEY logs everyone out, and changing
-# ENCRYPTION_KEY makes stored cloud API keys undecryptable.
+# SECRET_KEY comes from ./.env (auto-loaded by Compose for ${VAR} interpolation)
+# and must stay stable — changing it logs everyone out. AI provider settings
+# (AI_PROVIDER, AI_BASE_URL, AI_API_KEY, AI_MODEL) are optional and also read
+# from .env; leave them blank to run without AI question generation.
 
 services:
   web:
@@ -21,10 +22,15 @@ services:
       # localhost only — Caddy reverse_proxies here. Never expose 5000 directly.
       - "127.0.0.1:5000:5000"
     environment:
-      # Fail loudly if a secret is missing (same convention as docker-compose.yml).
+      # Fail loudly if SECRET_KEY is missing (same convention as docker-compose.yml).
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env — run scripts/generate-secrets.sh}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env — run scripts/generate-secrets.sh}
       - SOCKETIO_ASYNC_MODE=threading
+      # AI provider (optional — blank disables generation). See .env.example.
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - AI_BASE_URL=${AI_BASE_URL:-}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-}
+      - AI_ENABLED=${AI_ENABLED:-}
     volumes:
       # Persist the SQLite DB across image updates.
       - ./instance:/app/instance
