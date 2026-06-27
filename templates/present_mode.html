@@ -94,13 +94,51 @@
         return '';
     }
     // Markup for a single result host (canvas or word-cloud div) + response count.
+    // Short-answer results: a readable answers list with a cloud toggle.
+    function saMarkup(id, hClass) {
+        return `<div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
+                  <button type="button" data-sa-q="${id}" data-sa-view="list" class="sa-btn-${id} px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
+                  <button type="button" data-sa-q="${id}" data-sa-view="cloud" class="sa-btn-${id} px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
+                </div>
+                <div id="sa-list-${id}" class="w-full ${hClass} overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
+                <div id="sa-cloud-${id}" class="hidden w-full ${hClass} border rounded-md bg-gray-50"></div>`;
+    }
+    function saPopulate(qid, s) {
+        const listEl = document.getElementById('sa-list-' + qid);
+        if (listEl) {
+            const items = Array.isArray(s.results) ? s.results : [];
+            listEl.innerHTML = items.length
+                ? items.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${esc(a && a.text != null ? a.text : a)}</div>`).join('')
+                : `<p class="text-sm text-gray-400 italic">No answers yet.</p>`;
+        }
+        const cloudEl = document.getElementById('sa-cloud-' + qid);
+        if (cloudEl && s.cloud) initWordCloud('sa-cloud-' + qid, s.cloud);
+        document.querySelectorAll('.sa-btn-' + qid).forEach(b => {
+            if (b.dataset.saWired) return; b.dataset.saWired = '1';
+            b.addEventListener('click', () => {
+                const v = b.dataset.saView;
+                const list = document.getElementById('sa-list-' + qid);
+                const cloud = document.getElementById('sa-cloud-' + qid);
+                if (list && cloud) { list.classList.toggle('hidden', v !== 'list'); cloud.classList.toggle('hidden', v !== 'cloud'); }
+                document.querySelectorAll('.sa-btn-' + qid).forEach(x => {
+                    const on = x.dataset.saView === v;
+                    x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
+                    x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
+                });
+            });
+        });
+    }
     function hostMarkup(q, hClass) {
-        const isCloud = (q.type === 'word_cloud' || q.type === 'short_answer');
-        const inner = isCloud
-            ? `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`
-            : `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
         const s = stats[q.id];
         const total = s ? (s.total_responses || 0) : 0;
+        let inner;
+        if (q.type === 'short_answer') {
+            inner = saMarkup(q.id, hClass);
+        } else if (q.type === 'word_cloud') {
+            inner = `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`;
+        } else {
+            inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
+        }
         return `<div id="cap-${q.id}">${captionFor(q, s)}</div>` + inner + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
     }
 
@@ -112,10 +150,12 @@
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const cap = document.getElementById('cap-' + qid);
         if (cap) cap.innerHTML = captionFor(q, s);
-        if (!s || !s.results) return;
-        if (q.type === 'word_cloud' || q.type === 'short_answer') {
-            if (document.getElementById('wc-' + qid)) initWordCloud('wc-' + qid, s.results);
-        } else if (document.getElementById('cv-' + qid)) {
+        if (!s) return;
+        if (q.type === 'short_answer') {
+            saPopulate(qid, s);
+        } else if (q.type === 'word_cloud') {
+            if (document.getElementById('wc-' + qid) && s.results) initWordCloud('wc-' + qid, s.results);
+        } else if (document.getElementById('cv-' + qid) && s.results) {
             const cfg = chartConfig(q, s);
             initChart('cv-' + qid, cfg.type, cfg.data, cfg.options);
         }
@@ -129,7 +169,7 @@
 
     // Called when new results arrive — update whatever is on screen for that question.
     function refresh(qid) {
-        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid)) instantiate(qid);
+        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid)) instantiate(qid);
         if (overlayQid === qid) instantiateOverlay(qid);
     }
 
@@ -195,7 +235,35 @@
         document.getElementById('ov-title').textContent = q.title;
         document.getElementById('ov-cnt').textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const host = document.getElementById('ov-host');
-        const isCloud = (q.type === 'word_cloud' || q.type === 'short_answer');
+        if (q.type === 'short_answer') {
+            host.innerHTML = captionFor(q, s)
+                + `<div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
+                     <button type="button" data-ov-sa-view="list" class="ov-sa-btn px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
+                     <button type="button" data-ov-sa-view="cloud" class="ov-sa-btn px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
+                   </div>
+                   <div id="ov-sa-list" class="w-full h-[58vh] overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
+                   <div id="ov-sa-cloud" class="hidden w-full h-[58vh] border rounded-md bg-gray-50"></div>`;
+            if (s) {
+                const items = Array.isArray(s.results) ? s.results : [];
+                const listEl = document.getElementById('ov-sa-list');
+                if (listEl) listEl.innerHTML = items.length
+                    ? items.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${esc(a && a.text != null ? a.text : a)}</div>`).join('')
+                    : `<p class="text-sm text-gray-400 italic">No answers yet.</p>`;
+                if (s.cloud) initWordCloud('ov-sa-cloud', s.cloud);
+                document.querySelectorAll('.ov-sa-btn').forEach(b => b.addEventListener('click', () => {
+                    const v = b.dataset.ovSaView;
+                    document.getElementById('ov-sa-list').classList.toggle('hidden', v !== 'list');
+                    document.getElementById('ov-sa-cloud').classList.toggle('hidden', v !== 'cloud');
+                    document.querySelectorAll('.ov-sa-btn').forEach(x => {
+                        const on = x.dataset.ovSaView === v;
+                        x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
+                        x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
+                    });
+                }));
+            }
+            return;
+        }
+        const isCloud = (q.type === 'word_cloud');
         host.innerHTML = captionFor(q, s) + (isCloud
             ? `<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>`
             : `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`);

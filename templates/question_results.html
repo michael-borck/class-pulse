@@ -36,11 +36,17 @@
          <div class="h-64 md:h-96 relative"> {# Increased height #}
             <canvas id="chart-rating-{{ question.id }}"></canvas>
         </div>
-    {% elif stats.type in ['word_cloud','short_answer'] %}
-        <h4 class="text-lg font-semibold mb-2">
-            {% if stats.type == 'short_answer' %}Short Answer Results{% else %}Word Cloud Results{% endif %}
-        </h4>
-        <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div> {# Increased height #}
+    {% elif stats.type == 'short_answer' %}
+        <h4 class="text-lg font-semibold mb-2">Short Answer Results</h4>
+        <div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
+            <button type="button" data-sa-view="list" class="sa-btn px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
+            <button type="button" data-sa-view="cloud" class="sa-btn px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
+        </div>
+        <div id="sa-list" class="w-full h-64 md:h-96 overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
+        <div id="sa-cloud" class="hidden w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
+    {% elif stats.type == 'word_cloud' %}
+        <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
+        <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
     {% else %}
         <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
     {% endif %}
@@ -123,9 +129,26 @@
                 }]
             };
             initChart(canvasId, 'bar', chartData, horizontalBarChartOptions); // Use horizontal options
-        } else if ((statsData.type === 'word_cloud' || statsData.type === 'short_answer') && statsData.results) {
-            const cloudId = `wordcloud-${questionId}`;
-            initWordCloud(cloudId, statsData.results);
+        } else if (statsData.type === 'word_cloud' && statsData.results) {
+            initWordCloud(`wordcloud-${questionId}`, statsData.results);
+        } else if (statsData.type === 'short_answer') {
+            const saItems = Array.isArray(statsData.results) ? statsData.results : [];
+            const saList = document.getElementById('sa-list');
+            const escTxt = t => String(t == null ? '' : t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+            if (saList) saList.innerHTML = saItems.length
+                ? saItems.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${escTxt(a && a.text != null ? a.text : a)}</div>`).join('')
+                : '<p class="text-sm text-gray-400 italic">No answers yet.</p>';
+            if (statsData.cloud) initWordCloud('sa-cloud', statsData.cloud);
+            document.querySelectorAll('.sa-btn').forEach(b => b.addEventListener('click', () => {
+                const v = b.dataset.saView;
+                document.getElementById('sa-list').classList.toggle('hidden', v !== 'list');
+                document.getElementById('sa-cloud').classList.toggle('hidden', v !== 'cloud');
+                document.querySelectorAll('.sa-btn').forEach(x => {
+                    const on = x.dataset.saView === v;
+                    x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
+                    x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
+                });
+            }));
         }
     });
 </script>

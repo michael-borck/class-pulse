@@ -1516,13 +1516,19 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["options"] = options
 
     elif question.type == 'short_answer':
+        answers = []
         words = {}
         for resp in all_responses:
+            text = str(resp.response_value).strip()
+            if text:
+                answers.append({"text": text, "ts": resp.created_at})
             for word in str(resp.response_value).lower().split():
                 cleaned_word = ''.join(filter(str.isalnum, word))
                 if cleaned_word and cleaned_word not in STOP_WORDS:
                     words[cleaned_word] = words.get(cleaned_word, 0) + 1
-        stats["results"] = [{"text": w, "weight": c} for w, c in words.items()]
+        answers.sort(key=lambda a: a.get("ts") or "", reverse=True)
+        stats["results"] = answers  # list of {text, ts}, newest first — drives the answers view
+        stats["cloud"] = [{"text": w, "weight": c} for w, c in words.items()]  # for the cloud toggle
 
     elif question.type == 'ranking':
         try:
