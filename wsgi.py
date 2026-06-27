@@ -35,7 +35,15 @@ if not debug:
 # Admin bootstrapping is handled by the register flow: the first person to
 # register becomes a verified admin — no default admin account is created.
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        # Multiple gunicorn workers booting against a fresh DB can race the
+        # check-then-create inside create_all() ("table already exists"). The
+        # first worker to win creates every table; the rest hit this benign
+        # error and continue. Tolerate it so workers don't fail to boot.
+        if "already exists" not in str(e):
+            raise
 
 # This will be used by Gunicorn. For Flask-SocketIO the WSGI callable is the
 # Flask app itself — SocketIO installs middleware that handles /socket.io/.
