@@ -1,0 +1,33 @@
+# Deploy the CI-published image behind Caddy.
+#
+# Unlike docker-compose.yml (which builds from source), this file PULLS the
+# prebuilt multi-arch image from GHCR that the GitHub Actions workflow publishes.
+#
+# Usage:
+#   ./scripts/generate-secrets.sh                          # one-time: writes .env
+#   docker compose -f docker-compose.deploy.yml up -d      # start
+#   docker compose -f docker-compose.deploy.yml logs -f    # tail
+#   docker compose -f docker-compose.deploy.yml pull       # update to latest
+#
+# Secrets come from ./.env (auto-loaded by Compose for ${VAR} interpolation).
+# NEVER regenerate them — changing SECRET_KEY logs everyone out, and changing
+# ENCRYPTION_KEY makes stored cloud API keys undecryptable.
+
+services:
+  web:
+    # Override in .env (IMAGE=...) if you fork/rename; defaults to upstream.
+    image: ${IMAGE:-ghcr.io/michael-borck/class-pulse:latest}
+    ports:
+      # localhost only — Caddy reverse_proxies here. Never expose 5000 directly.
+      - "127.0.0.1:5000:5000"
+    environment:
+      # Fail loudly if a secret is missing (same convention as docker-compose.yml).
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env — run scripts/generate-secrets.sh}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set in .env — run scripts/generate-secrets.sh}
+      - SOCKETIO_ASYNC_MODE=threading
+    volumes:
+      # Persist the SQLite DB across image updates.
+      - ./instance:/app/instance
+    restart: unless-stopped
+    # Grab the newest published :latest on each `up`. Drop if you pin a tag.
+    pull_policy: always
