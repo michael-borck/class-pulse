@@ -756,8 +756,9 @@ def _parse_question_payload(data):
 
 
 def _render_dashboard(selected_id=None):
-    """Render the unified master-detail dashboard. Used at / (no selection) and
-    /sessions/<id> (a session selected, which doubles as the deep link)."""
+    """Render the unified master-detail dashboard. Used at /dashboard (no
+    selection) and /sessions/<id> (a session selected, which doubles as the
+    deep link)."""
     user_id = session['user_id']
     # Include archived (client filters via the Active/Archived tabs); exclude deleted.
     user_sessions = Session.query.filter_by(user_id=user_id, deleted=False).order_by(Session.created_at.desc()).all()
@@ -774,6 +775,13 @@ def _render_dashboard(selected_id=None):
 
 # --- Presenter Routes ---
 @app.route('/')
+def index():
+    """Public landing page. Authenticated visitors skip straight to the app."""
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('landing.html')
+
+@app.route('/dashboard')
 @login_required
 def dashboard():
     return _render_dashboard()

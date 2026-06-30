@@ -18,7 +18,7 @@
         <div class="container mx-auto flex justify-between items-center py-4 px-6">
             <div class="flex items-center space-x-4">
                  {# Use Flask session here, which is always available #}
-                <a href="{{ url_for('dashboard' if session.get('user_id') else 'login') }}">
+                <a href="{{ url_for('dashboard' if session.get('user_id') else 'index') }}">
                     <h1 class="text-2xl font-bold text-white">ClassPulse</h1>
                 </a>
             </div>
