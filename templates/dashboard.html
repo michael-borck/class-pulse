@@ -6,7 +6,7 @@
 
     {# ===== Left: sessions list ===== #}
     <aside class="md:col-span-1 {{ 'hidden md:block' if selected else 'block' }}">
-        <button id="new-session" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-md mb-3">+ New session</button>
+        <button id="new-session" class="btn btn-primary w-full mb-3">+ New session</button>
         <input id="session-search" placeholder="Search sessions…"
                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
         <div class="flex gap-2 text-xs mb-3">
@@ -34,7 +34,7 @@
     {% if selected %}
         <a href="{{ url_for('dashboard') }}" class="md:hidden inline-block text-indigo-700 font-semibold text-sm mb-2">← Sessions</a>
 
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
+        <div class="cp-card mb-4">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <input id="session-name" value="{{ selected.name }}"
                        class="text-2xl font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none px-1 max-w-full">
@@ -61,16 +61,16 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-4">
+        <div class="cp-card">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-lg font-semibold">Questions <span id="q-count" class="text-gray-400 text-sm font-normal"></span></h3>
-                <button id="add-question" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-md text-sm">+ Add question</button>
+                <button id="add-question" class="btn btn-primary text-sm">+ Add question</button>
             </div>
             <div id="question-list" class="space-y-2"></div>
             <p id="q-empty" class="text-sm text-gray-400 hidden">No questions yet. Click <span class="font-medium">+ Add question</span> to create your first one — multiple choice, word cloud, or a rating scale.</p>
         </div>
     {% else %}
-        <div class="bg-white rounded-lg shadow p-10 text-center text-gray-400">
+        <div class="cp-card p-10 text-center text-gray-400">
             Select a session from the list, or create one to get started.
         </div>
     {% endif %}
@@ -309,7 +309,7 @@ function editorHTML() {
             ${(AI_ENABLED && !locked) ? `
             <div class="flex gap-1.5">
                 <button type="button" id="ed-refine-btn" disabled title="Add some question content first" class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">✨ Refine</button>
-                <button type="button" id="ed-generate-btn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
+                <button type="button" id="ed-generate-btn" class="text-xs bg-brand-gradient text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
             </div>` : ''}
         </div>
         <input id="ed-title" value="${q ? esc(q.title) : ''}" placeholder="Enter your question" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
@@ -332,14 +332,14 @@ function editorHTML() {
             <input id="ed-gen-input" type="text" placeholder="e.g. a multiple-choice question on the water cycle" class="block w-full px-2 py-1.5 border border-indigo-300 rounded-md text-sm mb-2">
             <div id="ed-gen-overwrite" class="hidden mb-2 text-xs bg-amber-50 border border-amber-300 text-amber-800 rounded px-2 py-1.5">⚠ This will replace your current question.</div>
             <div class="flex gap-2">
-                <button type="button" id="ed-gen-run" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1 px-3 rounded-md">Generate</button>
+                <button type="button" id="ed-gen-run" class="bg-brand-gradient text-white text-sm font-semibold py-1 px-3 rounded-md">Generate</button>
                 <button type="button" id="ed-gen-cancel" class="text-sm text-gray-500 hover:text-gray-700 py-1 px-2">Cancel</button>
             </div>
         </div>` : ''}
         <div id="ed-fields" class="${locked ? 'opacity-50 pointer-events-none' : ''}">${typeFields(type, q)}</div>
         <div id="ed-status" class="text-sm mt-3 hidden"></div>
         <div class="flex gap-2 mt-5">
-            <button type="button" id="ed-save" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm">${editor.mode==='edit' ? 'Save changes' : 'Add to session'}</button>
+            <button type="button" id="ed-save" class="btn btn-primary text-sm">${editor.mode==='edit' ? 'Save changes' : 'Add to session'}</button>
             <button type="button" id="ed-cancel" class="text-gray-600 hover:bg-gray-100 font-semibold py-2 px-4 rounded-md text-sm">Cancel</button>
         </div>`;
 }

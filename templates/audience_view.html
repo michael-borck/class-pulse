@@ -15,7 +15,7 @@
 <div id="refresh-banner" class="hidden flash-message flash-info flex items-center justify-between">
     <span>The presenter updated the questions.</span>
     <button type="button" onclick="window.location.reload()"
-            class="action-button bg-indigo-600 hover:bg-indigo-700">Show new questions</button>
+            class="action-button bg-brand-gradient">Show new questions</button>
 </div>
 
 {# View toggle — only meaningful with more than one active question #}
@@ -35,7 +35,7 @@
         <span id="step-counter"></span><span id="answered-counter"></span>
     </div>
     <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div id="progress-bar" class="h-full bg-indigo-600 transition-all" style="width:0%"></div>
+        <div id="progress-bar" class="h-full bg-brand-gradient transition-all" style="width:0%"></div>
     </div>
 </div>
 
@@ -164,7 +164,7 @@
             </div>
         {% endif %}
 
-        <button type="submit" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded text-sm">
+        <button type="submit" class="mt-4 bg-brand-gradient text-white font-bold py-1 px-3 rounded text-sm shadow-brand">
             {{ 'Update Answer' if previous_answer is not none else 'Submit Answer' }}
         </button>
         <div class="response-status mt-2 text-sm font-medium {{ 'text-green-600' if previous_answer is not none else '' }}">

@@ -5,7 +5,7 @@
 <div class="flex justify-between items-center mb-6 flex-wrap"> {# Added flex-wrap #}
     <h2 class="text-3xl font-semibold mb-2 md:mb-0">Your Sessions (Active & Inactive)</h2>
     <div>
-        <a href="{{ url_for('new_session') }}" class="action-button bg-indigo-600 hover:bg-indigo-700 mr-2">
+        <a href="{{ url_for('new_session') }}" class="action-button bg-brand-gradient mr-2">
             Create New Session
         </a>
         <a href="{{ url_for('list_archived_sessions') }}" class="action-button bg-gray-500 hover:bg-gray-600">
@@ -17,7 +17,7 @@
 {% if sessions %}
 <ul class="space-y-3">
     {% for s in sessions %}
-    <li class="bg-white p-4 rounded-lg shadow">
+    <li class="cp-card p-4">
         <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
             <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
                 <a href="{{ url_for('manage_session', session_id=s.id) }}" class="text-lg font-medium text-indigo-700 hover:underline">{{ s.name }}</a>

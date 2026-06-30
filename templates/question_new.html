@@ -22,12 +22,12 @@
                         title="Add some question content first"
                         class="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">✨ Refine</button>
                 <button type="button" onclick="aiGenerateOpen()"
-                        class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
+                        class="text-xs bg-brand-gradient text-white font-semibold py-1 px-2 rounded-md">✨ Generate</button>
             </div>
             {% endif %}
         </div>
         <input type="text" id="title" name="title" required placeholder="Enter your question"
-               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+               class="cp-input"
                value="{{ title or '' }}">
     </div>
 
@@ -56,44 +56,44 @@
     <div class="mb-4">
         <label for="options" class="block text-sm font-medium text-gray-700">Options (one per line)</label>
         <textarea id="options" name="options" required rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"
-                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{{ options or '' }}</textarea>
+                  class="cp-input">{{ options or '' }}</textarea>
     </div>
     {% elif q_type == 'image_choice' %}
     <div class="mb-4">
         <label for="options" class="block text-sm font-medium text-gray-700">Images (one per line: <code>label|url</code>)</label>
         <textarea id="options" name="options" required rows="4" placeholder="Cat|https://example.com/cat.png&#10;Dog|https://example.com/dog.png"
-                  class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">{{ options or '' }}</textarea>
+                  class="cp-input">{{ options or '' }}</textarea>
     </div>
     {% elif q_type == 'numeric' %}
     <div class="mb-4 grid grid-cols-3 gap-3">
         <div>
             <label for="min" class="block text-sm font-medium text-gray-700">Min</label>
             <input type="number" id="min" name="min" step="any" placeholder="(any)"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                   class="cp-input">
         </div>
         <div>
             <label for="max" class="block text-sm font-medium text-gray-700">Max</label>
             <input type="number" id="max" name="max" step="any" placeholder="(any)"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                   class="cp-input">
         </div>
         <div>
             <label for="step" class="block text-sm font-medium text-gray-700">Step</label>
             <input type="number" id="step" name="step" step="any" placeholder="(any)"
-                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                   class="cp-input">
         </div>
     </div>
     {% elif q_type == 'rating' %}
     <div class="mb-4">
         <label for="max_rating" class="block text-sm font-medium text-gray-700">Maximum Rating</label>
         <input type="number" id="max_rating" name="max_rating" value="{{ max_rating or 5 }}" min="2" max="10" required
-               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                   class="cp-input">
     </div>
     {% elif q_type in ('word_cloud', 'short_answer') %}
         {# No extra fields needed #}
          <p class="text-sm text-gray-500 mb-4">Audience members will be able to submit words or short phrases.</p>
     {% endif %}
 
-    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+    <button type="submit" class="btn btn-primary w-full">
         Create Question
     </button>
 </form>
@@ -110,7 +110,7 @@
         <div id="ai-gen-status" class="text-sm mb-2 hidden"></div>
         <div class="flex justify-end gap-2">
             <button type="button" onclick="aiGenerateClose()" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5">Cancel</button>
-            <button type="button" onclick="runGenerate()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1.5 px-4 rounded-md">Generate</button>
+            <button type="button" onclick="runGenerate()" class="bg-brand-gradient text-white text-sm font-semibold py-1.5 px-4 rounded-md shadow-brand">Generate</button>
         </div>
     </div>
 </div>

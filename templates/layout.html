@@ -14,12 +14,13 @@
 </head>
 <body class="flex flex-col min-h-screen bg-gray-50">
 
-    <header class="bg-indigo-600 shadow-md">
+    <header class="bg-brand-gradient shadow-brand">
         <div class="container mx-auto flex justify-between items-center py-4 px-6">
             <div class="flex items-center space-x-4">
                  {# Use Flask session here, which is always available #}
-                <a href="{{ url_for('dashboard' if session.get('user_id') else 'index') }}">
-                    <h1 class="text-2xl font-bold text-white">ClassPulse</h1>
+                <a href="{{ url_for('dashboard' if session.get('user_id') else 'index') }}" class="flex items-center gap-2">
+                    <span class="pulse-dot animate-pulse-dot"></span>
+                    <h1 class="text-2xl font-extrabold text-white tracking-tight">ClassPulse</h1>
                 </a>
             </div>
             <div class="flex items-center space-x-2 md:space-x-4 flex-wrap"> {# Added flex-wrap and reduced spacing #}
@@ -56,7 +57,7 @@
         </div>
     </main>
 
-    <footer class="bg-gray-100 mt-auto">
+    <footer class="bg-white border-t border-gray-200 mt-auto">
         <div class="container mx-auto py-4 px-6">
             <p class="text-center text-gray-500 text-sm">© {{ now().year }} ClassPulse
                 {% if app_version and app_version != 'dev' %}

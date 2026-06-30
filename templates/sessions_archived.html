@@ -4,7 +4,7 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6 flex-wrap"> {# Added flex-wrap #}
     <h2 class="text-3xl font-semibold mb-2 md:mb-0">Archived Sessions</h2>
-    <a href="{{ url_for('list_sessions') }}" class="action-button bg-indigo-600 hover:bg-indigo-700">
+    <a href="{{ url_for('list_sessions') }}" class="action-button bg-brand-gradient">
         View Active/Inactive Sessions
     </a>
 </div>
@@ -12,7 +12,7 @@
 {% if sessions %}
 <ul class="space-y-3">
     {% for s in sessions %}
-    <li class="bg-gray-200 p-4 rounded-lg shadow"> {# Different background for archived #}
+    <li class="bg-gray-100 p-4 rounded-lg shadow"> {# Different background for archived #}
         <div class="flex justify-between items-center flex-wrap"> {# Added flex-wrap #}
             <div class="mb-2 sm:mb-0"> {# Added margin bottom for small screens #}
                 <span class="text-lg font-medium text-gray-600">{{ s.name }}</span> {# No link for archived #}
