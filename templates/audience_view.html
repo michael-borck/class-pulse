@@ -184,6 +184,54 @@
     <button type="button" id="step-next" class="px-4 py-2 rounded-md text-sm font-semibold text-indigo-700 hover:bg-indigo-50">Next →</button>
 </div>
 
+{# ===== Cohort mode: audience-proposed questions ===== #}
+{% if current_session.allow_proposals %}
+<div id="proposals-card" class="mt-10 bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="h-1.5 bg-brand-gradient"></div>
+    <div class="p-6">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <h3 class="text-lg font-semibold text-gray-800">💡 Community questions</h3>
+            <button type="button" id="pp-open" class="bg-brand-gradient text-white font-bold py-1 px-3 rounded text-sm shadow-brand">+ Propose a question</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">Suggest a question for the class (anonymous) and upvote the ones you'd like asked. The presenter decides which go live.</p>
+
+        {# Inline proposal form (hidden until opened) #}
+        <div id="pp-form" class="hidden border border-indigo-200 bg-indigo-50/50 rounded-md p-4 mb-4">
+            <label class="block text-sm font-medium text-gray-700">Question type</label>
+            <select id="pp-type" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                <option value="multiple_choice">Multiple Choice</option>
+                <option value="multi_select">Select All</option>
+                <option value="short_answer">Short Answer</option>
+                <option value="word_cloud">Word Cloud</option>
+                <option value="rating">Rating Scale</option>
+            </select>
+            <label class="block text-sm font-medium text-gray-700 mt-3">Your question</label>
+            <input id="pp-title" maxlength="255" placeholder="e.g. Which topic should we revise before the test?"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+            <div id="pp-options-wrap">
+                <label class="block text-sm font-medium text-gray-700 mt-3">Options (one per line)</label>
+                <textarea id="pp-options" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></textarea>
+            </div>
+            <div id="pp-rating-wrap" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
+                <input id="pp-max" type="number" min="2" max="10" value="5" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">
+            </div>
+            <div id="pp-status" class="hidden text-sm mt-3"></div>
+            <div class="flex gap-2 mt-4">
+                <button type="button" id="pp-submit" class="bg-brand-gradient text-white text-sm font-semibold py-1.5 px-4 rounded-md">Submit</button>
+                <button type="button" id="pp-cancel" class="text-sm text-gray-500 hover:text-gray-700 py-1.5 px-2">Cancel</button>
+                <span id="pp-remaining" class="text-xs text-gray-400 self-center ml-auto"></span>
+            </div>
+        </div>
+
+        <div id="pp-list" class="space-y-2">
+            <p class="text-sm text-gray-400 italic">Loading…</p>
+        </div>
+        <div id="pp-mine-hidden" class="mt-3 space-y-2"></div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -362,5 +410,105 @@
     });
 
     renderView();
+
+    // ===== Cohort mode: community-proposed questions =====
+    (function () {
+        if (!document.getElementById('proposals-card')) return;
+        const CODE = {{ current_session.code | tojson }};
+        const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+        const esc = s => { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; };
+        const TYPE_LABELS = { multiple_choice: 'Multiple Choice', multi_select: 'Select All',
+                              short_answer: 'Short Answer', word_cloud: 'Word Cloud', rating: 'Rating' };
+        const CHOICE_TYPES = ['multiple_choice', 'multi_select'];
+
+        function ppStatus(kind, msg) {
+            const el = document.getElementById('pp-status');
+            if (!msg) { el.classList.add('hidden'); return; }
+            el.className = 'text-sm mt-3 ' + (kind === 'err' ? 'text-red-600' : kind === 'warn' ? 'text-amber-700' : 'text-green-700');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function renderProposals(data) {
+            const list = document.getElementById('pp-list');
+            const items = data.proposals || [];
+            list.innerHTML = items.length ? items.map(p => `
+                <div class="flex items-start gap-3 border border-gray-200 rounded-md px-3 py-2 ${p.status === 'approved' ? 'bg-green-50' : 'bg-white'}">
+                    ${p.status === 'approved'
+                        ? '<span class="shrink-0 text-green-600 text-lg leading-6" title="The presenter asked this question">✓</span>'
+                        : `<button type="button" data-pp-vote="${p.id}"
+                                   class="shrink-0 flex flex-col items-center px-2 py-0.5 rounded border text-xs font-bold ${p.my_vote ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50'}">
+                               ▲<span>${p.votes}</span></button>`}
+                    <div class="min-w-0">
+                        <p class="text-sm text-gray-800">${esc(p.title)}${p.mine ? ' <span class="text-[10px] text-indigo-500 font-semibold">(yours)</span>' : ''}</p>
+                        <p class="text-[11px] text-gray-400">${TYPE_LABELS[p.type] || p.type}${p.status === 'approved' ? ' · asked by the presenter' : ''}</p>
+                    </div>
+                </div>`).join('')
+                : '<p class="text-sm text-gray-400 italic">No community questions yet — propose the first one!</p>';
+            list.querySelectorAll('[data-pp-vote]').forEach(b => b.addEventListener('click', async () => {
+                const r = await fetch(`/audience/proposals/${b.dataset.ppVote}/vote`,
+                    { method: 'POST', headers: { 'X-CSRFToken': CSRF } });
+                if (!r.ok) { const d = await r.json().catch(() => ({})); ppStatus('err', d.message || 'Could not vote.'); }
+            }));
+
+            const mine = document.getElementById('pp-mine-hidden');
+            const hidden = data.mine_hidden || [];
+            mine.innerHTML = hidden.map(p => `
+                <div class="border border-amber-200 bg-amber-50 rounded-md px-3 py-2">
+                    <p class="text-sm text-gray-700">${esc(p.title)}</p>
+                    <p class="text-[11px] ${p.status === 'rejected' ? 'text-red-600' : p.status === 'merged' ? 'text-gray-500' : 'text-amber-700'}">
+                        ${p.status === 'rejected' ? 'Not approved by the presenter.'
+                          : p.status === 'merged' ? 'Merged into a similar question — your vote carried over.'
+                          : 'Awaiting presenter approval — hidden from the public list.'}</p>
+                </div>`).join('');
+
+            const rem = document.getElementById('pp-remaining');
+            if (rem && data.remaining != null) rem.textContent = `${data.remaining} proposal${data.remaining === 1 ? '' : 's'} left`;
+        }
+
+        async function loadProposals() {
+            try {
+                const r = await fetch(`/audience/${CODE}/proposals`);
+                if (r.ok) renderProposals(await r.json());
+            } catch (e) { /* transient network error; socket refresh will retry */ }
+        }
+
+        document.getElementById('pp-type').addEventListener('change', e => {
+            const t = e.target.value;
+            document.getElementById('pp-options-wrap').classList.toggle('hidden', !CHOICE_TYPES.includes(t));
+            document.getElementById('pp-rating-wrap').classList.toggle('hidden', t !== 'rating');
+        });
+        document.getElementById('pp-open').addEventListener('click', () => {
+            document.getElementById('pp-form').classList.remove('hidden');
+            document.getElementById('pp-title').focus();
+        });
+        document.getElementById('pp-cancel').addEventListener('click', () => {
+            document.getElementById('pp-form').classList.add('hidden');
+            ppStatus(null, null);
+        });
+        document.getElementById('pp-submit').addEventListener('click', async () => {
+            const type = document.getElementById('pp-type').value;
+            const body = { type, title: document.getElementById('pp-title').value.trim() };
+            if (CHOICE_TYPES.includes(type)) body.options = document.getElementById('pp-options').value;
+            if (type === 'rating') body.max_rating = parseInt(document.getElementById('pp-max').value, 10) || 5;
+            const r = await fetch(`/audience/${CODE}/proposals`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify(body),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.success) {
+                document.getElementById('pp-title').value = '';
+                const o = document.getElementById('pp-options'); if (o) o.value = '';
+                ppStatus(d.proposal && d.proposal.status === 'flagged' ? 'warn' : 'ok', d.message);
+                loadProposals();
+            } else {
+                ppStatus('err', d.message || 'Could not submit your question.');
+            }
+        });
+
+        socket.on('proposals_changed', d => { if (d.session_id === sessionId) loadProposals(); });
+        loadProposals();
+    })();
 </script>
 {% endblock %}

@@ -52,6 +52,8 @@
         {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }} },
         {% endfor %}
     ];
+    const MODE = {{ mode | tojson }};
+    const SESSION_ID = {{ current_session.id }};
     const stats = {};                 // question_id -> latest stats from the server
     let overlayQid = null;
     let focusIdx = 0;
@@ -62,10 +64,52 @@
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
+    // Small non-blocking notice (e.g. a question was added mid-presentation).
+    function toast(msg) {
+        const el = document.createElement('div');
+        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-full shadow-lg transition-opacity duration-500';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 600); }, 3500);
+    }
+
     // --- Socket: live results ---
     const socket = io();
-    socket.on('connect', () => { QUESTIONS.forEach(q => socket.emit('join', { question_id: q.id })); });
+    socket.on('connect', () => {
+        QUESTIONS.forEach(q => socket.emit('join', { question_id: q.id }));
+        // In present mode, also watch the session so newly approved/activated
+        // questions appear without a manual refresh.
+        if (MODE === 'present') socket.emit('join_session', { session_id: SESSION_ID });
+    });
     socket.on('update_results', (d) => { stats[d.question_id] = d.stats; refresh(d.question_id); });
+
+    // The presenter changed the active-question set (e.g. approved an audience
+    // proposal from the dashboard). Update the deck quietly — no view jump.
+    socket.on('questions_changed', async (d) => {
+        if (MODE !== 'present' || d.session_id !== SESSION_ID) return;
+        const incoming = (d.active_question_ids || []).slice().sort().join(',');
+        const current = QUESTIONS.map(q => q.id).slice().sort().join(',');
+        if (incoming === current) return;
+        if (!document.getElementById('present-content')) {
+            // Page rendered the "no active questions" empty state — rebuild it.
+            window.location.reload();
+            return;
+        }
+        const r = await fetch(`/api/sessions/${SESSION_ID}/questions`);
+        if (!r.ok) return;
+        const body = await r.json();
+        const active = (body.questions || []).filter(q => q.active);
+        const known = new Set(QUESTIONS.map(q => q.id));
+        const added = active.filter(q => !known.has(q.id));
+        QUESTIONS.length = 0;
+        active.forEach(q => QUESTIONS.push({ id: q.id, type: q.type, title: q.title }));
+        focusIdx = Math.min(focusIdx, Math.max(0, QUESTIONS.length - 1));
+        if (overlayQid !== null && !QUESTIONS.some(q => q.id === overlayQid)) closeOverlay();
+        added.forEach(q => socket.emit('join', { question_id: q.id }));
+        renderView();
+        if (added.length) toast(added.length === 1 ? `New question added: ${added[0].title}` : `${added.length} new questions added`);
+        else toast('Question list updated');
+    });
 
     // --- Chart config from stats ---
     function chartConfig(q, s) {
@@ -185,6 +229,11 @@
         const content = document.getElementById('present-content');
         if (!content) return;
         destroyVisibleCharts();
+
+        if (!QUESTIONS.length) {
+            content.innerHTML = '<p class="text-gray-600 text-center text-lg mt-8">No active questions in this session.</p>';
+            return;
+        }
 
         if (view === 'stack') {
             content.innerHTML = QUESTIONS.map(q => `

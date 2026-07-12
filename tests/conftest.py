@@ -53,10 +53,10 @@ def login(client, username, password=TEST_PASSWORD):
 
 
 def create_session(app, user_id, *, active=True, archived=False, deleted=False,
-                   code="ABC123", name="Test session"):
+                   code="ABC123", name="Test session", allow_proposals=False):
     with app.app_context():
         s = Session(name=name, code=code, user_id=user_id, active=active,
-                    archived=archived, deleted=deleted)
+                    archived=archived, deleted=deleted, allow_proposals=allow_proposals)
         db.session.add(s)
         db.session.commit()
         return s.id

@@ -182,11 +182,12 @@ def create_app(test_config: dict = None) -> Flask:
         return jsonify({"status": "ok", "version": APP_VERSION})
 
     # --- Routes ---
-    from . import admin, audience, auth, presenter
+    from . import admin, audience, auth, presenter, proposals
     auth.init_app(app)
     presenter.init_app(app)
     audience.init_app(app)
     admin.init_app(app)
+    proposals.init_app(app)
 
     # --- Schema ---
     # create_all() creates missing tables only; it never alters existing ones.
@@ -201,5 +202,28 @@ def create_app(test_config: dict = None) -> Flask:
                 # error and continue.
                 if "already exists" not in str(e):
                     raise
+            _apply_additive_migrations(app)
 
     return app
+
+
+# Columns added to EXISTING tables after their initial release. create_all()
+# never alters tables, so each entry here is applied with a plain
+# ALTER TABLE ... ADD COLUMN (works on SQLite and PostgreSQL) when missing.
+_ADDITIVE_COLUMNS = [
+    ('session', 'allow_proposals', 'BOOLEAN NOT NULL DEFAULT 0'),
+]
+
+
+def _apply_additive_migrations(app):
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    for table, column, ddl_type in _ADDITIVE_COLUMNS:
+        try:
+            existing = {c['name'] for c in inspector.get_columns(table)}
+        except Exception:
+            continue  # table doesn't exist yet; create_all just made it complete
+        if column not in existing:
+            db.session.execute(text(f'ALTER TABLE "{table}" ADD COLUMN {column} {ddl_type}'))
+            db.session.commit()
+            app.logger.info(f"Schema migration: added {table}.{column}")

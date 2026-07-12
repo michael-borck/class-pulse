@@ -29,6 +29,7 @@ Copy `.env.example` to `.env` and set at least:
 - **CSV formula injection** — exported response values are prefix-escaped so `=`/`+`/`-`/`@` cells don't execute in Excel/Sheets.
 - **Headers** — `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` on every response; `Strict-Transport-Security` when `SESSION_COOKIE_SECURE=true`.
 - **Cookies** — `HttpOnly`, `SameSite=Lax`, and `Secure` (opt-in) on session and respondent cookies.
+- **Audience proposals (cohort mode)** — off by default per session. Proposals from anonymous audience members are validated like presenter questions (types restricted further: no image URLs), capped at 5 per respondent per session, rate-limited, and moderated: a built-in keyword/leetspeak blocklist (extend via `instance/moderation_keywords.txt`, one term per line) plus an optional LLM check when AI is configured. Anything flagged — including when the AI provider errors — is hidden from the public list until the presenter approves or rejects it; nothing is auto-published on filter failure.
 - **Supply chain** — all front-end libraries (Socket.IO client, Chart.js, jQuery, jqCloud) are vendored into `static/vendor/`; no third-party CDN can inject script. Google Fonts is the only external origin (styles/fonts, allowed by the CSP).
 - **Container** — the Docker image runs as a non-root user (UID 1000) and contains no compiler toolchain.
 - **Info disclosure** — exception details are logged server-side, not shown to users. All DB access is via the SQLAlchemy ORM (no raw SQL).

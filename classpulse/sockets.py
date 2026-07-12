@@ -39,6 +39,14 @@ def broadcast_results(question_id: int):
     current_app.logger.debug(f"Emitted update_results for room {room_name}")
 
 
+def broadcast_proposals_changed(session_id: int):
+    """Nudge everyone in the session room (audience + presenter dashboard) to
+    re-fetch the proposal list. Payload is just the session id — clients pull
+    the list over HTTP so visibility rules stay server-side."""
+    socketio.emit('proposals_changed', {'session_id': session_id},
+                  room=f'session_{session_id}')
+
+
 def broadcast_questions_changed(session_id: int):
     """Notify audience members in a session room that the set of active
     questions (or the session's own active state) has changed, so their page

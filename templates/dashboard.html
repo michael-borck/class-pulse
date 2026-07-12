@@ -69,6 +69,21 @@
             <div id="question-list" class="space-y-2"></div>
             <p id="q-empty" class="text-sm text-gray-400 hidden">No questions yet. Click <span class="font-medium">+ Add question</span> to create your first one — multiple choice, word cloud, or a rating scale.</p>
         </div>
+
+        {# Cohort mode: audience-proposed questions #}
+        <div class="cp-card mt-4">
+            <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+                <h3 class="text-lg font-semibold">Audience proposals <span id="pp-count" class="text-gray-400 text-sm font-normal"></span></h3>
+                <button id="pp-toggle" class="text-white font-bold px-3 py-1.5 rounded-full text-xs bg-gray-400">…</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">When enabled, audience members can anonymously propose questions and upvote each other's. Filtered proposals wait here for your approval; approving turns a proposal into a live question.</p>
+            <div id="pp-panel" class="hidden">
+                <div id="pp-flagged" class="space-y-2 mb-3"></div>
+                <div id="pp-visible" class="space-y-2"></div>
+                <p id="pp-empty" class="text-sm text-gray-400 hidden">No proposals yet — the audience sees a “Propose a question” button on their page.</p>
+                <p id="pp-done" class="text-xs text-gray-400 mt-3"></p>
+            </div>
+        </div>
     {% else %}
         <div class="cp-card p-10 text-center text-gray-400">
             Select a session from the list, or create one to get started.
@@ -295,10 +310,13 @@ function typeFields(type, q) {
     return `<p class="text-sm text-gray-500 mt-3">Audience submits words / short phrases — no extra config.</p>`;
 }
 function editorHTML() {
-    const q = editor.mode === 'edit' ? questions.find(x => x.id === editor.id) : null;
+    const q = editor.mode === 'edit' ? questions.find(x => x.id === editor.id)
+            : editor.mode === 'proposal' ? editor.proposal : null;
     const type = q ? q.type : 'multiple_choice';
     const locked = q && q.response_count > 0;
-    return `<h3 class="text-lg font-semibold mb-3">${editor.mode==='edit' ? 'Edit question' : 'Add question'}</h3>
+    const heading = editor.mode === 'edit' ? 'Edit question'
+                  : editor.mode === 'proposal' ? 'Review proposal & ask' : 'Add question';
+    return `<h3 class="text-lg font-semibold mb-3">${heading}</h3>
         ${locked ? '<p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">This question has responses — only the title can be changed. Duplicate it to alter options.</p>' : ''}
         <label class="block text-sm font-medium text-gray-700">Type</label>
         <select id="ed-type" ${locked ? 'disabled' : ''} class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm ${locked ? 'bg-gray-100' : ''}">
@@ -339,7 +357,7 @@ function editorHTML() {
         <div id="ed-fields" class="${locked ? 'opacity-50 pointer-events-none' : ''}">${typeFields(type, q)}</div>
         <div id="ed-status" class="text-sm mt-3 hidden"></div>
         <div class="flex gap-2 mt-5">
-            <button type="button" id="ed-save" class="btn btn-primary text-sm">${editor.mode==='edit' ? 'Save changes' : 'Add to session'}</button>
+            <button type="button" id="ed-save" class="btn btn-primary text-sm">${editor.mode==='edit' ? 'Save changes' : editor.mode==='proposal' ? 'Approve & ask' : 'Add to session'}</button>
             <button type="button" id="ed-cancel" class="text-gray-600 hover:bg-gray-100 font-semibold py-2 px-4 rounded-md text-sm">Cancel</button>
         </div>`;
 }
@@ -386,11 +404,14 @@ function readForm() {
 }
 async function saveEditor() {
     const body = readForm();
-    const url = editor.mode === 'edit' ? `/api/questions/${editor.id}/edit` : `/api/sessions/${SID}/questions`;
+    const url = editor.mode === 'edit' ? `/api/questions/${editor.id}/edit`
+              : editor.mode === 'proposal' ? `/api/proposals/${editor.id}/approve`
+              : `/api/sessions/${SID}/questions`;
     const { ok, data } = await api(url, body);
     if (ok && data.success) {
         if (editor.mode === 'edit') { const i = questions.findIndex(q => q.id === editor.id); questions[i] = data.question; }
         else questions.push(data.question);
+        if (editor.mode === 'proposal' && typeof ppLoad === 'function') ppLoad();
         renderQuestions(); closeEditor();
     } else if (data && data.partial) {
         const i = questions.findIndex(q => q.id === editor.id); if (i >= 0) questions[i] = data.question;
@@ -555,5 +576,122 @@ document.getElementById('modal-body')?.addEventListener('input', e => {
     if (e.target && e.target.id === 'ed-custom') { edSelectedChip = ''; renderChips(); }
     updateRefineButton();
 });
+
+/* ---------- audience proposals (cohort mode) ---------- */
+if (SID !== null) {
+    let ppEnabled = {{ (selected.allow_proposals if selected else false) | tojson }};
+
+    function ppRenderToggle() {
+        const b = document.getElementById('pp-toggle');
+        b.textContent = ppEnabled ? 'Disable proposals' : 'Enable proposals';
+        b.className = 'text-white font-bold px-3 py-1.5 rounded-full text-xs ' +
+            (ppEnabled ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600');
+        document.getElementById('pp-panel').classList.toggle('hidden', !ppEnabled);
+    }
+
+    function ppItem(p, extra) {
+        return `<div class="border ${p.status === 'flagged' ? 'border-amber-300 bg-amber-50' : 'border-gray-200'} rounded-lg p-3 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+                <span class="text-[11px] font-semibold ${p.status === 'flagged' ? 'text-amber-700' : 'text-indigo-700'}">
+                    ${p.status === 'flagged' ? '⚑ Flagged' : `▲ ${p.votes} vote${p.votes === 1 ? '' : 's'}`} · ${TYPES[p.type] || p.type}
+                </span>
+                <p class="font-medium text-gray-800">${esc(p.title)}</p>
+                ${(p.options || []).length && Array.isArray(p.options) ? `<p class="text-xs text-gray-500 truncate">${esc(p.options.join(' · '))}</p>` : ''}
+                ${p.flag_reason ? `<p class="text-xs text-amber-700 mt-0.5">${esc(p.flag_reason)}</p>` : ''}
+                ${p.similar_to_id ? `<p class="text-xs text-gray-400 mt-0.5">Similar to proposal #${p.similar_to_id}</p>` : ''}
+            </div>
+            <div class="flex gap-3 text-xs shrink-0 items-start pt-0.5">${extra}</div>
+        </div>`;
+    }
+
+    let ppData = { flagged: [], visible: [], done: [] };
+
+    function ppFind(id) {
+        return ppData.flagged.concat(ppData.visible, ppData.done).find(p => p.id === id);
+    }
+
+    function ppActions(p, includeUnflag) {
+        // Merge is offered when the similarity checker linked a still-open twin.
+        const twin = p.similar_to_id ? ppFind(p.similar_to_id) : null;
+        const canMerge = twin && ['visible', 'approved'].includes(twin.status);
+        return `<button data-pp-act="approve" data-id="${p.id}" class="text-green-700 hover:underline font-semibold">Approve &amp; ask</button>
+            <button data-pp-act="edit" data-id="${p.id}" class="text-indigo-600 hover:underline">Edit &amp; ask</button>
+            ${includeUnflag ? `<button data-pp-act="unflag" data-id="${p.id}" class="text-indigo-600 hover:underline">Publish to list</button>` : ''}
+            ${canMerge ? `<button data-pp-act="merge" data-id="${p.id}" data-into="${p.similar_to_id}" class="text-gray-500 hover:underline">Merge into #${p.similar_to_id}</button>` : ''}
+            <button data-pp-act="reject" data-id="${p.id}" class="text-red-600 hover:underline">Reject</button>`;
+    }
+
+    function ppRenderList(data) {
+        ppData = { flagged: data.flagged || [], visible: data.visible || [], done: data.done || [] };
+        const { flagged, visible, done } = ppData;
+        document.getElementById('pp-count').textContent = `(${flagged.length + visible.length} open)`;
+        document.getElementById('pp-flagged').innerHTML = flagged.map(p => ppItem(p, ppActions(p, true))).join('');
+        document.getElementById('pp-visible').innerHTML = visible.map(p => ppItem(p, ppActions(p, false))).join('');
+        document.getElementById('pp-empty').classList.toggle('hidden', flagged.length + visible.length > 0);
+        const approved = done.filter(p => p.status === 'approved').length;
+        const rejected = done.filter(p => p.status === 'rejected').length;
+        const merged = done.filter(p => p.status === 'merged').length;
+        document.getElementById('pp-done').textContent = (approved || rejected || merged)
+            ? `History: ${approved} approved · ${rejected} rejected · ${merged} merged` : '';
+    }
+
+    function openProposalEditor(p) {
+        editor = {
+            mode: 'proposal', id: p.id,
+            proposal: {
+                type: p.type,
+                title: p.title,
+                options: Array.isArray(p.options) ? p.options : [],
+                max_rating: (p.type === 'rating' && p.options && p.options.max_rating) || 5,
+                response_count: 0,
+            },
+        };
+        document.getElementById('modal-body').innerHTML = editorHTML();
+        wireEditor();
+        modal.classList.remove('hidden');
+    }
+
+    async function ppLoad() {
+        if (!ppEnabled) return;
+        const r = await fetch(`/api/sessions/${SID}/proposals`, { headers: { 'X-CSRFToken': CSRF } });
+        if (r.ok) ppRenderList(await r.json());
+    }
+
+    document.getElementById('pp-toggle').addEventListener('click', async () => {
+        const { ok, data } = await api(`/api/sessions/${SID}/proposals/toggle`);
+        if (ok && data.success) { ppEnabled = data.enabled; ppRenderToggle(); ppLoad(); }
+        else alert((data && data.message) || 'Failed.');
+    });
+
+    document.getElementById('pp-panel').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-pp-act]'); if (!btn) return;
+        const id = parseInt(btn.dataset.id, 10), act = btn.dataset.ppAct;
+        if (act === 'edit') {
+            const p = ppFind(id);
+            if (p) openProposalEditor(p);
+            return;
+        }
+        let body = null;
+        if (act === 'reject' && !confirm('Reject this proposal?')) return;
+        if (act === 'merge') {
+            const into = parseInt(btn.dataset.into, 10);
+            if (!confirm(`Merge into proposal #${into}? Its votes move across (no one counts twice).`)) return;
+            body = { into };
+        }
+        const { ok, data } = await api(`/api/proposals/${id}/${act}`, body);
+        if (ok && data.success) {
+            if (act === 'approve' && data.question) { questions.push(data.question); renderQuestions(); }
+            ppLoad();
+        } else alert((data && data.message) || 'Action failed.');
+    });
+
+    // Live refresh: proposals arrive/vote counts change while the dashboard is open.
+    const ppSocket = io();
+    ppSocket.on('connect', () => ppSocket.emit('join_session', { session_id: SID }));
+    ppSocket.on('proposals_changed', d => { if (d.session_id === SID) ppLoad(); });
+
+    ppRenderToggle();
+    ppLoad();
+}
 </script>
 {% endblock %}

@@ -125,6 +125,7 @@ def session_to_dict(s, include_questions=False):
     d = {
         'id': s.id, 'name': s.name, 'code': s.code,
         'active': s.active, 'archived': s.archived,
+        'allow_proposals': s.allow_proposals,
         'question_count': len(s.questions),
     }
     if include_questions:

@@ -15,6 +15,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 - **Data Export**: Export results to CSV for further analysis
 - **User Management**: Admin panel for user verification and management
 - **Session Archive**: Keep your session history organized
+- **Cohort Mode**: Let the audience anonymously propose questions and upvote each other's; proposals pass a keyword filter (plus an optional AI check) and flagged ones wait for presenter approval
 
 ## Question Types
 
