@@ -42,18 +42,20 @@ fi
 mkdir -p instance
 
 # Set environment variables for production
-export FLASK_APP=app.py
+export FLASK_APP=wsgi.py
 export FLASK_ENV=production
 
-# Start the application using gunicorn for production
+# Start the application using gunicorn for production.
+# Single worker: Flask-SocketIO long-polling is stateful and broadcasts don't
+# cross processes without a message queue (SOCKETIO_MESSAGE_QUEUE). Threads
+# provide the concurrency. --max-requests is intentionally absent: recycling
+# the only worker would drop every live Socket.IO connection.
 echo "Starting ClassPulse application..."
 exec "$VENV_DIR/bin/gunicorn" \
     --bind 0.0.0.0:5000 \
-    --workers 4 \
+    --workers 1 \
     --worker-class gthread \
-    --threads 2 \
-    --timeout 30 \
+    --threads 16 \
+    --timeout 60 \
     --keep-alive 2 \
-    --max-requests 1000 \
-    --max-requests-jitter 50 \
     wsgi:application

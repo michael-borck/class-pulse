@@ -239,7 +239,9 @@ python -c "from app import app, db; app.app_context().push(); db.create_all()"
 python app.py
 
 # Production server with gunicorn
-gunicorn --workers=4 --bind=0.0.0.0:5000 --worker-class=gthread --threads=2 wsgi:application
+# Single worker: Socket.IO long-polling is stateful and broadcasts don't
+# cross gunicorn workers without a message queue (SOCKETIO_MESSAGE_QUEUE).
+gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=16 --timeout=60 wsgi:application
 ```
 
 ## Accessing the Application

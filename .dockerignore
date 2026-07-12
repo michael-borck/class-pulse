@@ -12,3 +12,7 @@ logs/
 .DS_Store
 ._*
 .env
+
+tests/
+.pytest_cache/
+.ruff_cache/

@@ -1,4 +1,4 @@
-.PHONY: setup setup-prod format lint type-check test coverage clean run dev prod docker-build docker-up docker-down build-css watch-css help
+.PHONY: setup setup-prod format lint test coverage clean run dev prod docker-build docker-up docker-down build-css watch-css db-init help
 
 # Variables
 PYTHON = python3
@@ -12,12 +12,11 @@ help:
 	@echo "  setup-prod    Install production dependencies"
 	@echo "  format        Format code with ruff"
 	@echo "  lint          Run linter (ruff)"
-	@echo "  type-check    Run type checking with mypy"
 	@echo "  test          Run tests with pytest"
 	@echo "  coverage      Run tests with coverage report"
 	@echo "  clean         Remove Python compiled files, test cache, coverage reports"
 	@echo "  run           Run development server"
-	@echo "  dev           Format, lint, type-check, and test"
+	@echo "  dev           Format, lint, and test"
 	@echo "  prod          Run gunicorn WSGI server (production)"
 	@echo "  docker-build  Build Docker image"
 	@echo "  docker-up     Start application with Docker Compose"
@@ -25,13 +24,12 @@ help:
 	@echo "  build-css     Compile Tailwind CSS to static/css/tailwind.css (minified)"
 	@echo "  watch-css     Rebuild Tailwind CSS on change (dev)"
 	@echo "  db-init       Initialize the database"
-	@echo "  db-upgrade    Upgrade database using flask-migrate (if implemented)"
 
 setup:
 	$(PYTHON) -m venv venv
 	./venv/bin/pip install --upgrade pip
 	./venv/bin/pip install -r requirements.txt
-	./venv/bin/pip install pytest pytest-cov ruff mypy
+	./venv/bin/pip install pytest pytest-cov ruff
 	@echo "Creating instance directory..."
 	mkdir -p instance
 
@@ -43,19 +41,16 @@ setup-prod:
 	mkdir -p instance
 
 format:
-	./venv/bin/ruff format .
+	./venv/bin/ruff format classpulse tests
 
 lint:
-	./venv/bin/ruff check .
-
-type-check:
-	./venv/bin/mypy .
+	./venv/bin/ruff check classpulse tests app.py wsgi.py
 
 test:
-	@echo "No tests directory found. Create tests/ directory with test files."
+	./venv/bin/pytest -q
 
 coverage:
-	@echo "No tests directory found. Create tests/ directory with test files."
+	./venv/bin/pytest --cov=classpulse --cov-report=term-missing
 
 clean:
 	@echo "Removing Python cache files..."
@@ -87,13 +82,12 @@ watch-css:
 db-init:
 	$(PYTHON) -c "from app import app, db; app.app_context().push(); db.create_all()"
 
-db-upgrade:
-	flask db upgrade
+dev: format lint test
 
-dev: format lint type-check test
-
+# Single worker: Socket.IO long-polling is stateful and broadcasts don't cross
+# gunicorn workers without a message queue (SOCKETIO_MESSAGE_QUEUE).
 prod:
-	./venv/bin/gunicorn --workers=4 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=gthread --threads=2 'wsgi:application'
+	./venv/bin/gunicorn --workers=1 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=gthread --threads=16 --timeout=60 'wsgi:application'
 
 docker-build:
 	docker build -t classpulse:latest .
