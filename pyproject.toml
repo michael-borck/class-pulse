@@ -1,10 +1,13 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "classpulse"
-version = "0.2.0"
+# Single source of truth is the git tag (v0.2.0 -> 0.2.0); between releases
+# hatch-vcs derives a dev version like 0.2.1.dev3+g<sha>. Releasing is just:
+#   git tag v0.3.0 && git push origin v0.3.0
+dynamic = ["version"]
 description = "Real-time audience engagement web application"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -37,6 +40,9 @@ prod = [
     "gunicorn>=22.0",
     "psycopg2-binary>=2.9.5",
 ]
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.ruff]
 target-version = "py39"
