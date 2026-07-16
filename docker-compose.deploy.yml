@@ -11,8 +11,10 @@
 #
 # SECRET_KEY comes from ./.env (auto-loaded by Compose for ${VAR} interpolation)
 # and must stay stable — changing it logs everyone out. AI provider settings
-# (AI_PROVIDER, AI_BASE_URL, AI_API_KEY, AI_MODEL) are optional and also read
-# from .env; leave them blank to run without AI question generation.
+# (AI_PROVIDER, AI_BASE_URL, AI_API_KEY, AI_MODEL) and email settings
+# (EMAIL_PROVIDER, RESEND_API_KEY, SMTP_*, MAIL_FROM, ALLOWED_DOMAINS, ...) are
+# optional and also read from .env; see .env.example for the full list. Leave AI
+# blank to disable generation, and email blank to log codes instead of sending.
 
 services:
   web:
@@ -36,6 +38,23 @@ services:
       - AI_API_KEY=${AI_API_KEY:-}
       - AI_MODEL=${AI_MODEL:-}
       - AI_ENABLED=${AI_ENABLED:-}
+      # Email for registration verification + password reset. Defaults to 'dev'
+      # (logs codes instead of sending) when EMAIL_PROVIDER is blank; set a real
+      # provider + credentials in .env to send mail. See .env.example.
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-}
+      - MAIL_FROM=${MAIL_FROM:-}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - SMTP_SERVER=${SMTP_SERVER:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-}
+      - SMTP_USE_SSL=${SMTP_USE_SSL:-}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD:-}
+      - EMAIL_CODE_TTL_MIN=${EMAIL_CODE_TTL_MIN:-}
+      # Optional: restrict registration to these email domains (comma-separated).
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-}
     volumes:
       # Persist the SQLite DB across image updates. The container runs as UID
       # 1000; if your host user isn't UID 1000: sudo chown -R 1000:1000 instance
