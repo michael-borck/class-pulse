@@ -290,8 +290,16 @@ function typeFields(type, q) {
     }
     if (type === 'image_choice') {
         const v = (q && q.type === 'image_choice') ? esc((q.options||[]).map(o => o.url ? `${o.label}|${o.url}` : `${o.label||o.url||''}`).join('\n')) : '';
+        // Upload needs a session context; the question editor always has one,
+        // but guard anyway so manual URL entry still works if SID is null.
+        const uploader = (SID !== null) ? `<div class="mt-2 flex items-center gap-2">
+            <input type="file" id="ed-image-file" accept="image/*" class="hidden">
+            <button type="button" id="ed-image-btn" class="text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 font-semibold py-1 px-2 rounded-md">⬆ Upload image</button>
+            <span id="ed-image-status" class="text-xs text-gray-500"></span>
+        </div>` : '';
         return `<label class="block text-sm font-medium text-gray-700 mt-3">Images (one per line: <code>label|url</code>)</label>
-        <textarea id="ed-options" rows="4" placeholder="Cat|https://example.com/cat.png" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${v}</textarea>`;
+        <textarea id="ed-options" rows="4" placeholder="Cat|https://example.com/cat.png" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${v}</textarea>
+        ${uploader}`;
     }
     if (type === 'numeric') {
         const o = (q && q.type === 'numeric' && q.numeric) ? q.numeric : {};
@@ -575,6 +583,39 @@ async function runGenerate() {
 document.getElementById('modal-body')?.addEventListener('input', e => {
     if (e.target && e.target.id === 'ed-custom') { edSelectedChip = ''; renderChips(); }
     updateRefineButton();
+});
+
+// delegated image-upload handlers (also survive ed-fields re-renders)
+document.getElementById('modal-body')?.addEventListener('click', e => {
+    if (e.target && e.target.id === 'ed-image-btn') document.getElementById('ed-image-file')?.click();
+});
+document.getElementById('modal-body')?.addEventListener('change', async e => {
+    if (!e.target || e.target.id !== 'ed-image-file') return;
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById('ed-image-status');
+    const setStatus = (t, cls) => { if (status) { status.textContent = t; status.className = 'text-xs ' + cls; } };
+    setStatus('Uploading…', 'text-gray-500');
+    try {
+        const fd = new FormData();
+        fd.append('image', file);
+        // Multipart: let the browser set Content-Type (with boundary); only add CSRF.
+        const r = await fetch(`/api/sessions/${SID}/upload-image`, { method:'POST', headers:{ 'X-CSRFToken': CSRF }, body: fd });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.url) {
+            const ta = document.getElementById('ed-options');
+            const label = (file.name.replace(/\.[^.]+$/, '') || 'Image').slice(0, 60);
+            const line = `${label}|${d.url}`;
+            ta.value = ta.value.trim() ? ta.value.replace(/\s*$/, '') + '\n' + line : line;
+            setStatus('✓ Added', 'text-green-600');
+        } else {
+            setStatus('❌ ' + ((d && d.message) || 'Upload failed.'), 'text-red-600');
+        }
+    } catch (err) {
+        setStatus('❌ Upload failed.', 'text-red-600');
+    } finally {
+        e.target.value = '';  // let the same file be picked again
+    }
 });
 
 /* ---------- audience proposals (cohort mode) ---------- */

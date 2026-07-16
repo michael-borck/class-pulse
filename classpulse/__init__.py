@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, g, jsonify, session
+from flask import Flask, abort, g, jsonify, request, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .extensions import csrf, db, limiter, socketio
@@ -69,8 +69,20 @@ def create_app(test_config: dict = None) -> Flask:
         os.environ.get('PERMANENT_SESSION_LIFETIME', 86400))
 
     # Reject oversized request bodies outright (413). The largest legitimate
-    # payload is a question form; 256 KB leaves generous headroom.
-    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 262144))
+    # non-upload payload is a question form; 256 KB leaves generous headroom.
+    _non_upload_body_limit = int(os.environ.get('MAX_CONTENT_LENGTH', 262144))
+    app.config['NON_UPLOAD_BODY_LIMIT'] = _non_upload_body_limit
+
+    # Image uploads (image_choice questions). Files are re-encoded to JPEG on the
+    # way in (see uploads.py) so the on-disk footprint is small and bounded, and
+    # land in the persisted instance/uploads/ tree (never static/, which is baked
+    # into the image). The global cap must admit the largest upload; every other
+    # route is re-capped to NON_UPLOAD_BODY_LIMIT in a before_request below.
+    app.config['UPLOAD_MAX_BYTES'] = int(os.environ.get('UPLOAD_MAX_BYTES', 8 * 1024 * 1024))
+    app.config['IMAGE_MAX_DIM'] = int(os.environ.get('IMAGE_MAX_DIM', 1600))
+    app.config['IMAGE_MAX_PIXELS'] = int(os.environ.get('IMAGE_MAX_PIXELS', 50_000_000))
+    app.config['UPLOAD_DIR'] = os.path.join(app.instance_path, 'uploads')
+    app.config['MAX_CONTENT_LENGTH'] = max(_non_upload_body_limit, app.config['UPLOAD_MAX_BYTES'])
 
     # Email-driven registration/reset knobs (the provider itself is configured
     # via env and read in email.py). ALLOWED_DOMAINS empty => open registration.
@@ -145,6 +157,17 @@ def create_app(test_config: dict = None) -> Flask:
         return {'now': lambda: datetime.now(timezone.utc), 'app_version': APP_VERSION}
 
     @app.before_request
+    def enforce_body_limit():
+        # MAX_CONTENT_LENGTH is raised globally to admit image uploads; re-impose
+        # the smaller limit on every other route so an oversized body is rejected
+        # early (413) instead of being buffered into memory.
+        if request.endpoint == 'api_upload_image':
+            return
+        cl = request.content_length
+        if cl is not None and cl > app.config['NON_UPLOAD_BODY_LIMIT']:
+            abort(413)
+
+    @app.before_request
     def enforce_session_token():
         # Invalidate a logged-in cookie if the account is gone or its
         # session_token was rotated (e.g. by a password reset), logging the
@@ -206,12 +229,13 @@ def create_app(test_config: dict = None) -> Flask:
         return jsonify({"status": "ok", "version": APP_VERSION})
 
     # --- Routes ---
-    from . import admin, audience, auth, presenter, proposals
+    from . import admin, audience, auth, presenter, proposals, uploads
     auth.init_app(app)
     presenter.init_app(app)
     audience.init_app(app)
     admin.init_app(app)
     proposals.init_app(app)
+    uploads.init_app(app)
 
     # --- Schema ---
     # create_all() creates missing tables only; it never alters existing ones.

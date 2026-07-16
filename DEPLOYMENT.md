@@ -261,6 +261,16 @@ forgotten passwords are recovered with an emailed code. Configure a provider in
 Locked out with no email configured? Reset any account from the server with
 `scripts/reset-password.sh` (see the script header for usage).
 
+## Uploaded images
+
+Presenters can upload images for `image_choice` questions. These are re-encoded
+to JPEG and stored under `instance/uploads/<session_id>/`, so they live in the
+same persisted volume as the database — they survive `docker compose pull` and
+are already covered by the `chown -R 1000:1000 instance` guidance above. Tune
+`UPLOAD_MAX_BYTES` / `IMAGE_MAX_DIM` in `.env` if needed (see `.env.example`).
+Footprint stays small (~300 KB/image); files are removed when a session is
+permanently deleted.
+
 ## Accessing the Application
 
 Regardless of the deployment method, you can access ClassPulse at:

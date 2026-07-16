@@ -17,6 +17,7 @@ from .questions import (
     parse_question_payload, question_to_dict, session_to_dict
 )
 from .sockets import broadcast_questions_changed
+from .uploads import delete_session_uploads
 from .utils import create_qr_code_data, csv_safe, generate_session_code
 
 
@@ -284,6 +285,9 @@ def init_app(app):
         Question.query.filter_by(session_id=session_id).delete()
         db.session.delete(current_session)
         db.session.commit()
+        # Remove any uploaded image_choice files for this session (best-effort,
+        # after the DB commit so a filesystem hiccup can't block the delete).
+        delete_session_uploads(session_id)
         return jsonify({"success": True, "deleted": "hard",
                         "message": "Session permanently deleted (no responses)."})
 
