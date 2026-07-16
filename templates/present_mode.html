@@ -49,7 +49,7 @@
 {% block scripts %}
 <script>
     const QUESTIONS = [
-        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }} },
+        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type == 'image_choice' %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
         {% endfor %}
     ];
     const MODE = {{ mode | tojson }};
@@ -102,7 +102,9 @@
         const known = new Set(QUESTIONS.map(q => q.id));
         const added = active.filter(q => !known.has(q.id));
         QUESTIONS.length = 0;
-        active.forEach(q => QUESTIONS.push({ id: q.id, type: q.type, title: q.title }));
+        // Carry image_choice option URLs so present mode can show the images
+        // (question_to_dict returns them as a {label,url} list; [] otherwise).
+        active.forEach(q => QUESTIONS.push({ id: q.id, type: q.type, title: q.title, options: q.options }));
         focusIdx = Math.min(focusIdx, Math.max(0, QUESTIONS.length - 1));
         if (overlayQid !== null && !QUESTIONS.some(q => q.id === overlayQid)) closeOverlay();
         added.forEach(q => socket.emit('join', { question_id: q.id }));
@@ -113,7 +115,7 @@
 
     // --- Chart config from stats ---
     function chartConfig(q, s) {
-        if (['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'].includes(s.type)) {
+        if (['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'].includes(s.type)) {
             const labels = s.options || Object.keys(s.results || {});
             return { type: 'bar',
                 data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => (s.results || {})[l] || 0), backgroundColor: 'rgba(79,70,229,0.75)' }] },
@@ -172,6 +174,39 @@
             });
         });
     }
+    // Image-choice results: show each option's image with its label, live vote
+    // count/percentage and a proportional bar; highlight the current leader. `s`
+    // may be undefined (before any votes) — images still render with zero counts.
+    function imageChoiceHTML(q, s) {
+        const opts = Array.isArray(q.options) ? q.options : [];
+        if (!opts.length) return '<p class="text-gray-400 italic text-center mt-4">No images configured.</p>';
+        const results = (s && s.results) || {};
+        const counts = opts.map(o => results[o.label] || 0);
+        const total = counts.reduce((a, b) => a + b, 0);
+        const maxCount = Math.max(0, ...counts);
+        const cols = Math.min(opts.length, 3);
+        const cards = opts.map((o, i) => {
+            const count = counts[i];
+            const pct = total ? Math.round(count / total * 100) : 0;
+            const leading = count > 0 && count === maxCount;
+            return `<div class="rounded-lg border ${leading ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200'} bg-white overflow-hidden flex flex-col">
+                <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
+                    <img src="${esc(o.url)}" alt="${esc(o.label)}" class="w-full h-full object-contain" loading="lazy">
+                </div>
+                <div class="p-3">
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="font-semibold text-gray-800 truncate">${esc(o.label)}</span>
+                        <span class="text-sm text-gray-600 shrink-0">${count} (${pct}%)</span>
+                    </div>
+                    <div class="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                        <div class="h-full ${leading ? 'bg-indigo-600' : 'bg-indigo-400'}" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        return `<div class="grid gap-4 content-start" style="grid-template-columns:repeat(${cols},minmax(0,1fr));">${cards}</div>`;
+    }
+
     function hostMarkup(q, hClass) {
         const s = stats[q.id];
         const total = s ? (s.total_responses || 0) : 0;
@@ -180,6 +215,8 @@
             inner = saMarkup(q.id, hClass);
         } else if (q.type === 'word_cloud') {
             inner = `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`;
+        } else if (q.type === 'image_choice') {
+            inner = `<div id="ic-${q.id}" class="w-full ${hClass} overflow-y-auto"></div>`;
         } else {
             inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
         }
@@ -194,6 +231,12 @@
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const cap = document.getElementById('cap-' + qid);
         if (cap) cap.innerHTML = captionFor(q, s);
+        // Image choice renders its images even before any votes arrive.
+        if (q.type === 'image_choice') {
+            const el = document.getElementById('ic-' + qid);
+            if (el) el.innerHTML = imageChoiceHTML(q, s);
+            return;
+        }
         if (!s) return;
         if (q.type === 'short_answer') {
             saPopulate(qid, s);
@@ -213,7 +256,7 @@
 
     // Called when new results arrive — update whatever is on screen for that question.
     function refresh(qid) {
-        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid)) instantiate(qid);
+        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid) || document.getElementById('ic-' + qid)) instantiate(qid);
         if (overlayQid === qid) instantiateOverlay(qid);
     }
 
@@ -319,6 +362,10 @@
                     });
                 }));
             }
+            return;
+        }
+        if (q.type === 'image_choice') {
+            host.innerHTML = `<div class="h-[62vh] overflow-y-auto">${imageChoiceHTML(q, s)}</div>`;
             return;
         }
         const isCloud = (q.type === 'word_cloud');

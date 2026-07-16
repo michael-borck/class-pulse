@@ -1,12 +1,14 @@
 """Image upload processing, serving, access control, and cleanup."""
 
 import io
+import json
 import os
 
 import pytest
 from PIL import Image
 
 from classpulse.extensions import db
+from classpulse.models import Question
 
 from conftest import (
     add_response, create_question, create_session, create_user, login, make_app,
@@ -149,6 +151,49 @@ def test_hard_delete_removes_uploads(app, client):
     resp = client.post(f'/api/sessions/{sid}/delete')
     assert resp.get_json()['deleted'] == 'hard'
     assert not os.path.exists(path)
+
+
+def test_present_mode_includes_image_urls(app, client):
+    # Regression: present mode must carry image_choice option URLs so the
+    # projected view can show the images (not just a text-labelled chart).
+    uid = create_user(app, 'alice')
+    sid = create_session(app, uid)
+    with app.app_context():
+        db.session.add(Question(
+            session_id=sid, type='image_choice', title='Which threat?',
+            options=json.dumps([
+                {'label': 'colleague', 'url': '/uploads/1/aaa.jpg'},
+                {'label': 'hacker', 'url': '/uploads/1/bbb.jpg'},
+            ]), active=True))
+        db.session.commit()
+    login(client, 'alice')
+    resp = client.get(f'/present/{sid}')
+    assert resp.status_code == 200
+    assert b'/uploads/1/aaa.jpg' in resp.data
+    assert b'/uploads/1/bbb.jpg' in resp.data
+
+
+def test_question_results_page_shows_images(app, client):
+    # The standalone results page renders image_choice server-side as an image
+    # grid with tallies (exercises the percentage/leader math with a real vote).
+    uid = create_user(app, 'alice')
+    sid = create_session(app, uid)
+    with app.app_context():
+        db.session.add(Question(
+            session_id=sid, type='image_choice', title='Which threat?',
+            options=json.dumps([
+                {'label': 'colleague', 'url': '/uploads/1/aaa.jpg'},
+                {'label': 'hacker', 'url': '/uploads/1/bbb.jpg'},
+            ]), active=True))
+        db.session.commit()
+        qid = Question.query.filter_by(session_id=sid).first().id
+    add_response(app, qid, sid, 'hacker', 'respondent-1')
+    login(client, 'alice')
+    resp = client.get(f'/questions/{qid}/results')
+    assert resp.status_code == 200
+    assert b'/uploads/1/aaa.jpg' in resp.data
+    assert b'/uploads/1/bbb.jpg' in resp.data
+    assert b'100%' in resp.data  # the single vote is 100% for its option
 
 
 def test_soft_delete_keeps_uploads(app, client):

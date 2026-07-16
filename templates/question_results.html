@@ -15,13 +15,12 @@
      <p class="text-sm text-gray-600 mb-4">Total Responses: {{ stats.total_responses }}</p>
 
     {# Placeholder for chart canvas or word cloud div #}
-    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'] %}
+    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'] %}
         <h4 class="text-lg font-semibold mb-2">
             {% if stats.type == 'multiple_choice' %}Multiple Choice Results
             {% elif stats.type == 'multi_select' %}Select-All Results
             {% elif stats.type == 'ranking' %}Ranking Results
             {% elif stats.type == 'numeric' %}Numeric Results
-            {% elif stats.type == 'image_choice' %}Image Choice Results
             {% elif stats.type == 'multiple_choice_other' %}Poll Results{% endif %}
         </h4>
         {% if stats.type == 'numeric' and stats.average is defined and stats.average is not none %}
@@ -49,6 +48,37 @@
     {% elif stats.type == 'word_cloud' %}
         <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
         <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
+    {% elif stats.type == 'image_choice' %}
+        {# Static snapshot: render the images + tallies server-side (no live socket here). #}
+        <h4 class="text-lg font-semibold mb-2">Image Choice Results</h4>
+        {% set options = question.options | fromjson %}
+        {% set total = stats.total_responses or 0 %}
+        {% set ns = namespace(max=0) %}
+        {% for item in options %}
+            {% set c = stats.results.get(item.label, 0) %}
+            {% if c > ns.max %}{% set ns.max = c %}{% endif %}
+        {% endfor %}
+        <div class="grid gap-4 content-start" style="grid-template-columns:repeat({{ [options|length, 3]|min }},minmax(0,1fr));">
+        {% for item in options %}
+            {% set c = stats.results.get(item.label, 0) %}
+            {% set pct = ((c / total * 100) | round | int) if total else 0 %}
+            {% set leading = c > 0 and c == ns.max %}
+            <div class="rounded-lg border {{ 'border-indigo-500 ring-2 ring-indigo-300' if leading else 'border-gray-200' }} bg-white overflow-hidden flex flex-col">
+                <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
+                    <img src="{{ item.url }}" alt="{{ item.label }}" class="w-full h-full object-contain" loading="lazy">
+                </div>
+                <div class="p-3">
+                    <div class="flex items-baseline justify-between gap-2">
+                        <span class="font-semibold text-gray-800 truncate">{{ item.label }}</span>
+                        <span class="text-sm text-gray-600 shrink-0">{{ c }} ({{ pct }}%)</span>
+                    </div>
+                    <div class="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
+                        <div class="h-full {{ 'bg-indigo-600' if leading else 'bg-indigo-400' }}" style="width:{{ pct }}%"></div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
     {% else %}
         <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
     {% endif %}
@@ -107,7 +137,7 @@
         };
 
 
-        if (['multiple_choice','multi_select','ranking','numeric','image_choice','multiple_choice_other'].includes(statsData.type) && statsData.results) {
+        if (['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'].includes(statsData.type) && statsData.results) {
             const canvasId = `chart-mc-${questionId}`;
             const labels = statsData.options || Object.keys(statsData.results);
             const chartData = {
