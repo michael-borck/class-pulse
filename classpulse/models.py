@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 
 from .extensions import db
 
@@ -12,6 +13,15 @@ def utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def new_session_token() -> str:
+    """A fresh opaque token used to invalidate a user's existing logins.
+
+    Stamped into the Flask session at login and re-checked on each request;
+    rotating it (e.g. on password reset) logs the user out everywhere.
+    """
+    return uuid.uuid4().hex
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -19,8 +29,15 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     display_name = db.Column(db.String(100))
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    # is_verified doubles as the "email confirmed" gate: a user can't log in
+    # until it's true. The bootstrap admin and manually-verified users are
+    # exempt from needing an email round-trip (see auth.py).
     is_verified = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+    # Bumped on password reset to invalidate signed-cookie sessions on other
+    # devices. Nullable + server_default so the additive migration can backfill
+    # existing rows; login tolerates a NULL token (see auth.py/login).
+    session_token = db.Column(db.String(32), nullable=True)
     sessions = db.relationship('Session', backref='creator', lazy=True)
 
 
@@ -100,3 +117,39 @@ class ProposalVote(db.Model):
     created_at = db.Column(db.String, default=utcnow_iso)
     __table_args__ = (db.UniqueConstraint('proposal_id', 'respondent_id',
                                           name='uq_vote_proposal_respondent'),)
+
+
+# Purposes an EmailCode can serve.
+EMAIL_CODE_VERIFY = 'verify'   # confirm a new registration's email
+EMAIL_CODE_RESET = 'reset'     # authorise a password reset
+EMAIL_CODE_PURPOSES = (EMAIL_CODE_VERIFY, EMAIL_CODE_RESET)
+
+
+class EmailCode(db.Model):
+    """A single-use, time-limited code emailed for verification or reset.
+
+    One table serves both flows (distinguished by `purpose`). Codes are stored
+    verbatim (not hashed): they're short-lived, single-use, rate-limited, and
+    tied to a specific user_id, so the value of hashing them is marginal.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    code = db.Column(db.String(16), nullable=False)
+    purpose = db.Column(db.String(16), nullable=False)  # see EMAIL_CODE_PURPOSES
+    created_at = db.Column(db.String, default=utcnow_iso)
+    expires_at = db.Column(db.String, nullable=False)  # ISO-8601 UTC
+    used = db.Column(db.Boolean, default=False, nullable=False)
+    user = db.relationship('User', lazy=True)
+
+    @staticmethod
+    def expiry_iso(ttl_minutes: int) -> str:
+        """ISO timestamp `ttl_minutes` from now, matching utcnow_iso() format."""
+        return (datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)).isoformat()
+
+    @property
+    def is_expired(self) -> bool:
+        return datetime.fromisoformat(self.expires_at) < datetime.now(timezone.utc)
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.used and not self.is_expired

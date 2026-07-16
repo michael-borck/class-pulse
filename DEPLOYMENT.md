@@ -244,6 +244,23 @@ python app.py
 gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=16 --timeout=60 wsgi:application
 ```
 
+## Email (registration verification & password reset)
+
+New presenters confirm their email with a code before they can log in, and
+forgotten passwords are recovered with an emailed code. Configure a provider in
+`.env` (see `.env.example` for the full list):
+
+- `EMAIL_PROVIDER=dev` (default) logs the code to the app log instead of sending
+  — fine for local testing (read it with `docker compose logs` /
+  `journalctl -u classpulse`), but real users get no email, so set a real
+  provider in production.
+- `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` (or `smtp` / `gmail`) sends real
+  mail. Set `MAIL_FROM` / `MAIL_FROM_NAME` to your sending identity.
+- Optional: `ALLOWED_DOMAINS=curtin.edu.au` restricts who may register.
+
+Locked out with no email configured? Reset any account from the server with
+`scripts/reset-password.sh` (see the script header for usage).
+
 ## Accessing the Application
 
 Regardless of the deployment method, you can access ClassPulse at:

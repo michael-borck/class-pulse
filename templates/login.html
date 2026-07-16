@@ -19,7 +19,15 @@
     <button type="submit" class="btn btn-primary w-full">
         Login
     </button>
+    <p class="text-right mt-3 text-sm">
+        <a href="{{ url_for('forgot_password') }}" class="text-indigo-600 hover:text-indigo-800">Forgot password?</a>
+    </p>
 </form>
+{% if show_verify_link %}
+<p class="text-center mt-4 text-sm">
+    <a href="{{ url_for('verify_email', email=verify_email) }}" class="text-indigo-600 hover:text-indigo-800">Enter your email verification code</a>
+</p>
+{% endif %}
 <p class="text-center mt-4 text-sm">
     <a href="{{ url_for('join') }}" class="text-indigo-600 hover:text-indigo-800">Or join a session as audience</a>
 </p>

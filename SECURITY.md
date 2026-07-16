@@ -19,10 +19,11 @@ Copy `.env.example` to `.env` and set at least:
 ## What is protected
 
 - **Session forgery** — `SECRET_KEY` is required from the environment; no known fallback ships. Presenter sessions expire after `PERMANENT_SESSION_LIFETIME` (default 24 h).
-- **Default credentials** — none; no admin account is auto-created. The first registrant becomes the verified admin (guarded against concurrent-registration races).
+- **Default credentials** — none; no admin account is auto-created. The first registrant becomes the verified admin (guarded against concurrent-registration races); everyone after must confirm their email before they can log in.
+- **Account recovery** — registration verification and password reset use single-use, time-limited codes (default 30 min, `EMAIL_CODE_TTL_MIN`) emailed via a pluggable provider (`EMAIL_PROVIDER`). `/forgot-password` returns the same generic response whether or not the email exists (no account enumeration), and both flows are rate-limited (`/forgot-password` and `/resend-verification` 5/h; `/verify-email` and `/reset-password` 10/min). A password reset rotates the user's `session_token`, invalidating existing logins on other devices. Registration can be restricted to specific email domains with `ALLOWED_DOMAINS`.
 - **Debug RCE** — the Werkzeug debugger is off unless `FLASK_ENV=development`/`DEBUG=true`.
 - **CSRF** — all state-changing form and AJAX requests require a CSRF token (Flask-WTF).
-- **Brute force / abuse** — rate limits on `/login` (10/min), `/register` (20/h), `/join` (30/min), `/audience/respond` (60/min), and the AI endpoint (10/min). Minimum password length is 10. Login timing does not reveal whether a username exists.
+- **Brute force / abuse** — rate limits on `/login` (10/min), `/register` (20/h), `/verify-email` (10/min), `/resend-verification` (5/h), `/forgot-password` (5/h), `/reset-password` (10/min), `/join` (30/min), `/audience/respond` (60/min), and the AI endpoint (10/min). Minimum password length is 10. Login timing does not reveal whether a username exists.
 - **Passwords** — PBKDF2-HMAC-SHA256 with 600k iterations (werkzeug); legacy 100k-iteration hashes are verified and transparently upgraded on the next login.
 - **Input validation** — audience responses are validated against the question definition (choice answers must be one of the options; ratings/numerics bounds-checked; free text length-capped). Request bodies are capped at `MAX_CONTENT_LENGTH` (256 KB default). The anonymous respondent cookie must be a well-formed UUID.
 - **Live-result snooping** — Socket.IO room joins are authorized: results stream only for publicly live questions, or to the authenticated session owner. IDs cannot be enumerated to watch other sessions.

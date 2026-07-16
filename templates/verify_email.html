@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% block title %}Verify Your Email{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-semibold mb-2 text-center">Verify your email</h2>
+<p class="text-center text-sm text-gray-600 mb-6 max-w-md mx-auto">
+    Enter the code we emailed you to activate your account.
+</p>
+<form action="{{ url_for('verify_email') }}" method="post" class="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-4">
+        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+        <input type="email" id="email" name="email" required
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+               value="{{ email or '' }}">
+    </div>
+    <div class="mb-6">
+        <label for="code" class="block text-sm font-medium text-gray-700">Verification code</label>
+        <input type="text" id="code" name="code" required autocomplete="one-time-code"
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm tracking-widest uppercase"
+               placeholder="XXXXXXXX">
+    </div>
+    <button type="submit" class="btn btn-primary w-full">Verify</button>
+</form>
+<form action="{{ url_for('resend_verification') }}" method="post" class="max-w-md mx-auto text-center mt-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="email" value="{{ email or '' }}">
+    <p class="text-sm text-gray-600">
+        Didn't get a code?
+        <button type="submit" class="text-indigo-600 hover:text-indigo-800 underline">Resend it</button>
+    </p>
+</form>
+<p class="text-center mt-2 text-sm">
+    <a href="{{ url_for('login') }}" class="text-indigo-600 hover:text-indigo-800">Back to login</a>
+</p>
+{% endblock %}

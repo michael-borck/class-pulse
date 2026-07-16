@@ -72,6 +72,13 @@ def create_app(test_config: dict = None) -> Flask:
     # payload is a question form; 256 KB leaves generous headroom.
     app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 262144))
 
+    # Email-driven registration/reset knobs (the provider itself is configured
+    # via env and read in email.py). ALLOWED_DOMAINS empty => open registration.
+    app.config['EMAIL_CODE_TTL_MIN'] = int(os.environ.get('EMAIL_CODE_TTL_MIN', 30) or 30)
+    app.config['ALLOWED_DOMAINS'] = [
+        d.strip().lower() for d in (os.environ.get('ALLOWED_DOMAINS') or '').split(',') if d.strip()
+    ]
+
     # CSRF tokens have no time limit so long-lived presentation/audience pages
     # don't fail mid-session on submit.
     app.config['WTF_CSRF_TIME_LIMIT'] = None
@@ -136,6 +143,23 @@ def create_app(test_config: dict = None) -> Flask:
     @app.context_processor
     def inject_now():
         return {'now': lambda: datetime.now(timezone.utc), 'app_version': APP_VERSION}
+
+    @app.before_request
+    def enforce_session_token():
+        # Invalidate a logged-in cookie if the account is gone or its
+        # session_token was rotated (e.g. by a password reset), logging the
+        # user out everywhere. A NULL stored token matches a cookie that
+        # predates this feature, so existing logins aren't force-cleared.
+        # Anonymous audience requests carry no user_id and skip all of this.
+        from .models import User
+        uid = session.get('user_id')
+        if uid is None:
+            return
+        user = db.session.get(User, uid)
+        if user is None or session.get('session_token') != user.session_token:
+            session.clear()
+            return
+        g.user = user  # cache for login_required / the context processor
 
     @app.context_processor
     def inject_user_and_admin_status():
@@ -212,6 +236,7 @@ def create_app(test_config: dict = None) -> Flask:
 # ALTER TABLE ... ADD COLUMN (works on SQLite and PostgreSQL) when missing.
 _ADDITIVE_COLUMNS = [
     ('session', 'allow_proposals', 'BOOLEAN NOT NULL DEFAULT 0'),
+    ('user', 'session_token', 'VARCHAR(32)'),
 ]
 
 
