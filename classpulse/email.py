@@ -173,6 +173,12 @@ _PROVIDERS = {
 }
 
 
+def provider_name() -> str:
+    """The provider that will actually be used — unknown/blank resolves to 'dev'."""
+    name = _env("EMAIL_PROVIDER", "dev").lower() or "dev"
+    return name if name in _PROVIDERS else "dev"
+
+
 def get_email_provider() -> EmailProvider:
     """Return the configured provider (defaults to 'dev')."""
     name = _env("EMAIL_PROVIDER", "dev").lower() or "dev"

@@ -209,3 +209,50 @@ def test_password_reset_invalidates_other_sessions(app):
     resp = logged_in.get('/dashboard')
     assert resp.status_code == 302
     assert '/login' in resp.headers['Location']
+
+
+# --- provider failures are surfaced, not swallowed ---------------------------
+
+def test_registration_admits_it_when_the_verification_email_fails(app, client, monkeypatch):
+    """A failing provider must not leave the user staring at an inbox forever."""
+    register(client, 'alice')                      # first user -> admin, no code sent
+
+    monkeypatch.setattr('classpulse.auth.send_verification_email',
+                        lambda *a, **k: False)
+    resp = register(client, 'bob')
+
+    # Apostrophes are HTML-escaped in the rendered flash, so match around them.
+    assert b'send the verification' in resp.data
+    assert b'Check your email for a verification code' not in resp.data
+    # The account still exists, so a later resend can rescue it.
+    with app.app_context():
+        assert User.query.filter_by(username='bob').first() is not None
+
+
+def test_registration_reports_success_when_the_email_is_sent(app, client):
+    register(client, 'alice')
+    resp = register(client, 'bob')
+    assert b'Check your email for a verification code' in resp.data
+    assert b"couldn't send the verification email" not in resp.data
+
+
+def test_reset_stays_generic_when_the_provider_fails(app, client, monkeypatch):
+    """A delivery failure must not become an account-enumeration oracle: the
+    response has to look identical for a real address and an unknown one."""
+    create_user(app, 'alice')
+    monkeypatch.setattr('classpulse.auth.send_password_reset_email',
+                        lambda *a, **k: False)
+
+    def flashes(resp):
+        import re
+        return re.findall(rb'<div class="flash-message[^>]*>(.*?)</div>', resp.data, re.S)
+
+    real = client.post('/forgot-password', data={'email': 'alice@example.com'},
+                       follow_redirects=True)
+    unknown = client.post('/forgot-password', data={'email': 'nobody@example.com'},
+                          follow_redirects=True)
+
+    # A real address (whose send just failed) and an unknown one must flash the
+    # same generic message — otherwise the failure itself leaks who has an account.
+    assert flashes(real) == flashes(unknown)
+    assert any(b'sent it a code' in f for f in flashes(real))

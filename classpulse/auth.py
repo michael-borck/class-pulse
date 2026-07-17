@@ -19,6 +19,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from .email import provider_name as email_provider_name
 from .email import send_password_reset_email, send_verification_email
 from .extensions import db, limiter
 from .models import (
@@ -271,12 +272,23 @@ def init_app(app):
                 app.logger.info(f"First user '{username}' registered as the bootstrap admin.")
                 return redirect(url_for('login'))
 
-            # Email a verification code and send them to the verify page.
+            # Email a verification code and send them to the verify page. If the
+            # provider failed, say so — telling someone to check an inbox that
+            # will never receive anything just strands them.
             code = _issue_email_code(new_user, EMAIL_CODE_VERIFY)
-            send_verification_email(new_user.email, new_user.display_name or new_user.username,
-                                    code, app.config['EMAIL_CODE_TTL_MIN'])
-            flash("Registration successful! Check your email for a verification code "
-                  "to activate your account.", "success")
+            sent = send_verification_email(new_user.email,
+                                           new_user.display_name or new_user.username,
+                                           code, app.config['EMAIL_CODE_TTL_MIN'])
+            if sent:
+                flash("Registration successful! Check your email for a verification code "
+                      "to activate your account.", "success")
+            else:
+                app.logger.error("Verification email could not be sent to %s during "
+                                 "registration (EMAIL_PROVIDER=%s).",
+                                 new_user.email, email_provider_name())
+                flash("Your account was created, but we couldn't send the verification "
+                      "email. Ask your administrator to check the email configuration, "
+                      "then request a new code below.", "danger")
             return redirect(url_for('verify_email', email=new_user.email))
 
         return render_template('register.html')
@@ -319,8 +331,13 @@ def init_app(app):
         # Only unverified accounts get a fresh code; response is always generic.
         if user and not user.is_verified:
             code = _issue_email_code(user, EMAIL_CODE_VERIFY)
-            send_verification_email(user.email, user.display_name or user.username,
-                                    code, app.config['EMAIL_CODE_TTL_MIN'])
+            if not send_verification_email(user.email, user.display_name or user.username,
+                                           code, app.config['EMAIL_CODE_TTL_MIN']):
+                # Deliberately not surfaced: a delivery-failure message here would
+                # only appear for addresses that have an account, which is exactly
+                # the account enumeration the generic response exists to prevent.
+                app.logger.error("Verification email could not be resent to %s "
+                                 "(EMAIL_PROVIDER=%s).", user.email, email_provider_name())
         flash(_GENERIC_EMAIL_SENT, "info")
         return redirect(url_for('verify_email', email=email))
 
@@ -336,8 +353,13 @@ def init_app(app):
             # Don't send reset codes to archived accounts, but never reveal it.
             if user and not user.is_archived:
                 code = _issue_email_code(user, EMAIL_CODE_RESET)
-                send_password_reset_email(user.email, user.display_name or user.username,
-                                          code, app.config['EMAIL_CODE_TTL_MIN'])
+                if not send_password_reset_email(user.email,
+                                                 user.display_name or user.username,
+                                                 code, app.config['EMAIL_CODE_TTL_MIN']):
+                    # Logged, not flashed — see resend_verification for why.
+                    app.logger.error("Password reset email could not be sent to %s "
+                                     "(EMAIL_PROVIDER=%s).", user.email,
+                                     email_provider_name())
             flash(_GENERIC_EMAIL_SENT, "info")
             return redirect(url_for('reset_password', email=email))
 

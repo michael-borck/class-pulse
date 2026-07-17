@@ -209,6 +209,8 @@ body { font-family: 'Inter', sans-serif; }
 .cp-auth .field label { display: block; font-size: 0.85rem; font-weight: 600; color: #3b4055; margin-bottom: 0.35rem; }
 .cp-auth .field input { display: block; width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #d7dae8; border-radius: 10px; font-size: 0.95rem; background: #fff; }
 .cp-auth .field input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+.cp-auth .field .hint { margin: 0.3rem 0 0; font-size: 0.78rem; color: #7b8194; }
+.cp-auth .field .opt-label { font-weight: 500; color: #9aa0b5; text-transform: none; letter-spacing: 0; }
 .cp-auth .panel .alt { color: #5b6178; font-size: 0.88rem; text-align: center; margin: 0.55rem 0 0; }
 .cp-auth .panel .alt a { color: #4f46e5; font-weight: 600; }
 .cp-auth .panel .alt a:hover { color: #3730a3; }

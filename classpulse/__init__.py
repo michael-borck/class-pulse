@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from flask import Flask, abort, g, jsonify, request, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from .email import provider_name as email_provider_name
 from .extensions import csrf, db, limiter, socketio
 
 APP_VERSION = os.environ.get("APP_VERSION") or "dev"
@@ -27,6 +28,11 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if not raw:
         return default
     return raw in ('1', 'true', 'yes')
+
+
+def is_debug() -> bool:
+    """Local development run? The dev entry point (app.py) reads the same flags."""
+    return os.environ.get('FLASK_ENV') == 'development' or _env_bool('DEBUG')
 
 
 def create_app(test_config: dict = None) -> Flask:
@@ -90,6 +96,23 @@ def create_app(test_config: dict = None) -> Flask:
     app.config['ALLOWED_DOMAINS'] = [
         d.strip().lower() for d in (os.environ.get('ALLOWED_DOMAINS') or '').split(',') if d.strip()
     ]
+
+    # The 'dev' provider is the default and silently swallows every message, so a
+    # deployment that never set EMAIL_PROVIDER looks healthy while no registrant
+    # can ever verify. Say so at startup rather than leaving it to be discovered
+    # one unreceived code at a time.
+    if email_provider_name() == 'dev':
+        if is_debug():
+            app.logger.info(
+                "EMAIL_PROVIDER=dev: verification/reset codes are written to this "
+                "log instead of being emailed."
+            )
+        else:
+            app.logger.warning(
+                "EMAIL_PROVIDER is unset or 'dev': verification and reset codes are "
+                "ONLY written to this log — real users will never receive them. Set "
+                "EMAIL_PROVIDER to resend, smtp, or gmail (see .env.example)."
+            )
 
     # CSRF tokens have no time limit so long-lived presentation/audience pages
     # don't fail mid-session on submit.

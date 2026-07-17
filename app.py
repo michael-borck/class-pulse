@@ -2,10 +2,20 @@
 # Production uses wsgi.py (gunicorn). The application itself lives in the
 # classpulse/ package.
 
+import logging
 import os
 
-from classpulse import create_app
-from classpulse.extensions import db, socketio  # noqa: F401  (db re-exported for shell use)
+# Configure logging before the app is built: nothing else sets a root handler on
+# this path, so without it every INFO record is dropped — including the codes the
+# default 'dev' email provider logs instead of sending, and create_app()'s own
+# startup warnings. Production goes through wsgi.py, which configures its own.
+logging.basicConfig(
+    level=os.environ.get('LOG_LEVEL', 'INFO').upper(),
+    format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
+)
+
+from classpulse import create_app  # noqa: E402  (must follow logging setup)
+from classpulse.extensions import db, socketio  # noqa: E402,F401  (db re-exported for shell use)
 
 app = create_app()
 
