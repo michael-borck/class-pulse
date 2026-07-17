@@ -194,8 +194,10 @@ def init_app(app):
     @login_required
     def logout():
         session.clear()
-        flash("You have been logged out.", "info")
-        return redirect(url_for('login'))
+        # Land on the public page rather than the login form: signing out is not
+        # a prompt to sign back in. No flash — the landing template renders no
+        # flash block, so a queued message would surface on some later page.
+        return redirect(url_for('index'))
 
     @app.route('/register', methods=['GET', 'POST'])
     @limiter.limit("20 per hour", methods=["POST"])

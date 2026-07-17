@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClassPulse — real-time audience engagement for live sessions</title>
-    <meta name="description" content="ClassPulse turns any room into a live conversation. Build interactive sessions with polls, word clouds, and rating scales; your audience joins with a QR code and results stream in real time.">
+    <meta name="description" content="ClassPulse turns any room into a live conversation. Build interactive sessions with nine question types — polls, word clouds, rankings, rating scales, and image choice; your audience joins with a QR code and results stream in real time.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tailwind.css') }}" rel="stylesheet">
 </head>
@@ -32,7 +32,7 @@
             <div>
                 <span class="pill"><span class="pulse-dot animate-pulse-dot" style="background:#f0abfc"></span> Real-time audience engagement</span>
                 <h1>Turn any room into a <em>live conversation</em>.</h1>
-                <p class="lead">ClassPulse lets you run instant polls, word clouds, and rating scales. Your audience joins with a QR code or session link — and responses stream in, live, as you present.</p>
+                <p class="lead">ClassPulse lets you run instant polls, word clouds, rankings, and rating scales — and even let the room propose its own questions. Your audience joins with a QR code or session link, and responses stream in, live, as you present.</p>
                 <div class="cta">
                     {% if session.get('user_id') %}
                         <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Open your dashboard →</a>
@@ -92,12 +92,22 @@
                 <div class="cp-card">
                     <div class="ico">📊</div>
                     <h3>Live result visualizations</h3>
-                    <p>Bar charts, word clouds, and rating summaries render instantly and stay in sync as responses arrive.</p>
+                    <p>Bar charts, word clouds, rating breakdowns, ranking order, and side-by-side image tallies render instantly and stay in sync as responses arrive.</p>
                 </div>
                 <div class="cp-card">
                     <div class="ico">🗂️</div>
-                    <h3>Question types that fit</h3>
-                    <p>Multiple choice for quick polls, word clouds for open reflection, and rating scales for structured feedback.</p>
+                    <h3>Nine question types</h3>
+                    <p>Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, and poll-with-other — mix them freely in one session.</p>
+                </div>
+                <div class="cp-card">
+                    <div class="ico">🙋</div>
+                    <h3>Let the room ask</h3>
+                    <p>In cohort mode your audience anonymously proposes questions and upvotes each other's. Proposals pass a keyword filter before they surface, and flagged ones wait for your approval.</p>
+                </div>
+                <div class="cp-card">
+                    <div class="ico">✨</div>
+                    <h3>AI-assisted drafting <span class="opt">optional</span></h3>
+                    <p>Stuck on wording? Draft and refine questions with an AI provider you configure — or leave it switched off entirely.</p>
                 </div>
                 <div class="cp-card">
                     <div class="ico">⬇️</div>
@@ -115,24 +125,29 @@
 
     <section id="types">
         <div class="wrap">
-            <p class="eyebrow">Three question types, endless uses</p>
+            <p class="eyebrow">Nine question types, endless uses</p>
             <h2>The right question for the moment</h2>
             <p class="sub">Mix and match within a single session to keep your audience engaged and surface exactly the insight you need.</p>
             <div class="grid">
                 <div class="qtype">
-                    <span class="tag"><span class="qchip mc">Multiple choice</span></span>
+                    <span class="tag"><span class="qchip mc">Choice</span></span>
                     <h3>Polls &amp; comprehension checks</h3>
-                    <p>Present options and collect structured responses — perfect for quick votes, knowledge checks, and guided discussion.</p>
+                    <p>Multiple choice for quick votes and knowledge checks, select-all when more than one answer fits, or poll-with-other to catch the option you didn't think of.</p>
                 </div>
                 <div class="qtype">
-                    <span class="tag"><span class="qchip wc">Word cloud</span></span>
+                    <span class="tag"><span class="qchip wc">Open text</span></span>
                     <h3>Open reflection</h3>
-                    <p>Collect free-text responses and watch a word cloud form in real time — great for brainstorming and sentiment.</p>
+                    <p>Collect free-text responses and read them as a list, or watch a word cloud form in real time — great for brainstorming and sentiment.</p>
                 </div>
                 <div class="qtype">
-                    <span class="tag"><span class="qchip rt">Rating</span></span>
+                    <span class="tag"><span class="qchip rt">Scales</span></span>
                     <h3>Structured feedback</h3>
-                    <p>Collect numerical ratings on a defined scale to gauge confidence, satisfaction, or agreement at a glance.</p>
+                    <p>Rating scales to gauge confidence or agreement, numeric answers with an optional range, and ranking to have the room order a set of items.</p>
+                </div>
+                <div class="qtype">
+                    <span class="tag"><span class="qchip im">Image choice</span></span>
+                    <h3>Visual decisions</h3>
+                    <p>Upload images or link to your own, then let the audience vote. Results show the images themselves with live tallies — ideal for design critique and spot-the-difference.</p>
                 </div>
             </div>
         </div>
@@ -146,7 +161,7 @@
             <div class="steps">
                 <div class="step">
                     <h3>Create a session</h3>
-                    <p>From your dashboard, spin up a session and add a few questions — multiple choice, word cloud, or rating.</p>
+                    <p>From your dashboard, spin up a session and add a few questions — a poll, a word cloud, a rating scale, or any of the nine types.</p>
                 </div>
                 <div class="step">
                     <h3>Audience joins</h3>

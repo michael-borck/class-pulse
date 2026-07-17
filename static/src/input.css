@@ -151,6 +151,7 @@ body { font-family: 'Inter', sans-serif; }
 .cp-landing .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.2rem; }
 .cp-landing .cp-card .ico { width: 2.6rem; height: 2.6rem; border-radius: 10px; display: grid; place-items: center; font-size: 1.3rem; margin-bottom: 0.9rem; background-image: theme('backgroundImage.brand-gradient-soft'); }
 .cp-landing .cp-card h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.cp-landing .cp-card h3 .opt { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: middle; margin-left: 0.4rem; padding: 0.15rem 0.45rem; border-radius: 999px; color: #5b6178; background: #eef0f7; }
 .cp-landing .cp-card p { margin: 0; color: #5b6178; font-size: 0.95rem; }
 
 /* question types */
@@ -161,6 +162,7 @@ body { font-family: 'Inter', sans-serif; }
 .cp-landing .qchip.mc { color: #4f46e5; background: rgba(79,70,229,0.1); }
 .cp-landing .qchip.wc { color: #db2777; background: rgba(236,72,153,0.1); }
 .cp-landing .qchip.rt { color: #7c3aed; background: rgba(139,92,246,0.1); }
+.cp-landing .qchip.im { color: #0d9488; background: rgba(13,148,136,0.1); }
 .cp-landing .qtype h3 { margin: 0 0 0.3rem; font-size: 1.05rem; }
 .cp-landing .qtype p { margin: 0; color: #5b6178; font-size: 0.95rem; }
 
@@ -186,4 +188,37 @@ body { font-family: 'Inter', sans-serif; }
     .cp-landing .hero { padding: 3.5rem 0 3rem; }
     .cp-landing .nav .links .lnk.hide-sm { display: none; }
     .cp-landing .band { padding: 2rem 1.3rem; }
+}
+
+/* auth (login / register) — split panel carrying the landing's visual system */
+.cp-auth { display: grid; grid-template-columns: 1.05fr 1fr; max-width: 56rem; margin: 0 auto; background: #fff; border: 1px solid #e6e8f2; border-radius: 20px; overflow: hidden; box-shadow: 0 18px 40px -24px rgba(11,15,36,0.35); }
+.cp-auth .side { position: relative; overflow: hidden; background: #0b0f24; background-image: theme('backgroundImage.brand-gradient'); color: #eef1ff; padding: 2.6rem 2.4rem; display: flex; flex-direction: column; }
+.cp-auth .side .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 800; font-size: 1.15rem; color: #fff; letter-spacing: -0.01em; }
+.cp-auth .side h2 { font-size: 1.6rem; line-height: 1.25; letter-spacing: -0.02em; margin: 1.6rem 0 0.6rem; color: #fff; }
+.cp-auth .side h2 em { font-style: normal; color: #f0abfc; }
+.cp-auth .side p { color: rgba(255,255,255,0.8); font-size: 0.95rem; margin: 0; }
+.cp-auth .side ul { list-style: none; margin: 1.6rem 0 0; padding: 0; display: grid; gap: 0.6rem; }
+.cp-auth .side li { position: relative; padding-left: 1.5rem; font-size: 0.92rem; color: rgba(255,255,255,0.85); }
+.cp-auth .side li::before { content: '✓'; position: absolute; left: 0; color: #f0abfc; font-weight: 700; }
+.cp-auth .side .side-foot { margin-top: auto; padding-top: 1.8rem; font-size: 0.88rem; color: rgba(255,255,255,0.75); }
+.cp-auth .side .side-foot a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
+.cp-auth .panel { padding: 2.6rem 2.4rem; display: flex; flex-direction: column; justify-content: center; }
+.cp-auth .panel h1 { font-size: 1.4rem; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+.cp-auth .panel .panel-sub { color: #5b6178; font-size: 0.93rem; margin: 0 0 1.6rem; }
+.cp-auth .field { margin-bottom: 1rem; }
+.cp-auth .field label { display: block; font-size: 0.85rem; font-weight: 600; color: #3b4055; margin-bottom: 0.35rem; }
+.cp-auth .field input { display: block; width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #d7dae8; border-radius: 10px; font-size: 0.95rem; background: #fff; }
+.cp-auth .field input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+.cp-auth .panel .alt { color: #5b6178; font-size: 0.88rem; text-align: center; margin: 0.55rem 0 0; }
+.cp-auth .panel .alt a { color: #4f46e5; font-weight: 600; }
+.cp-auth .panel .alt a:hover { color: #3730a3; }
+.cp-auth .panel .rule { display: flex; align-items: center; gap: 0.75rem; margin: 1.4rem 0 1rem; color: #9aa0b5; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.cp-auth .panel .rule::before, .cp-auth .panel .rule::after { content: ''; height: 1px; flex: 1; background: #e6e8f2; }
+
+@media (max-width: 820px) {
+    .cp-auth { grid-template-columns: 1fr; }
+    .cp-auth .side { padding: 2rem 1.6rem; }
+    .cp-auth .side ul, .cp-auth .side .side-foot { display: none; }
+    .cp-auth .side h2 { font-size: 1.35rem; margin-top: 1.1rem; }
+    .cp-auth .panel { padding: 2rem 1.6rem; }
 }

@@ -48,8 +48,14 @@ def test_login_and_logout(app, client):
     create_user(app, 'alice')
     resp = login(client, 'alice')
     assert b'Welcome back' in resp.data
-    resp = client.post('/logout', follow_redirects=True)
-    assert b'logged out' in resp.data
+
+    resp = client.post('/logout')
+    assert resp.headers['Location'].endswith('/')
+
+    resp = client.get('/')
+    assert b'Turn any room into a' in resp.data   # the landing, not the login form
+    with client.session_transaction() as sess:
+        assert 'user_id' not in sess
 
 
 def test_wrong_password_rejected(app, client):

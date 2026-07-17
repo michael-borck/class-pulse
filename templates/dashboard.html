@@ -6,17 +6,20 @@
 
     {# ===== Left: sessions list ===== #}
     <aside class="md:col-span-1 {{ 'hidden md:block' if selected else 'block' }}">
-        <button id="new-session" class="btn btn-primary w-full mb-3">+ New session</button>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Sessions</h2>
+        <button id="new-session" class="js-new-session btn btn-primary w-full mb-3">+ New session</button>
         <input id="session-search" placeholder="Search sessions…"
                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
         <div class="flex gap-2 text-xs mb-3">
             <button data-tab="active" class="tab-btn px-2 py-1 rounded bg-indigo-600 text-white">Active</button>
             <button data-tab="archived" class="tab-btn px-2 py-1 rounded bg-white border">Archived</button>
         </div>
-        <div id="session-list" class="space-y-2">
+        {# One bordered surface with flat rows — the list reads as a navigator,
+           distinct from the card stack in the detail panel on the right. #}
+        <div id="session-list" class="bg-white border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
             {% for s in sessions %}
             <a href="{{ url_for('manage_session', session_id=s.id) }}"
-               class="session-row block bg-white rounded-lg shadow p-3 {{ 'ring-2 ring-indigo-500' if selected and selected.id == s.id }}"
+               class="session-row block px-3 py-2.5 border-l-4 hover:bg-gray-50 {{ 'border-indigo-500 bg-indigo-50' if selected and selected.id == s.id else 'border-transparent' }}"
                data-name="{{ s.name|lower }}" data-archived="{{ '1' if s.archived else '0' }}">
                 <div class="flex items-center justify-between">
                     <span class="font-medium text-gray-800 truncate">{{ s.name }}</span>
@@ -25,7 +28,7 @@
                 <div class="text-xs text-gray-500 mt-0.5">{{ s.question_count }} question{{ '' if s.question_count == 1 else 's' }} · {{ s.code }}</div>
             </a>
             {% endfor %}
-            <p id="list-empty" class="text-sm text-gray-400 px-1 {{ 'hidden' if sessions }}">No sessions yet — create your first one.</p>
+            <p id="list-empty" class="text-sm text-gray-400 px-3 py-4 {{ 'hidden' if sessions }}">No sessions yet — create your first one.</p>
         </div>
     </aside>
 
@@ -67,7 +70,7 @@
                 <button id="add-question" class="btn btn-primary text-sm">+ Add question</button>
             </div>
             <div id="question-list" class="space-y-2"></div>
-            <p id="q-empty" class="text-sm text-gray-400 hidden">No questions yet. Click <span class="font-medium">+ Add question</span> to create your first one — multiple choice, word cloud, or a rating scale.</p>
+            <p id="q-empty" class="text-sm text-gray-400 hidden">No questions yet. Click <span class="font-medium">+ Add question</span> to create your first one — a poll, word cloud, rating scale, ranking, image choice, and more.</p>
         </div>
 
         {# Cohort mode: audience-proposed questions #}
@@ -85,8 +88,19 @@
             </div>
         </div>
     {% else %}
-        <div class="cp-card p-10 text-center text-gray-400">
-            Select a session from the list, or create one to get started.
+        {# Branch on whether there is anything to select — telling someone to pick
+           from an empty list is a dead end for a brand-new account. #}
+        <div class="cp-card p-10 text-center">
+            {% if sessions %}
+                <div class="text-3xl mb-3">👈</div>
+                <h3 class="text-lg font-semibold text-gray-700">No session selected</h3>
+                <p class="text-sm text-gray-500 mt-1">Pick a session from the list to add questions, present it, or see results.</p>
+            {% else %}
+                <div class="text-3xl mb-3">✨</div>
+                <h3 class="text-lg font-semibold text-gray-700">Create your first session</h3>
+                <p class="text-sm text-gray-500 mt-1 mb-4">A session holds your questions and gives your audience a join code and QR to scan.</p>
+                <button class="js-new-session btn btn-primary">+ New session</button>
+            {% endif %}
         </div>
     {% endif %}
     </section>
@@ -147,12 +161,26 @@ async function api(url, body) {
 let tab = 'active';
 function filterList() {
     const term = (document.getElementById('session-search')?.value || '').toLowerCase();
-    document.querySelectorAll('.session-row').forEach(row => {
+    const rows = document.querySelectorAll('.session-row');
+    let visible = 0;
+    rows.forEach(row => {
         const archived = row.dataset.archived === '1';
         const matchTab = (tab === 'archived') === archived;
         const matchTerm = row.dataset.name.includes(term);
-        row.style.display = (matchTab && matchTerm) ? '' : 'none';
+        const show = matchTab && matchTerm;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
     });
+    // Say why the list is empty — filtered out reads very differently from "none yet".
+    const empty = document.getElementById('list-empty');
+    if (!empty) return;
+    empty.classList.toggle('hidden', visible > 0);
+    if (!visible) {
+        empty.textContent = rows.length === 0 ? 'No sessions yet — create your first one.'
+            : term ? 'No sessions match your search.'
+            : tab === 'archived' ? 'No archived sessions.'
+            : 'No active sessions.';
+    }
 }
 document.getElementById('session-search')?.addEventListener('input', filterList);
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
@@ -166,11 +194,11 @@ document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (
 }));
 filterList();
 
-document.getElementById('new-session').addEventListener('click', async () => {
+document.querySelectorAll('.js-new-session').forEach(btn => btn.addEventListener('click', async () => {
     const { ok, data } = await api('{{ url_for("api_create_session") }}', { name: 'Untitled session' });
     if (ok && data.success) window.location.href = '/sessions/' + data.session.id;
     else alert((data && data.message) || 'Could not create session.');
-});
+}));
 
 /* ---------- per-session actions ---------- */
 if (SID !== null) {
