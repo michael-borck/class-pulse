@@ -9,6 +9,7 @@ from flask import (
     session, url_for
 )
 
+from .accounts import purge_session
 from .ai import generate_question_with_ai
 from .auth import login_required
 from .extensions import db, limiter
@@ -17,7 +18,6 @@ from .questions import (
     parse_question_payload, question_to_dict, session_to_dict
 )
 from .sockets import broadcast_questions_changed
-from .uploads import delete_session_uploads
 from .utils import create_qr_code_data, csv_safe, generate_session_code
 
 
@@ -267,29 +267,16 @@ def init_app(app):
     @app.route('/api/sessions/<int:session_id>/delete', methods=['POST'])
     @login_required
     def api_delete_session(session_id):
-        """Delete a session (soft delete with data, hard delete if empty)."""
+        """Permanently delete a session and everything it holds. Irreversible.
+
+        Results are disposable (no recovery use-case), so there is no trash to
+        move to — responses, questions, proposals, and uploads all go.
+        """
         current_session = _owned_session_or_404(session_id)
         if current_session.deleted:
             return jsonify({"success": False, "message": "Session is already deleted."}), 400
-
-        response_count = Response.query.filter_by(session_id=session_id).count()
-        if response_count > 0:
-            # Soft delete — has responses, so preserve data.
-            current_session.deleted = True
-            current_session.active = False
-            db.session.commit()
-            broadcast_questions_changed(current_session.id)
-            return jsonify({"success": True, "deleted": "soft",
-                            "message": f"Session moved to trash ({response_count} responses kept)."})
-        # Hard delete — no responses, safe to permanently delete.
-        Question.query.filter_by(session_id=session_id).delete()
-        db.session.delete(current_session)
-        db.session.commit()
-        # Remove any uploaded image_choice files for this session (best-effort,
-        # after the DB commit so a filesystem hiccup can't block the delete).
-        delete_session_uploads(session_id)
-        return jsonify({"success": True, "deleted": "hard",
-                        "message": "Session permanently deleted (no responses)."})
+        purge_session(session_id)
+        return jsonify({"success": True, "message": "Session permanently deleted."})
 
     # --- Question API ---
 

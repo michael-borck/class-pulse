@@ -149,7 +149,7 @@ def test_hard_delete_removes_uploads(app, client):
     assert os.path.exists(path)
 
     resp = client.post(f'/api/sessions/{sid}/delete')
-    assert resp.get_json()['deleted'] == 'hard'
+    assert resp.get_json()['success'] is True
     assert not os.path.exists(path)
 
 
@@ -196,17 +196,18 @@ def test_question_results_page_shows_images(app, client):
     assert b'100%' in resp.data  # the single vote is 100% for its option
 
 
-def test_soft_delete_keeps_uploads(app, client):
+def test_delete_removes_uploads_even_with_responses(app, client):
     uid = create_user(app, 'alice')
     sid = create_session(app, uid)
     login(client, 'alice')
     url = upload(client, sid).get_json()['url']
     path = _upload_path(app, url)
 
-    # A response forces a soft delete, which must preserve the images.
+    # Having responses no longer spares the session — delete is always permanent,
+    # so its uploaded images go with it.
     qid = create_question(app, sid)
     add_response(app, qid, sid, 'Red', 'respondent-1')
 
     resp = client.post(f'/api/sessions/{sid}/delete')
-    assert resp.get_json()['deleted'] == 'soft'
-    assert os.path.exists(path)
+    assert resp.get_json()['success'] is True
+    assert not os.path.exists(path)

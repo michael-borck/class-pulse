@@ -216,7 +216,7 @@ if (SID !== null) {
         window.location.href = '{{ url_for("dashboard") }}';
     });
     document.getElementById('pill-delete').addEventListener('click', async () => {
-        if (!confirm('Delete this session? Sessions with responses are moved to trash.')) return;
+        if (!confirm('Permanently delete this session and all its questions and responses? This cannot be undone.')) return;
         await fetch(`/api/sessions/${SID}/delete`, { method:'POST', headers:{ 'X-CSRFToken': CSRF } });
         window.location.href = '{{ url_for("dashboard") }}';
     });

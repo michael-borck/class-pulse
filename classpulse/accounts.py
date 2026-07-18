@@ -13,13 +13,39 @@ from .models import (
 )
 
 
-def purge_user(user):
-    """Permanently delete `user` and every record they own. Irreversible.
-
-    Deletes children before parents so it holds up even if SQLite foreign-key
-    enforcement is on. Uploaded image files are cleared best-effort *after* the
-    DB commit, so a filesystem hiccup can't roll back the account deletion.
+def _delete_session_rows(session_id):
+    """Delete a session's children and the session row itself. No commit, no
+    file cleanup — the caller owns both. Children go before parents so it holds
+    up even if SQLite foreign-key enforcement is on.
     """
+    proposal_ids = [p.id for p in Proposal.query.filter_by(session_id=session_id).all()]
+    if proposal_ids:
+        (ProposalVote.query
+         .filter(ProposalVote.proposal_id.in_(proposal_ids))
+         .delete(synchronize_session=False))
+    Proposal.query.filter_by(session_id=session_id).delete(synchronize_session=False)
+    Response.query.filter_by(session_id=session_id).delete(synchronize_session=False)
+    Question.query.filter_by(session_id=session_id).delete(synchronize_session=False)
+    Session.query.filter_by(id=session_id).delete(synchronize_session=False)
+
+
+def purge_session(session_id):
+    """Permanently delete one session and everything it holds. Irreversible.
+
+    Survey data is disposable here (no recovery use-case), so a deleted session
+    and its responses are really gone rather than hidden. Uploaded image files
+    are cleared best-effort *after* the DB commit, so a filesystem hiccup can't
+    roll back the deletion.
+    """
+    from .uploads import delete_session_uploads  # lazy: see purge_user
+
+    _delete_session_rows(session_id)
+    db.session.commit()
+    delete_session_uploads(session_id)
+
+
+def purge_user(user):
+    """Permanently delete `user` and every record they own. Irreversible."""
     # Imported lazily: uploads.py imports auth, which imports this module, so a
     # top-level import here would close a circular chain at startup.
     from .uploads import delete_session_uploads
@@ -28,16 +54,7 @@ def purge_user(user):
     session_ids = [s.id for s in Session.query.filter_by(user_id=user_id).all()]
 
     for sid in session_ids:
-        proposal_ids = [p.id for p in Proposal.query.filter_by(session_id=sid).all()]
-        if proposal_ids:
-            (ProposalVote.query
-             .filter(ProposalVote.proposal_id.in_(proposal_ids))
-             .delete(synchronize_session=False))
-        Proposal.query.filter_by(session_id=sid).delete(synchronize_session=False)
-        Response.query.filter_by(session_id=sid).delete(synchronize_session=False)
-        Question.query.filter_by(session_id=sid).delete(synchronize_session=False)
-
-    Session.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        _delete_session_rows(sid)
     EmailCode.query.filter_by(user_id=user_id).delete(synchronize_session=False)
     # Delete by query rather than db.session.delete(user): the bulk deletes above
     # leave the identity map out of sync, and a plain relationship (no cascade)

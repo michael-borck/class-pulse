@@ -60,22 +60,28 @@ def test_archive_and_delete_return_json(app, client):
 
     resp = client.post(f'/api/sessions/{sid}/delete')
     body = resp.get_json()
-    assert body['success'] and body['deleted'] == 'hard'
+    assert body['success'] is True
     with app.app_context():
         assert db.session.get(Session, sid) is None
 
 
-def test_delete_with_responses_is_soft(app, client):
+def test_delete_with_responses_is_hard_and_cascades(app, client):
+    """Results are disposable: deleting a session with responses removes it and
+    its responses/questions outright, rather than moving it to a trash state."""
+    from classpulse.models import Question, Response
+
     alice = create_user(app, 'alice')
     sid = create_session(app, alice)
     qid = create_question(app, sid)
     add_response(app, qid, sid, 'Red', '00000000-0000-4000-8000-000000000000')
     login(client, 'alice')
+
     resp = client.post(f'/api/sessions/{sid}/delete')
-    assert resp.get_json()['deleted'] == 'soft'
+    assert resp.get_json()['success'] is True
     with app.app_context():
-        s = db.session.get(Session, sid)
-        assert s is not None and s.deleted and not s.active
+        assert db.session.get(Session, sid) is None
+        assert Question.query.filter_by(session_id=sid).count() == 0
+        assert Response.query.filter_by(session_id=sid).count() == 0
 
 
 def test_question_delete_blocked_with_responses(app, client):
