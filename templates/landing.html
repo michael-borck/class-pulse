@@ -16,6 +16,7 @@
                 <a class="lnk hide-sm" href="#features">Features</a>
                 <a class="lnk hide-sm" href="#types">Question types</a>
                 <a class="lnk hide-sm" href="#how">How it works</a>
+                <a class="lnk hide-sm" href="https://michael-borck.github.io/class-pulse/" target="_blank" rel="noopener">User guide</a>
                 <a class="lnk" href="{{ url_for('join') }}">Join a session</a>
                 {% if session.get('user_id') %}
                     <a class="btn btn-primary" href="{{ url_for('dashboard') }}">Go to dashboard →</a>
@@ -195,6 +196,7 @@
     <footer>
         <div class="wrap">
             <div>© {{ now().year }} ClassPulse · real-time audience engagement ·
+                <a href="https://michael-borck.github.io/class-pulse/" target="_blank" rel="noopener">User guide</a> ·
                 <a href="https://github.com/michael-borck/class-pulse" target="_blank" rel="noopener">GitHub</a>
             </div>
             <div>

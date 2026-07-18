@@ -61,6 +61,7 @@
     <footer class="bg-white border-t border-gray-200 mt-auto">
         <div class="container mx-auto py-4 px-6">
             <p class="text-center text-gray-500 text-sm">© {{ now().year }} ClassPulse
+                · <a href="https://michael-borck.github.io/class-pulse/" target="_blank" rel="noopener" class="hover:underline">User guide</a>
                 {% if app_version and app_version != 'dev' %}
                     · build <a href="https://github.com/michael-borck/class-pulse/commit/{{ app_version }}" target="_blank" rel="noopener" class="hover:underline">{{ app_version[:7] }}</a>
                 {% else %}
