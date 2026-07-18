@@ -1,0 +1,33 @@
+# Publishes the single-page user guide in docs/ to the gh-pages branch, which
+# GitHub Pages serves at https://michael-borck.github.io/class-pulse/.
+#
+# force_orphan keeps gh-pages a one-commit branch containing only docs/, so the
+# old MkDocs build that used to live there is fully replaced (not merged into).
+name: Publish docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          force_orphan: true

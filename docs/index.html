@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassPulse User Guide</title>
+    <meta name="description" content="How to run real-time interactive sessions with ClassPulse: create sessions, use all nine question types, present live, read results, and let your audience propose questions.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* --- Brand system, mirrored from the ClassPulse app (landing/auth) so the
+               manual reads as one product. Self-contained: this page is served from
+               GitHub Pages, not the Flask app, so it can't share the compiled CSS. --- */
+        :root {
+            --indigo: #4f46e5; --violet: #8b5cf6; --ink: #0b0f24;
+            --text: #1f2433; --muted: #5b6178; --line: #e6e8f2; --soft: #f5f6fb;
+            --grad: linear-gradient(135deg, #4f46e5, #8b5cf6);
+            --grad-soft: linear-gradient(135deg, rgba(79,70,229,0.12), rgba(139,92,246,0.12));
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0; font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            color: var(--text); background: #fff; line-height: 1.6; -webkit-font-smoothing: antialiased;
+        }
+        .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+        a { color: var(--indigo); }
+        code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+               background: var(--soft); border: 1px solid var(--line); border-radius: 5px; padding: 0.1rem 0.35rem; }
+
+        /* nav */
+        .nav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.85);
+               backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+        .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 1rem; }
+        .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 800; font-size: 1.1rem;
+                 color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+        .dot { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--indigo);
+               box-shadow: 0 0 0 0 rgba(79,70,229,0.5); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(79,70,229,0.5);} 70%{ box-shadow: 0 0 0 8px rgba(79,70,229,0);} 100%{ box-shadow:0 0 0 0 rgba(79,70,229,0);} }
+        .nav-links { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.88rem; font-weight: 500;
+                       padding: 0.4rem 0.6rem; border-radius: 7px; }
+        .nav-links a:hover { color: var(--ink); background: var(--soft); }
+        .nav .app-btn { background-image: var(--grad); color: #fff; padding: 0.45rem 0.9rem; border-radius: 8px;
+                        font-weight: 600; font-size: 0.85rem; text-decoration: none; }
+        @media (max-width: 860px) { .nav-links .hide-sm { display: none; } }
+
+        /* hero */
+        .hero { background: var(--ink); background-image: var(--grad); color: #eef1ff; padding: 3.5rem 0 3rem; }
+        .hero .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; font-weight: 700;
+                         color: #f0abfc; margin: 0 0 0.6rem; }
+        .hero h1 { font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 0.8rem; color: #fff; }
+        .hero p { font-size: 1.1rem; color: rgba(255,255,255,0.85); max-width: 60ch; margin: 0; }
+
+        /* layout: toc + content */
+        .shell { display: grid; grid-template-columns: 220px 1fr; gap: 3rem; padding: 3rem 0 4rem; align-items: start; }
+        .toc { position: sticky; top: 76px; font-size: 0.9rem; }
+        .toc p { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; font-weight: 700;
+                 color: var(--muted); margin: 0 0 0.6rem; }
+        .toc a { display: block; color: var(--muted); text-decoration: none; padding: 0.3rem 0.6rem;
+                 border-left: 2px solid var(--line); }
+        .toc a:hover { color: var(--ink); border-left-color: var(--violet); background: var(--soft); }
+        @media (max-width: 860px) { .shell { grid-template-columns: 1fr; gap: 1.5rem; } .toc { display: none; } }
+
+        section.doc { scroll-margin-top: 76px; margin-bottom: 3rem; }
+        section.doc > h2 { font-size: 1.7rem; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
+        section.doc > h2 .num { color: var(--violet); font-weight: 700; margin-right: 0.5rem; }
+        section.doc > .lead { color: var(--muted); font-size: 1.05rem; margin: 0 0 1.4rem; }
+        section.doc h3 { font-size: 1.15rem; margin: 1.8rem 0 0.4rem; }
+        section.doc p { margin: 0.6rem 0; }
+        section.doc ul, section.doc ol { margin: 0.6rem 0; padding-left: 1.3rem; }
+        section.doc li { margin: 0.35rem 0; }
+
+        .steps { counter-reset: st; list-style: none; padding: 0; margin: 1.2rem 0; }
+        .steps > li { position: relative; padding: 0 0 0 3rem; margin: 1rem 0; }
+        .steps > li::before { counter-increment: st; content: counter(st); position: absolute; left: 0; top: -0.1rem;
+            width: 2rem; height: 2rem; border-radius: 50%; background-image: var(--grad); color: #fff;
+            font-weight: 800; display: grid; place-items: center; }
+        .steps > li strong { display: block; }
+
+        .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 1.3rem 1.4rem; margin: 0.9rem 0; }
+        .card h3 { margin-top: 0; display: flex; align-items: center; gap: 0.6rem; }
+        .chip { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+                padding: 0.22rem 0.55rem; border-radius: 999px; color: var(--indigo); background: rgba(79,70,229,0.1); white-space: nowrap; }
+        .qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+        .qgrid .card { margin: 0; }
+        .qgrid .card p { font-size: 0.94rem; color: var(--muted); }
+        .qgrid .card .cfg { font-size: 0.82rem; color: var(--muted); margin-top: 0.6rem; border-top: 1px dashed var(--line); padding-top: 0.5rem; }
+
+        .callout { border-left: 4px solid var(--violet); background: var(--grad-soft); border-radius: 0 10px 10px 0;
+                   padding: 0.9rem 1.1rem; margin: 1.2rem 0; font-size: 0.95rem; }
+        .callout strong { color: var(--ink); }
+
+        .kbd { font-family: ui-monospace, monospace; font-size: 0.8rem; background: #fff; border: 1px solid var(--line);
+               border-bottom-width: 2px; border-radius: 5px; padding: 0.1rem 0.4rem; }
+
+        footer { border-top: 1px solid var(--line); padding: 2rem 0; color: var(--muted); font-size: 0.9rem; }
+        footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        footer a { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <header class="nav">
+        <div class="wrap">
+            <a class="brand" href="#top"><span class="dot"></span>ClassPulse</a>
+            <nav class="nav-links">
+                <a class="hide-sm" href="#getting-started">Getting started</a>
+                <a class="hide-sm" href="#sessions">Sessions</a>
+                <a class="hide-sm" href="#question-types">Question types</a>
+                <a class="hide-sm" href="#presenting">Presenting</a>
+                <a class="hide-sm" href="#cohort">Cohort mode</a>
+                <a class="app-btn" href="https://github.com/michael-borck/class-pulse">GitHub</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="hero" id="top">
+        <div class="wrap">
+            <p class="eyebrow">User guide</p>
+            <h1>Run the room, live.</h1>
+            <p>ClassPulse turns a presentation into a two-way conversation: you ask, your audience answers from their phones, and results appear as they arrive. This guide covers everything a presenter needs — from your first session to letting the room propose its own questions.</p>
+        </div>
+    </div>
+
+    <div class="wrap">
+    <div class="shell">
+        <aside class="toc">
+            <p>On this page</p>
+            <a href="#getting-started">1 · Getting started</a>
+            <a href="#sessions">2 · Sessions</a>
+            <a href="#question-types">3 · Question types</a>
+            <a href="#presenting">4 · Presenting live</a>
+            <a href="#results">5 · Results &amp; export</a>
+            <a href="#cohort">6 · Cohort mode</a>
+            <a href="#accounts">7 · Accounts &amp; admin</a>
+            <a href="#self-host">8 · Self-hosting</a>
+        </aside>
+
+        <main>
+            <!-- 1 -->
+            <section class="doc" id="getting-started">
+                <h2><span class="num">1</span>Getting started</h2>
+                <p class="lead">You need a presenter account to build and run sessions. Your audience needs nothing — no app, no sign-up.</p>
+
+                <ol class="steps">
+                    <li><strong>Register a presenter account.</strong> Open your ClassPulse site and choose <em>Get started</em>. On a brand-new deployment the <strong>first person to register becomes the administrator automatically</strong>, already verified — so you can sign in immediately.</li>
+                    <li><strong>Verify your email (everyone after the first).</strong> Later sign-ups receive a short code by email and enter it once to activate the account. Lost the email? Use <em>resend verification code</em> on the verification page.</li>
+                    <li><strong>Sign in.</strong> That's it — you land on your dashboard, where sessions live on the left and the one you're editing opens on the right.</li>
+                </ol>
+
+                <div class="callout">
+                    <strong>Forgot your password?</strong> Use <em>Forgot password?</em> on the sign-in page to get an emailed reset code. If email isn't configured yet, an operator can reset any account from the server — see self-hosting below.
+                </div>
+            </section>
+
+            <!-- 2 -->
+            <section class="doc" id="sessions">
+                <h2><span class="num">2</span>Sessions</h2>
+                <p class="lead">A session is a container for your questions and the join code your audience uses. Build it once; reuse it whenever you like.</p>
+
+                <ol class="steps">
+                    <li><strong>Create a session.</strong> Click <em>+ New session</em>. It starts as “Untitled session” — click the title to rename it. Each session gets a unique <strong>6-character code</strong> (letters and numbers) and a matching QR code and join link.</li>
+                    <li><strong>Add questions.</strong> Click <em>+ Add question</em>, pick a type, write the prompt, and fill in its options. Reorder questions by dragging; duplicate or delete from each question's menu.</li>
+                    <li><strong>Activate it.</strong> A session is closed to the audience until you <em>Activate</em> it. Activating opens joining and unlocks <em>Present</em>. Deactivate any time to stop new responses.</li>
+                </ol>
+
+                <h3>How the audience joins</h3>
+                <p>Share any of these — all three lead to the same place:</p>
+                <ul>
+                    <li>The <strong>QR code</strong> (shown in present mode and on the session) — scan and go.</li>
+                    <li>The <strong>join link</strong> for the session.</li>
+                    <li>The <strong>6-character code</strong>, typed into the <em>Join a session</em> page.</li>
+                </ul>
+                <p>Participants are anonymous and need no account. Each person gets <strong>one response per question</strong>; submitting again replaces their previous answer rather than adding a vote.</p>
+
+                <div class="callout">
+                    Done with a session but want to keep the data? <strong>Archive</strong> it — it moves out of your active list (under the <em>Archived</em> tab) without deleting anything. <strong>Delete</strong> is permanent.
+                </div>
+            </section>
+
+            <!-- 3 -->
+            <section class="doc" id="question-types">
+                <h2><span class="num">3</span>Question types</h2>
+                <p class="lead">Nine types, mixable within one session. Options are entered one per line unless noted.</p>
+
+                <div class="qgrid">
+                    <div class="card">
+                        <h3><span class="chip">Multiple Choice</span></h3>
+                        <p>One answer from a list. The classic poll or comprehension check.</p>
+                        <div class="cfg">At least two options.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Select All</span></h3>
+                        <p>Like multiple choice, but participants can pick several options at once.</p>
+                        <div class="cfg">At least two options.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Poll w/ Other</span></h3>
+                        <p>Multiple choice plus a free-text “Other” box for the option you didn't list.</p>
+                        <div class="cfg">At least two options.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Ranking</span></h3>
+                        <p>The audience drags a set of items into their preferred order. Results show the group's average ranking.</p>
+                        <div class="cfg">At least two items.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Rating Scale</span></h3>
+                        <p>A star rating for confidence, satisfaction, or agreement. Results show the distribution.</p>
+                        <div class="cfg">Scale of 2–10 stars (default 5).</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Numeric</span></h3>
+                        <p>Collect a number. Results include the running average.</p>
+                        <div class="cfg">Optional minimum, maximum, and step.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Short Answer</span></h3>
+                        <p>Free-text responses, shown as a live list.</p>
+                        <div class="cfg">No options to configure.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Word Cloud</span></h3>
+                        <p>Free-text responses that build a word cloud in real time — great for warm-ups and sentiment.</p>
+                        <div class="cfg">No options to configure.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Image Choice</span></h3>
+                        <p>Vote between images — design critiques, “which looks right?”, spot the difference. Results display the images with live tallies.</p>
+                        <div class="cfg">Upload images, or paste one <code>Label|https://image-url</code> per line. At least two.</div>
+                    </div>
+                </div>
+
+                <div class="callout">
+                    <strong>Uploaded images are handled safely.</strong> ClassPulse re-encodes and resizes them server-side, so what your audience sees is a clean, size-limited copy rather than the original file.
+                </div>
+            </section>
+
+            <!-- 4 -->
+            <section class="doc" id="presenting">
+                <h2><span class="num">4</span>Presenting live</h2>
+                <p class="lead">Present mode is the big-screen view for the room — questions and results, updating as answers land.</p>
+
+                <p>From an active session, click <em>Present</em>. You get:</p>
+                <ul>
+                    <li>A <strong>join QR code</strong> on screen so latecomers can jump in without interrupting.</li>
+                    <li><strong>One question at a time</strong>, with its live chart, word cloud, or image tallies.</li>
+                    <li>An <strong>overview grid</strong> of every question — click any card to enlarge it.</li>
+                    <li><strong>Move between questions</strong> with the on-screen <em>← Prev</em> / <em>Next →</em> buttons or the <span class="kbd">←</span> <span class="kbd">→</span> arrow keys.</li>
+                </ul>
+                <p>Because everything streams over a live connection, you never refresh — bars grow, words appear, and counts tick up while you talk.</p>
+            </section>
+
+            <!-- 5 -->
+            <section class="doc" id="results">
+                <h2><span class="num">5</span>Results &amp; export</h2>
+                <p class="lead">Review responses live during the session or afterward, and take the raw data with you.</p>
+
+                <h3>Reading results</h3>
+                <ul>
+                    <li><strong>Choice, select-all, ranking, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; ranking notes that a lower bar means ranked-better).</li>
+                    <li><strong>Rating</strong> shows the spread across the star scale.</li>
+                    <li><strong>Word cloud</strong> and <strong>short answer</strong> show the text — as a cloud or a list.</li>
+                    <li><strong>Image choice</strong> shows each image with its live vote tally.</li>
+                </ul>
+
+                <h3>Exporting to CSV</h3>
+                <p>Export a whole session or a single question. The file has one row per response with these columns:</p>
+                <p><code>response_id</code>, <code>question_id</code>, <code>session_id</code>, <code>response_value</code>, <code>respondent_id</code>, <code>timestamp</code></p>
+                <p>Open it in any spreadsheet for grading, analysis, or your records.</p>
+            </section>
+
+            <!-- 6 -->
+            <section class="doc" id="cohort">
+                <h2><span class="num">6</span>Cohort mode: let the audience ask</h2>
+                <p class="lead">Turn on cohort mode and your audience can propose questions and upvote each other's — you stay in control of what actually goes live.</p>
+
+                <ol class="steps">
+                    <li><strong>Enable it on the session.</strong> Open the <em>Audience proposals</em> panel and switch it on.</li>
+                    <li><strong>The audience proposes and votes.</strong> Participants see a <em>+ Propose a question</em> button and can anonymously suggest questions and upvote the ones they'd most like asked.</li>
+                    <li><strong>Moderation runs automatically.</strong> Every proposal passes a keyword filter first; if an AI provider is configured, an extra check runs too. Anything flagged is hidden from the public list and waits for you.</li>
+                    <li><strong>You decide.</strong> Review proposals from your dashboard — approve, reject, unflag, or merge. <strong>Approving a proposal turns it into a live question</strong> in your session.</li>
+                </ol>
+
+                <div class="callout">
+                    The keyword filter blocks unambiguous profanity out of the box. You can extend it with your own terms — one per line in <code>instance/moderation_keywords.txt</code> on the server.
+                </div>
+            </section>
+
+            <!-- 7 -->
+            <section class="doc" id="accounts">
+                <h2><span class="num">7</span>Accounts &amp; admin</h2>
+                <p class="lead">Administrators manage who can present. Most presenters never need this section.</p>
+
+                <ul>
+                    <li>The <strong>first registrant is the admin</strong>; there is no built-in default account.</li>
+                    <li>From <em>Manage Users</em>, an admin can <strong>verify</strong>, <strong>archive</strong>, and manage presenter accounts.</li>
+                    <li>Sign-ups can be <strong>restricted to specific email domains</strong> (for example, only your institution's addresses).</li>
+                    <li>Every page footer shows the exact <strong>build</strong> running, linked to its commit — handy when reporting an issue.</li>
+                </ul>
+            </section>
+
+            <!-- 8 -->
+            <section class="doc" id="self-host">
+                <h2><span class="num">8</span>Self-hosting</h2>
+                <p class="lead">ClassPulse is open source and runs anywhere Docker does. The repository is the source of truth for setup and operations.</p>
+                <ul>
+                    <li><a href="https://github.com/michael-borck/class-pulse#readme">README</a> — features, local setup, and configuration overview.</li>
+                    <li><a href="https://github.com/michael-borck/class-pulse/blob/main/DEPLOYMENT.md">DEPLOYMENT.md</a> — Docker / reverse proxy / persistence, and email &amp; AI provider settings.</li>
+                    <li><a href="https://github.com/michael-borck/class-pulse/blob/main/SECURITY.md">SECURITY.md</a> — the security model and required settings.</li>
+                    <li><a href="https://github.com/michael-borck/class-pulse/blob/main/.env.example">.env.example</a> — every environment variable, documented.</li>
+                </ul>
+                <div class="callout">
+                    <strong>Email note:</strong> until you configure an email provider, verification and reset codes are only written to the server log — real users won't receive them. Set <code>EMAIL_PROVIDER</code> (Resend, SMTP, or Gmail) in your <code>.env</code> to send mail. The app warns about this at startup.
+                </div>
+            </section>
+        </main>
+    </div>
+    </div>
+
+    <footer>
+        <div class="wrap">
+            <div>ClassPulse · real-time audience engagement · <a href="https://github.com/michael-borck/class-pulse">GitHub</a></div>
+            <div><a href="#top">Back to top ↑</a></div>
+        </div>
+    </footer>
+</body>
+</html>
