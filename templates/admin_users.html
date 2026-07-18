@@ -27,7 +27,7 @@
                         {{ 'Verified' if user.is_verified else 'Not Verified' }}
                     </span>
                     <span id="status-archived-{{ user.id }}" class="font-semibold {{ 'text-red-600' if user.is_archived else 'text-gray-500' }}">
-                        {{ 'Archived' if user.is_archived else '' }}
+                        {{ 'Blocked' if user.is_archived else '' }}
                     </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-1">
@@ -37,11 +37,19 @@
                             class="action-button {{ 'unverify-button' if user.is_verified else 'verify-button' }}">
                         {{ 'Unverify' if user.is_verified else 'Verify' }}
                     </button>
-                    {# Archive/Unarchive Button #}
+                    {# Block/Unblock Button (stored as is_archived; keeps the account so
+                       the person can't log in or re-register while blocked) #}
                     <button data-url="{{ url_for('api_toggle_archive_user', user_id=user.id) }}" data-item-type="user"
                              data-status-target="status-archived-{{ user.id }}"
                             class="action-button {{ 'unarchive-button' if user.is_archived else 'archive-button' }}">
-                        {{ 'Unarchive' if user.is_archived else 'Archive' }}
+                        {{ 'Unblock' if user.is_archived else 'Block' }}
+                    </button>
+                    {# Delete Button — permanent, cascades to their sessions/results.
+                       Own handler (below), not the shared action-button flow. #}
+                    <button class="user-delete-button text-red-700 hover:text-red-900 font-medium"
+                            data-url="{{ url_for('api_delete_user', user_id=user.id) }}"
+                            data-username="{{ user.username }}">
+                        Delete
                     </button>
                 </td>
             </tr>
@@ -52,6 +60,29 @@
 {% else %}
 <p class="text-gray-500">No other presenters found.</p>
 {% endif %}
+{% endblock %}
 
+{% block scripts %}
+<script>
+    // Permanent user deletion. Kept out of the shared action-button handler
+    // (whose delete branch is unreachable) so the confirm + reload are explicit.
+    document.querySelectorAll('.user-delete-button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var name = btn.dataset.username || 'this user';
+            if (!confirm('Permanently delete ' + name + ' and ALL their sessions, ' +
+                         'questions, and results? This cannot be undone.')) return;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+            })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                .then(function (res) {
+                    if (res.ok && res.d.success) window.location.reload();
+                    else alert('Could not delete: ' + ((res.d && res.d.message) || 'unknown error'));
+                })
+                .catch(function () { alert('Could not delete: network error.'); });
+        });
+    });
+</script>
 {% endblock %}
 

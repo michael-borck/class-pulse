@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block title %}Your Account{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+    <h2 class="text-2xl font-semibold mb-6">Your account</h2>
+
+    <div class="cp-card mb-6">
+        <dl class="text-sm">
+            <div class="flex justify-between py-1">
+                <dt class="text-gray-500">Username</dt>
+                <dd class="font-medium text-gray-800">{{ user.username }}</dd>
+            </div>
+            <div class="flex justify-between py-1">
+                <dt class="text-gray-500">Email</dt>
+                <dd class="font-medium text-gray-800">{{ user.email }}</dd>
+            </div>
+            <div class="flex justify-between py-1">
+                <dt class="text-gray-500">Display name</dt>
+                <dd class="font-medium text-gray-800">{{ user.display_name or '—' }}</dd>
+            </div>
+            {% if user.is_admin %}
+            <div class="flex justify-between py-1">
+                <dt class="text-gray-500">Role</dt>
+                <dd class="font-medium text-indigo-700">Administrator</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+
+    <div class="cp-card border border-red-200">
+        <h3 class="text-lg font-semibold text-red-700">Delete account</h3>
+        <p class="text-sm text-gray-600 mt-1 mb-4">
+            This permanently deletes your account and <strong>all of your sessions,
+            questions, and collected results</strong>. It cannot be undone, and there
+            is no way to recover the data afterward.
+        </p>
+        {% if user.is_admin %}
+        <p class="text-sm text-gray-500 mb-4">
+            You're an administrator — if you're the only one, make another user an
+            admin first, or the deletion will be refused.
+        </p>
+        {% endif %}
+        <form action="{{ url_for('account_delete') }}" method="post"
+              onsubmit="return confirm('Permanently delete your account and everything in it? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="password" class="block text-sm font-medium text-gray-700">Confirm your password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password"
+                   class="mt-1 mb-4 block w-full sm:w-2/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+            <button type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-md text-sm">
+                Delete my account permanently
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

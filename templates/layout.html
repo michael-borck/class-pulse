@@ -31,6 +31,7 @@
                     {% if is_admin %}
                         <a href="{{ url_for('admin_manage_users') }}" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Manage Users</a>
                     {% endif %}
+                    <a href="{{ url_for('account') }}" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Account</a>
                     <form action="{{ url_for('logout') }}" method="post" class="inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Logout ({{ session.get('display_name', 'User') }})</button>
@@ -131,8 +132,8 @@
             // Confirmation for archive/unarchive might be good
             let confirmAction = true;
              let actionType = '';
-            if (button.classList.contains('archive-button')) actionType = 'archive';
-            if (button.classList.contains('unarchive-button')) actionType = 'unarchive';
+            if (button.classList.contains('archive-button')) actionType = 'block';
+            if (button.classList.contains('unarchive-button')) actionType = 'unblock';
             if (button.classList.contains('verify-button')) actionType = 'verify';
             if (button.classList.contains('unverify-button')) actionType = 'unverify';
             if (button.classList.contains('delete-button')) {
@@ -191,7 +192,7 @@
                                 if (statusElement) {
                                     if (data.active !== undefined) statusElement.textContent = data.active ? 'Active' : 'Inactive';
                                     if (data.verified !== undefined) statusElement.textContent = data.verified ? 'Verified' : 'Not Verified';
-                                    if (data.archived !== undefined) statusElement.textContent = data.archived ? 'Archived' : 'Not Archived';
+                                    if (data.archived !== undefined) statusElement.textContent = data.archived ? 'Blocked' : '';
                                 }
                             }
 

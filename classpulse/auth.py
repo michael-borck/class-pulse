@@ -19,6 +19,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from .accounts import is_last_admin, purge_user
 from .email import provider_name as email_provider_name
 from .email import send_password_reset_email, send_verification_email
 from .extensions import db, limiter
@@ -121,7 +122,7 @@ def login_required(f):
             return redirect(url_for('login'))
         if g.user.is_archived and request.endpoint != 'logout':
             session.clear()
-            flash("Your account has been archived. Please contact an administrator.", "danger")
+            flash("Your account has been blocked. Please contact an administrator.", "danger")
             return redirect(url_for('login'))
         # Unverified users may only log out; admins pass through so they can
         # verify others even if their own flag is somehow unset.
@@ -168,7 +169,7 @@ def init_app(app):
                 return render_template('login.html', username=username)
 
             if user.is_archived:
-                flash("Your account has been archived. Please contact an administrator.", "danger")
+                flash("Your account has been blocked. Please contact an administrator.", "danger")
                 return render_template('login.html', username=username)
             if not user.is_verified and not user.is_admin:
                 flash("Your email is not verified. Enter the code we emailed you, "
@@ -198,6 +199,33 @@ def init_app(app):
         # Land on the public page rather than the login form: signing out is not
         # a prompt to sign back in. No flash — the landing template renders no
         # flash block, so a queued message would surface on some later page.
+        return redirect(url_for('index'))
+
+    @app.route('/account')
+    @login_required
+    def account():
+        return render_template('account.html', user=g.user)
+
+    @app.route('/account/delete', methods=['POST'])
+    @login_required
+    @limiter.limit("10 per hour")
+    def account_delete():
+        # Deleting is irreversible and takes every session/response with it, so
+        # require the current password — a walked-away session shouldn't be able
+        # to nuke the account with one click.
+        password = request.form.get('password') or ''
+        if not verify_password(g.user.password_hash, password):
+            flash("That password is incorrect. Your account was not deleted.", "danger")
+            return redirect(url_for('account'))
+        # Refuse if this is the last admin: an adminless deployment auto-promotes
+        # the next registrant, so make them hand over admin first.
+        if is_last_admin(g.user):
+            flash("You're the only administrator. Make another user an admin "
+                  "before deleting your account.", "danger")
+            return redirect(url_for('account'))
+        purge_user(g.user)
+        session.clear()
+        # Lands on the public landing page (which renders no flash, so none is set).
         return redirect(url_for('index'))
 
     @app.route('/register', methods=['GET', 'POST'])
