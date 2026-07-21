@@ -5,14 +5,21 @@
 {% block content %}
 {# Use current_session passed from the route #}
 {% set mode = mode|default('present') %}
-<div class="bg-brand-gradient p-4 rounded-lg shadow-brand mb-4 flex justify-between items-center flex-wrap">
-    <h2 class="text-2xl font-semibold text-white mb-2 md:mb-0">{{ 'Results' if mode == 'results' else 'Presenting' }}: {{ current_session.name }}</h2>
-    <div class="flex items-center space-x-4">
-        {% if mode != 'results' %}
-        <span class="text-lg font-mono bg-gray-700 text-white px-3 py-1 rounded">Join Code: {{ current_session.code }}</span>
-        {% if qr_code_data_url %}
-        <img src="{{ qr_code_data_url }}" alt="QR Code" class="w-16 h-16 border-2 border-white rounded hidden sm:block">
-        {% endif %}
+{% set is_present = mode == 'present' %}
+<div class="bg-brand-gradient p-4 rounded-lg shadow-brand mb-4 flex justify-between items-center flex-wrap gap-3">
+    <h2 class="text-2xl font-semibold text-white">{{ 'Results' if mode == 'results' else 'Presenting' }}: {{ current_session.name }}</h2>
+    <div class="flex items-center gap-3">
+        {% if is_present %}
+        {# The code stays on screen for late joiners; clicking it (or space) brings
+           back the full join screen. #}
+        <button type="button" id="open-join"
+                class="flex items-center gap-2 rounded-lg bg-white/15 hover:bg-white/25 px-3 py-1.5 transition"
+                title="Show the join screen (space)">
+            {% if qr_code_data_url %}
+            <img src="{{ qr_code_data_url }}" alt="" class="w-9 h-9 rounded bg-white p-0.5" style="image-rendering: pixelated;">
+            {% endif %}
+            <span class="text-2xl font-mono font-bold text-white tracking-widest leading-none">{{ current_session.code }}</span>
+        </button>
         {% endif %}
         <a href="{{ url_for('manage_session', session_id=current_session.id) }}" class="action-button bg-blue-500 hover:bg-blue-600">Back to session</a>
     </div>
@@ -42,6 +49,45 @@
 </div>
 {% else %}
 <p class="text-gray-600 text-center text-lg">No active questions in this session.</p>
+{% endif %}
+
+{% if is_present %}
+{# Full-bleed join screen. Present mode opens here — getting the room scanned is
+   the first job — then space (or the buttons) flips to the results layouts and
+   back. Sits above the sticky site header, hence z-[60]. #}
+<div id="join-screen" class="fixed inset-0 z-[60] bg-brand-gradient text-white flex flex-col items-center justify-center p-6 gap-8">
+    <p class="text-xl md:text-3xl font-medium text-white/80 text-center">{{ current_session.name }}</p>
+
+    <div class="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
+        {% if qr_code_data_url %}
+        <img src="{{ qr_code_data_url }}" alt="Scan to join this session"
+             class="bg-white rounded-2xl p-3 shadow-2xl w-[42vh] h-[42vh] max-w-[70vw] max-h-[70vw]"
+             style="image-rendering: pixelated;">
+        {% endif %}
+        <div class="text-center lg:text-left">
+            <p class="uppercase tracking-[0.3em] text-white/60 text-xs md:text-sm mb-1">Or go to</p>
+            <p class="text-2xl md:text-4xl font-semibold break-all mb-6">{{ manual_join_url | replace('https://', '') | replace('http://', '') }}</p>
+            <p class="uppercase tracking-[0.3em] text-white/60 text-xs md:text-sm mb-1">and enter code</p>
+            <p class="font-mono font-extrabold tracking-[0.12em] text-6xl md:text-8xl leading-none">{{ current_session.code }}</p>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-3 flex-wrap justify-center">
+        <button type="button" id="join-continue"
+                class="bg-white text-indigo-700 font-bold px-6 py-3 rounded-full shadow-lg hover:bg-indigo-50 transition">
+            Show results →
+        </button>
+        <button type="button" id="join-fullscreen"
+                class="border border-white/40 text-white/90 font-medium px-5 py-3 rounded-full hover:bg-white/15 transition">
+            Fullscreen
+        </button>
+    </div>
+
+    <p class="text-white/60 text-sm text-center">
+        <span id="join-count">Waiting for responses…</span>
+        · press <kbd class="font-mono bg-white/15 rounded px-1.5 py-0.5">space</kbd> to switch views
+    </p>
+</div>
 {% endif %}
 
 {% endblock %}
@@ -81,7 +127,7 @@
         // questions appear without a manual refresh.
         if (MODE === 'present') socket.emit('join_session', { session_id: SESSION_ID });
     });
-    socket.on('update_results', (d) => { stats[d.question_id] = d.stats; refresh(d.question_id); });
+    socket.on('update_results', (d) => { stats[d.question_id] = d.stats; refresh(d.question_id); updateJoinCount(); });
 
     // The presenter changed the active-question set (e.g. approved an audience
     // proposal from the dashboard). Update the deck quietly — no view jump.
@@ -393,20 +439,69 @@
 
     function setView(v) { view = v; localStorage.setItem('cp_present_view', v); renderView(); }
 
+    // --- Join screen (present mode only) ---
+    // Present opens on the join screen so the QR and code get the whole projector;
+    // space flips to the results layouts and back for late arrivals.
+    const joinScreen = document.getElementById('join-screen');
+    function joinVisible() { return !!joinScreen && !joinScreen.classList.contains('hidden'); }
+    function showJoin() {
+        if (!joinScreen) return;
+        closeOverlay();
+        joinScreen.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        updateJoinCount();
+    }
+    function hideJoin() {
+        if (!joinScreen) return;
+        joinScreen.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        // Charts laid out behind the overlay can have stale sizes; re-render.
+        renderView();
+    }
+    // A live total tells the presenter at a glance that responses are landing.
+    function updateJoinCount() {
+        const el = document.getElementById('join-count');
+        if (!el) return;
+        const total = Object.values(stats).reduce((n, s) => n + ((s && s.total_responses) || 0), 0);
+        el.textContent = total === 0
+            ? 'Waiting for responses…'
+            : `${total} response${total === 1 ? '' : 's'} so far`;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        if (joinScreen) {
+            document.getElementById('join-continue').addEventListener('click', hideJoin);
+            const openJoin = document.getElementById('open-join');
+            if (openJoin) openJoin.addEventListener('click', showJoin);
+            document.getElementById('join-fullscreen').addEventListener('click', () => {
+                if (document.fullscreenElement) document.exitFullscreen();
+                else document.documentElement.requestFullscreen().catch(() => {});
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            // Space toggles join screen ↔ results. preventDefault stops it from
+            // also "clicking" whichever button happens to hold focus.
+            if (joinScreen && (e.code === 'Space' || e.key === ' ')) {
+                e.preventDefault();
+                return joinVisible() ? hideJoin() : showJoin();
+            }
+            if (e.key === 'Escape') {
+                if (joinVisible()) return hideJoin();
+                if (overlayQid !== null) return closeOverlay();
+            }
+            if (joinVisible()) return;
+            if (view === 'focus' && overlayQid === null) {
+                if (e.key === 'ArrowLeft') fnav(-1);
+                if (e.key === 'ArrowRight') fnav(1);
+            }
+        });
+
         if (!QUESTIONS.length) return;
         document.querySelectorAll('.pv-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
         const ovClose = document.getElementById('ov-close');
         if (ovClose) ovClose.addEventListener('click', closeOverlay);
         const overlay = document.getElementById('overlay');
         if (overlay) overlay.addEventListener('click', (e) => { if (e.target === overlay) closeOverlay(); });
-        document.addEventListener('keydown', (e) => {
-            if (overlayQid !== null && e.key === 'Escape') return closeOverlay();
-            if (view === 'focus' && overlayQid === null) {
-                if (e.key === 'ArrowLeft') fnav(-1);
-                if (e.key === 'ArrowRight') fnav(1);
-            }
-        });
         renderView();
     });
 </script>

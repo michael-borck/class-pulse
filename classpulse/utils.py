@@ -9,6 +9,7 @@ from typing import Optional
 
 import qrcode as qr_code_lib
 from flask import current_app
+from PIL import Image
 
 from .models import Session
 
@@ -24,7 +25,10 @@ def create_qr_code_data(url: str, size: int = 200) -> Optional[str]:
         )
         qr.add_data(url)
         qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white").resize((size, size))
+        # NEAREST keeps module edges hard — a smoothed QR blurs at projector size
+        # and scanners struggle with it.
+        img = qr.make_image(fill_color="black", back_color="white") \
+            .resize((size, size), Image.NEAREST)
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")

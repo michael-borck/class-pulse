@@ -113,11 +113,15 @@ def init_app(app):
 
         active_questions = [q for q in current_session.questions if q.active]
         join_url = url_for('audience_view', code=current_session.code, _external=True)
-        qr_code_data_url = create_qr_code_data(join_url, size=150)
+        # Big enough to stay sharp when the join screen blows it up on a projector.
+        qr_code_data_url = create_qr_code_data(join_url, size=720)
+        # Shown as text next to the code, for anyone typing it in rather than scanning.
+        manual_join_url = url_for('join', _external=True)
         return render_template('present_mode.html',
                                current_session=current_session,
                                active_questions=active_questions,
                                join_url=join_url,
+                               manual_join_url=manual_join_url,
                                qr_code_data_url=qr_code_data_url,
                                mode='present')
 
