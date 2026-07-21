@@ -9,7 +9,14 @@ User=michael
 Group=michael
 WorkingDirectory=/home/michael/projects/class-pulse
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/michael/projects/class-pulse/venv/bin"
+# This unit runs behind a reverse proxy (Caddy/nginx) that terminates TLS, so
+# trust its X-Forwarded-* headers: without this, url_for(_external=True) builds
+# http:// join links and QR codes, and rate limits key on the proxy's IP.
+Environment="TRUST_PROXY=1"
 # Load secrets (SECRET_KEY, AI_API_KEY, ...) from a root-owned env file.
+# NOTE: systemd gives EnvironmentFile= precedence over Environment= no matter
+# which comes first, so a TRUST_PROXY line in .env silently wins over the one
+# above — leave it unset there unless you mean to override this.
 EnvironmentFile=-/home/michael/projects/class-pulse/.env
 ExecStart=/bin/bash /home/michael/projects/class-pulse/start.sh
 Restart=on-failure

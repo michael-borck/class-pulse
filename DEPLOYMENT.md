@@ -390,6 +390,19 @@ server {
 }
 ```
 
+**Once you are behind a proxy, set `TRUST_PROXY=1`** so the app trusts those
+`X-Forwarded-*` headers. Without it ClassPulse ignores them and assumes it was
+reached directly, which means:
+
+- join links and QR codes are generated as `http://` instead of `https://`
+- rate limits key on the proxy's IP, so the whole room shares one bucket
+
+`classpulse.service` sets it already. But systemd gives `EnvironmentFile=`
+precedence over `Environment=`, so if your `.env` also has a `TRUST_PROXY` line
+(the shipped `.env.example` has `TRUST_PROXY=0`) that value wins — remove it
+there, or set it to `1`. Then restart and confirm the join link on the dashboard
+starts with `https://`.
+
 ## Support
 
 For issues or questions:
