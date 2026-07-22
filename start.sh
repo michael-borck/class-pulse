@@ -51,11 +51,13 @@ export FLASK_ENV=production
 # provide the concurrency. --max-requests is intentionally absent: recycling
 # the only worker would drop every live Socket.IO connection.
 echo "Starting ClassPulse application..."
+# --threads caps concurrent Socket.IO connections (one per connected audience
+# page in threading async mode), so it caps class size. See the Dockerfile.
 exec "$VENV_DIR/bin/gunicorn" \
     --bind 0.0.0.0:5000 \
     --workers 1 \
     --worker-class gthread \
-    --threads 16 \
+    --threads "${GUNICORN_THREADS:-64}" \
     --timeout 60 \
     --keep-alive 2 \
     wsgi:application

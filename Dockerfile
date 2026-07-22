@@ -36,4 +36,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 # Single worker: Flask-SocketIO long-polling is stateful and broadcasts don't
 # cross processes without a message queue. Threads provide the concurrency.
 # To scale out instead, set SOCKETIO_MESSAGE_QUEUE (Redis) and raise --workers.
-CMD ["gunicorn", "--workers=1", "--bind=0.0.0.0:5000", "--worker-class=gthread", "--threads=16", "--timeout=60", "wsgi:application"]
+#
+# In threading async mode each connected audience page occupies a thread for
+# the life of its Socket.IO connection, so --threads is effectively the cap on
+# concurrent students. At 16 a normal class queued behind live connections and
+# the whole app felt slow. Threads are cheap here (idle, I/O-bound, ~100 KB
+# resident each), so 64 costs little. Raise GUNICORN_THREADS for a big lecture
+# without rebuilding; past a few hundred, move to a gevent worker instead.
+CMD ["sh", "-c", "exec gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=${GUNICORN_THREADS:-64} --timeout=60 wsgi:application"]
