@@ -161,6 +161,20 @@ def _extract_response_value(question):
 
 def init_app(app):
 
+    def _with_respondent_cookie(response, respondent_id):
+        """Attach the anonymous respondent id. It identifies one browser to
+        itself so answers can be de-duplicated and re-shown; it carries no
+        personal data. Re-setting it on each view slides the 30-day expiry."""
+        response.set_cookie(
+            RESPONDENT_COOKIE_NAME,
+            respondent_id,
+            max_age=60 * 60 * 24 * 30,  # 30 days
+            httponly=True,
+            samesite='Lax',
+            secure=app.config['SESSION_COOKIE_SECURE'],
+        )
+        return response
+
     @app.route('/join', methods=['GET', 'POST'])
     @limiter.limit("30 per minute", methods=["POST"])
     def join():
@@ -177,22 +191,17 @@ def init_app(app):
                     request.cookies.get(RESPONDENT_COOKIE_NAME)) or str(uuid.uuid4())
                 # Redirect to the stored spelling, not what was typed, so the
                 # URL and any later share of it are canonical.
-                response = make_response(
-                    redirect(url_for('audience_view', code=current_session.code)))
-                response.set_cookie(
-                    RESPONDENT_COOKIE_NAME,
-                    respondent_id,
-                    max_age=60 * 60 * 24 * 30,  # 30 days
-                    httponly=True,
-                    samesite='Lax',
-                    secure=app.config['SESSION_COOKIE_SECURE'],
-                )
-                return response
+                return _with_respondent_cookie(
+                    make_response(
+                        redirect(url_for('audience_view', code=current_session.code))),
+                    respondent_id)
             flash("Invalid, inactive, archived, or deleted session code. Please try again.",
                   "danger")
             return render_template('join.html', code=code)
 
-        return render_template('join.html')
+        # Prefill from ?code= so a /join?code=ABC123 link only needs one tap.
+        return render_template('join.html',
+                               code=normalize_session_code(request.args.get('code')))
 
     @app.route('/audience/<code>')
     def audience_view(code):
@@ -203,11 +212,11 @@ def init_app(app):
             flash("Session not found, is inactive, archived, or has been deleted.", "warning")
             return redirect(url_for('join'))
 
-        respondent_id = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
-        if not respondent_id:
-            # Force back to join page to get a cookie
-            flash("Could not identify you. Please join the session again.", "warning")
-            return redirect(url_for('join'))
+        # This route is where a QR scan or a shared join link lands, so most
+        # first-time visitors arrive with no cookie. Mint one rather than
+        # bouncing them to the join form to type a code they just scanned.
+        respondent_id = (_valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
+                         or str(uuid.uuid4()))
 
         active_questions = [q for q in current_session.questions if q.active]
 
@@ -216,11 +225,13 @@ def init_app(app):
             session_id=current_session.id, respondent_id=respondent_id).all()
         previous_responses = {r.question_id: r.response_value for r in previous_responses_db}
 
-        return render_template('audience_view.html',
-                               current_session=current_session,
-                               questions=active_questions,
-                               active_question_ids=[q.id for q in active_questions],
-                               previous_responses=previous_responses)
+        return _with_respondent_cookie(
+            make_response(render_template('audience_view.html',
+                                          current_session=current_session,
+                                          questions=active_questions,
+                                          active_question_ids=[q.id for q in active_questions],
+                                          previous_responses=previous_responses)),
+            respondent_id)
 
     @app.route('/audience/respond/<int:question_id>', methods=['POST'])
     @limiter.limit("60 per minute")

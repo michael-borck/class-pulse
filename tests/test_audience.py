@@ -1,4 +1,6 @@
 
+import uuid
+
 from classpulse.models import Response
 
 from conftest import (
@@ -61,6 +63,30 @@ def test_audience_view_accepts_confusable_substitutions(app, client):
     # Both spellings of the URL land on the session rather than bouncing to /join.
     assert client.get('/audience/7Z0SGE').status_code == 200
     assert client.get('/audience/7ZOSGE').status_code == 200
+
+
+def test_cold_visitor_to_join_link_lands_in_the_session(app, client):
+    """A QR scan or shared link goes straight to /audience/<code> with no
+    cookie yet. That must work, not bounce to the join form."""
+    setup_live(app)
+    resp = client.get('/audience/ABC123')
+    assert resp.status_code == 200, "a first-time visitor must not be redirected"
+    assert b'Could not identify you' not in resp.data
+    assert client.get_cookie('classpulse_respondent') is not None
+
+
+def test_cold_visitor_keeps_identity_across_requests(app, client):
+    """The minted id must persist, or answers would de-duplicate wrongly."""
+    setup_live(app)
+    client.get('/audience/ABC123')
+    first = client.get_cookie('classpulse_respondent').value
+    client.get('/audience/ABC123')
+    assert client.get_cookie('classpulse_respondent').value == first
+
+
+def test_join_page_prefills_code_from_query_string(app, client):
+    resp = client.get('/join?code=abc123')
+    assert b'value="ABC123"' in resp.data
 
 
 def test_join_rejects_inactive_session(app, client):
@@ -174,7 +200,13 @@ def test_oversized_request_body_rejected(app, client):
     assert resp.status_code == 413
 
 
-def test_audience_view_requires_cookie(app, client):
+def test_audience_view_replaces_a_malformed_respondent_cookie(app, client):
+    """A cold visitor is issued an id (see the join-link tests above), but a
+    hand-crafted cookie must never be taken at face value."""
     setup_live(app)
+    client.set_cookie('classpulse_respondent', 'not-a-uuid; DROP TABLE')
     resp = client.get('/audience/ABC123')
-    assert resp.status_code == 302  # bounced to /join for a cookie
+    assert resp.status_code == 200
+    issued = client.get_cookie('classpulse_respondent').value
+    assert issued != 'not-a-uuid; DROP TABLE'
+    uuid.UUID(issued)  # raises if the server didn't mint a real UUID
