@@ -9,6 +9,11 @@ services:
       # Generate one with:  python -c "import secrets; print(secrets.token_hex(32))"
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set (see .env.example)}
       - SOCKETIO_ASYNC_MODE=threading
+      # Behind a TLS-terminating proxy? Set TRUST_PROXY=1 in .env. Compose only
+      # uses .env for ${...} substitution, so a variable has to be forwarded
+      # here explicitly to reach the container at all.
+      - TRUST_PROXY=${TRUST_PROXY:-0}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
     volumes:
       # The container runs as UID 1000; make sure ./instance is writable by it
       # (sudo chown -R 1000:1000 instance) if your host user isn't UID 1000.
