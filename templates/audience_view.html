@@ -126,16 +126,28 @@
                    value="{{ previous_answer or '' }}"
                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-3">
         {% elif q.type == 'image_choice' %}
+            {# Side by side so the options can actually be compared, and
+               object-contain so nothing is cropped away — these questions turn
+               on image detail. The ⤢ button opens the full image in an overlay,
+               which is the only way to enlarge one on a phone. #}
             {% set options = q.options | fromjson %}
-            <div class="space-y-2">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
             {% for item in options %}
-                <label class="flex items-center">
+                <label class="ic-card relative block cursor-pointer rounded-lg border-2 border-gray-200 bg-white overflow-hidden transition hover:border-indigo-400">
                     <input type="radio" name="{{ input_name }}" value="{{ item.label }}" required
-                           class="mr-2 focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                           class="ic-radio sr-only peer"
                            {{ 'checked' if item.label == previous_answer }}>
-                    <img src="{{ item.url }}" alt="{{ item.label }}"
-                         class="h-24 w-24 object-cover rounded inline-block mr-2">
-                    <span>{{ item.label }}</span>
+                    <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
+                        <img src="{{ item.url }}" alt="{{ item.label }}"
+                             class="w-full h-full object-contain" loading="lazy">
+                    </div>
+                    <div class="flex items-center gap-2 px-2 py-2">
+                        <span class="ic-tick w-4 h-4 shrink-0 rounded-full border-2 border-gray-300"></span>
+                        <span class="text-sm text-gray-800 truncate">{{ item.label }}</span>
+                    </div>
+                    <button type="button" class="ic-zoom absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-black/55 text-white text-sm leading-none hover:bg-black/75"
+                            data-zoom-src="{{ item.url }}" data-zoom-label="{{ item.label }}"
+                            aria-label="Enlarge {{ item.label }}">⤢</button>
                 </label>
             {% endfor %}
             </div>
@@ -231,6 +243,15 @@
     </div>
 </div>
 {% endif %}
+
+{# Full-size image overlay for image_choice options. A phone has no
+   right-click, so without this there is no way to see the picture at all. #}
+<div id="ic-lightbox" class="hidden fixed inset-0 z-50 bg-black/85 flex flex-col items-center justify-center p-4">
+    <img id="ic-lightbox-img" src="" alt="" class="max-w-full max-h-[80vh] object-contain rounded">
+    <p id="ic-lightbox-label" class="text-white mt-3 text-lg text-center"></p>
+    <button type="button" id="ic-lightbox-close"
+            class="mt-4 bg-white text-gray-900 font-semibold px-5 py-2.5 rounded-full">Close</button>
+</div>
 
 {% endblock %}
 
@@ -509,6 +530,59 @@
 
         socket.on('proposals_changed', d => { if (d.session_id === sessionId) loadProposals(); });
         loadProposals();
+    })();
+
+    /* ---------- image_choice: selection highlight + enlarge ---------- */
+    (function () {
+        // Selection is tracked in JS rather than :has(), so the highlight works
+        // on any browser a student turns up with.
+        function paint() {
+            document.querySelectorAll('.ic-card').forEach(card => {
+                const on = card.querySelector('.ic-radio').checked;
+                card.classList.toggle('border-indigo-600', on);
+                card.classList.toggle('border-gray-200', !on);
+                card.classList.toggle('ring-2', on);
+                card.classList.toggle('ring-indigo-200', on);
+                const tick = card.querySelector('.ic-tick');
+                if (tick) {
+                    tick.classList.toggle('bg-indigo-600', on);
+                    tick.classList.toggle('border-indigo-600', on);
+                    tick.classList.toggle('border-gray-300', !on);
+                }
+            });
+        }
+        document.addEventListener('change', e => {
+            if (e.target.classList && e.target.classList.contains('ic-radio')) paint();
+        });
+        paint();  // reflect any previously saved answer
+
+        const box = document.getElementById('ic-lightbox');
+        const boxImg = document.getElementById('ic-lightbox-img');
+        const boxLabel = document.getElementById('ic-lightbox-label');
+        function closeBox() {
+            if (!box) return;
+            box.classList.add('hidden');
+            boxImg.src = '';
+            document.body.classList.remove('overflow-hidden');
+        }
+        document.addEventListener('click', e => {
+            const zoom = e.target.closest && e.target.closest('.ic-zoom');
+            if (!zoom || !box) return;
+            // The button sits inside the <label>, so a plain click would also
+            // select that option — enlarging must not commit an answer.
+            e.preventDefault();
+            e.stopPropagation();
+            boxImg.src = zoom.dataset.zoomSrc;
+            boxImg.alt = zoom.dataset.zoomLabel || '';
+            boxLabel.textContent = zoom.dataset.zoomLabel || '';
+            box.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        });
+        if (box) {
+            document.getElementById('ic-lightbox-close').addEventListener('click', closeBox);
+            box.addEventListener('click', e => { if (e.target === box || e.target === boxImg) closeBox(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBox(); });
+        }
     })();
 </script>
 {% endblock %}
