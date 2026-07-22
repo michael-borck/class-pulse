@@ -14,6 +14,7 @@ from .models import Proposal, ProposalVote, Question, Session
 from .moderation import moderate_proposal
 from .questions import parse_question_payload, question_to_dict
 from .sockets import broadcast_proposals_changed, broadcast_questions_changed
+from .utils import session_code_match
 
 # Types the audience may propose. Deliberately narrower than
 # VALID_QUESTION_TYPES: no image_choice (anonymous users supplying image URLs
@@ -28,8 +29,11 @@ FLAGGED_MESSAGE = ("Based on this session's filters, your question needs present
 
 
 def _live_session_by_code(code):
-    return Session.query.filter_by(code=(code or '').upper(), active=True,
-                                   archived=False, deleted=False).first()
+    # Must fold confusable glyphs exactly as the audience routes do, or a page
+    # reached via one spelling of a code would 404 its own proposals API.
+    return Session.query.filter(
+        session_code_match(code), Session.active.is_(True),
+        Session.archived.is_(False), Session.deleted.is_(False)).first()
 
 
 def proposal_to_dict(p, respondent_id=None):

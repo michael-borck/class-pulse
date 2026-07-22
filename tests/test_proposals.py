@@ -33,6 +33,21 @@ def test_proposal_appears_in_public_list(app, client):
     assert listing['remaining'] == 4
 
 
+def test_proposal_routes_agree_with_the_audience_page_on_confusable_codes(app, client):
+    """Every route that takes a session code must fold O/0 and I/L/1 the same
+    way. When they disagreed, the page loaded but its proposals API 404'd, so
+    cohort mode silently vanished with no error shown."""
+    alice = create_user(app, 'alice')
+    create_session(app, alice, allow_proposals=True, code='7ZOSGE')
+    client.post('/join', data={'code': '7ZOSGE'})
+    for spelling in ('7ZOSGE', '7Z0SGE'):
+        assert client.get(f'/audience/{spelling}').status_code == 200
+        assert client.get(f'/audience/{spelling}/proposals').status_code == 200, \
+            f"proposals API disagrees with the page for {spelling}"
+        assert propose(client, code=spelling,
+                       title=f'Question via {spelling}').status_code == 200
+
+
 def test_proposals_disabled_returns_404(app, client):
     alice = create_user(app, 'alice')
     create_session(app, alice, allow_proposals=False)
