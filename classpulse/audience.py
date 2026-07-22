@@ -18,6 +18,7 @@ from .extensions import db
 from .models import Question, Response, Session
 from .models import utcnow_iso
 from .sockets import broadcast_results
+from .utils import normalize_session_code, session_code_match
 
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
@@ -164,16 +165,20 @@ def init_app(app):
     @limiter.limit("30 per minute", methods=["POST"])
     def join():
         if request.method == 'POST':
-            code = (request.form.get('code') or '').strip().upper()
+            code = normalize_session_code(request.form.get('code'))
             current_session = None
             if len(code) == 6 and code.isalnum():
-                current_session = Session.query.filter_by(
-                    code=code, active=True, archived=False, deleted=False).first()
+                current_session = Session.query.filter(
+                    session_code_match(code), Session.active.is_(True),
+                    Session.archived.is_(False), Session.deleted.is_(False)).first()
 
             if current_session:
                 respondent_id = _valid_respondent_id(
                     request.cookies.get(RESPONDENT_COOKIE_NAME)) or str(uuid.uuid4())
-                response = make_response(redirect(url_for('audience_view', code=code)))
+                # Redirect to the stored spelling, not what was typed, so the
+                # URL and any later share of it are canonical.
+                response = make_response(
+                    redirect(url_for('audience_view', code=current_session.code)))
                 response.set_cookie(
                     RESPONDENT_COOKIE_NAME,
                     respondent_id,
@@ -191,9 +196,9 @@ def init_app(app):
 
     @app.route('/audience/<code>')
     def audience_view(code):
-        session_code = code.upper()
-        current_session = Session.query.filter_by(
-            code=session_code, active=True, archived=False, deleted=False).first()
+        current_session = Session.query.filter(
+            session_code_match(code), Session.active.is_(True),
+            Session.archived.is_(False), Session.deleted.is_(False)).first()
         if not current_session:
             flash("Session not found, is inactive, archived, or has been deleted.", "warning")
             return redirect(url_for('join'))

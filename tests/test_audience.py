@@ -34,6 +34,35 @@ def test_join_rejects_bad_code_format(app, client):
     assert b'Invalid' in resp.data
 
 
+def test_generated_codes_have_no_confusable_characters(app):
+    from classpulse.utils import generate_session_code
+    with app.app_context():
+        codes = [generate_session_code() for _ in range(60)]
+    assert not set(''.join(codes)) & set('OILU'), \
+        "codes must not contain glyphs confusable with 0/1"
+
+
+def test_join_accepts_confusable_substitutions(app, client):
+    """A legacy code containing O must still be reachable by someone who
+    reasonably types a zero instead (and vice versa)."""
+    alice = create_user(app, 'alice')
+    create_session(app, alice, active=True, code='7ZOSGE')
+    for typed in ('7ZOSGE', '7Z0SGE', '7z0sge'):
+        resp = client.post('/join', data={'code': typed})
+        assert resp.status_code == 302, f"{typed} should reach the session"
+        # Always canonicalised to the stored spelling.
+        assert resp.headers['Location'].endswith('/audience/7ZOSGE')
+
+
+def test_audience_view_accepts_confusable_substitutions(app, client):
+    alice = create_user(app, 'alice')
+    create_session(app, alice, active=True, code='7ZOSGE')
+    client.post('/join', data={'code': '7ZOSGE'})  # picks up the respondent cookie
+    # Both spellings of the URL land on the session rather than bouncing to /join.
+    assert client.get('/audience/7Z0SGE').status_code == 200
+    assert client.get('/audience/7ZOSGE').status_code == 200
+
+
 def test_join_rejects_inactive_session(app, client):
     alice = create_user(app, 'alice')
     create_session(app, alice, active=False)
