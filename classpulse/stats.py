@@ -164,6 +164,68 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["results"] = results
         stats["options"] = labels
 
+    elif question.type == 'emoji':
+        try:
+            emojis = [str(e) for e in (json.loads(question.options) if question.options else [])]
+        except (json.JSONDecodeError, TypeError):
+            emojis = []
+        results = dict.fromkeys(emojis, 0)
+        for resp in all_responses:
+            v = str(resp.response_value)
+            if v in results:
+                results[v] += 1
+        stats["results"] = results
+        stats["options"] = emojis
+
+    elif question.type == 'matrix':
+        try:
+            cfg = json.loads(question.options) if question.options else {}
+        except (json.JSONDecodeError, TypeError):
+            cfg = {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        try:
+            cols = max(1, min(10, int(cfg.get('cols', 2))))
+            rows = max(1, min(10, int(cfg.get('rows', 2))))
+        except (ValueError, TypeError):
+            cols = rows = 2
+        results = {f"{c},{r}": 0 for c in range(1, cols + 1) for r in range(1, rows + 1)}
+        for resp in all_responses:
+            v = str(resp.response_value)
+            if v in results:
+                results[v] += 1
+        stats["results"] = results
+        stats["grid"] = {"cols": cols, "rows": rows,
+                         **{k: cfg[k] for k in
+                            ('x_label', 'y_label', 'x_low', 'x_high', 'y_low', 'y_high')
+                            if cfg.get(k)}}
+
+    elif question.type == 'scatter':
+        try:
+            cfg = json.loads(question.options) if question.options else {}
+        except (json.JSONDecodeError, TypeError):
+            cfg = {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        points = []
+        for resp in all_responses:
+            try:
+                p = json.loads(resp.response_value)
+                pt = {"x": float(p["x"]), "y": float(p["y"])}
+            except (json.JSONDecodeError, TypeError, ValueError, KeyError):
+                continue
+            if not (0 <= pt["x"] <= 100 and 0 <= pt["y"] <= 100):
+                continue
+            if p.get("c"):
+                pt["c"] = str(p["c"])
+            if p.get("s"):
+                pt["s"] = str(p["s"])
+            points.append(pt)
+        stats["points"] = points
+        stats["config"] = {"x_label": cfg.get("x_label", ""), "y_label": cfg.get("y_label", ""),
+                           "allow_color": bool(cfg.get("allow_color")),
+                           "allow_size": bool(cfg.get("allow_size"))}
+
     elif question.type == 'multiple_choice_other':
         try:
             options = [str(o) for o in (json.loads(question.options) if question.options else [])]

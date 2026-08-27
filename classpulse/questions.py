@@ -8,6 +8,7 @@ VALID_QUESTION_TYPES = (
     'multiple_choice', 'word_cloud', 'rating',
     'multi_select', 'short_answer', 'ranking', 'numeric',
     'image_choice', 'multiple_choice_other',
+    'emoji', 'matrix', 'scatter',
 )
 
 # Server-side caps for content authored by presenters (titles/options) and,
@@ -15,6 +16,27 @@ VALID_QUESTION_TYPES = (
 MAX_TITLE_LEN = 255
 MAX_OPTION_LEN = 500
 MAX_OPTIONS = 50
+
+# Emoji polls: the audience picks one glyph from a presenter-chosen list.
+# Compound emoji (ZWJ sequences, skin-tone modifiers) can be several code
+# points long, so the per-emoji cap is generous but small.
+MAX_EMOJI_OPTIONS = 12
+MAX_EMOJI_LEN = 16
+
+# Matrix polls: audience taps one cell of a cols×rows labelled grid. 2×2 is the
+# classic quadrant; up to 4×4 stays tappable on a phone.
+MATRIX_MIN_DIM = 2
+MATRIX_MAX_DIM = 4
+MAX_AXIS_LABEL_LEN = 60
+
+# Scatter polls: audience drops a point on a 0–100 × 0–100 plane; the optional
+# colour dimension is chosen from this fixed palette. Keys are what the
+# audience picks and what gets stored; values are display hexes for the UI.
+SCATTER_COLORS = {
+    'red': '#ef4444', 'orange': '#f97316', 'amber': '#f59e0b', 'green': '#22c55e',
+    'teal': '#14b8a6', 'blue': '#3b82f6', 'purple': '#8b5cf6', 'pink': '#ec4899',
+}
+SCATTER_SIZES = ('sm', 'md', 'lg')
 
 
 def build_options(q_type, src):
@@ -67,6 +89,42 @@ def build_options(q_type, src):
         except (ValueError, TypeError):
             mx = 5
         return ({'max_rating': max(2, min(10, mx))}, None)
+    if q_type == 'emoji':
+        raw = src.get('options') or []
+        if isinstance(raw, str):
+            # Split on any whitespace — presenters paste emojis space-separated.
+            raw = raw.split()
+        emojis = []
+        for e in raw:
+            e = str(e).strip()[:MAX_EMOJI_LEN]
+            if e and e not in emojis:
+                emojis.append(e)
+        if len(emojis) < 2:
+            return (None, 'Add at least two emojis.')
+        if len(emojis) > MAX_EMOJI_OPTIONS:
+            return (None, f'Too many emojis (max {MAX_EMOJI_OPTIONS}).')
+        return (emojis, None)
+    if q_type == 'matrix':
+        def _dim(key):
+            try:
+                return max(MATRIX_MIN_DIM, min(MATRIX_MAX_DIM, int(src.get(key))))
+            except (ValueError, TypeError):
+                return MATRIX_MIN_DIM
+        cfg = {'cols': _dim('cols'), 'rows': _dim('rows')}
+        for k in ('x_label', 'y_label', 'x_low', 'x_high', 'y_low', 'y_high'):
+            v = str(src.get(k) or '').strip()[:MAX_AXIS_LABEL_LEN]
+            if v:
+                cfg[k] = v
+        return (cfg, None)
+    if q_type == 'scatter':
+        cfg = {}
+        for k in ('x_label', 'y_label'):
+            v = str(src.get(k) or '').strip()[:MAX_AXIS_LABEL_LEN]
+            if v:
+                cfg[k] = v
+        cfg['allow_color'] = bool(src.get('allow_color'))
+        cfg['allow_size'] = bool(src.get('allow_size'))
+        return (cfg, None)
     # word_cloud, short_answer carry no config
     return ({}, None)
 
@@ -107,10 +165,12 @@ def question_to_dict(q):
         'active': q.active,
         'response_count': Response.query.filter_by(question_id=q.id).count(),
         'options': parsed if (q.type in ('multiple_choice', 'multi_select', 'ranking',
-                                         'multiple_choice_other', 'image_choice')
+                                         'multiple_choice_other', 'image_choice', 'emoji')
                               and isinstance(parsed, list)) else [],
         'max_rating': 5,
     }
+    if q.type in ('matrix', 'scatter') and isinstance(parsed, dict):
+        data['options'] = parsed
     if q.type == 'rating' and isinstance(parsed, dict):
         try:
             data['max_rating'] = int(parsed.get('max_rating', 5))
@@ -119,6 +179,33 @@ def question_to_dict(q):
     if q.type == 'numeric' and isinstance(parsed, dict):
         data['numeric'] = {k: parsed[k] for k in ('min', 'max', 'step') if k in parsed}
     return data
+
+
+def response_display_label(q_type, value):
+    """Human-readable version of a stored response_value for status lines.
+
+    Matrix cells ("2,1") and scatter points (JSON) are meaningless raw; every
+    other type already reads fine as-is.
+    """
+    if value is None:
+        return ''
+    if q_type == 'matrix':
+        try:
+            c, r = str(value).split(',')
+            return f'column {int(c)}, row {int(r)}'
+        except (ValueError, TypeError):
+            return str(value)
+    if q_type == 'scatter':
+        try:
+            p = json.loads(value)
+            x = round(float(p.get('x', 0)))
+            y = round(float(p.get('y', 0)))
+            label = f'({x}, {y})'
+            extras = [e for e in (p.get('c'), p.get('s')) if e]
+            return f'{label} {" ".join(extras)}' if extras else label
+        except (json.JSONDecodeError, TypeError, ValueError, AttributeError):
+            return str(value)
+    return str(value)
 
 
 def session_to_dict(s, include_questions=False):

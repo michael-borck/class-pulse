@@ -26,6 +26,33 @@
 </div>
 
 {% if active_questions %}
+{% if is_present and qr_code_data_url %}
+{# Slim join panel pinned left of the results: late joiners can still scan while
+   results are up, and the full-screen join screen stays one space-press away. #}
+<div class="flex flex-col lg:flex-row gap-6 items-start">
+<aside class="w-full lg:w-72 xl:w-80 shrink-0 lg:sticky lg:top-24">
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="h-1.5 bg-brand-gradient"></div>
+        <div class="p-4 flex flex-col items-center text-center gap-3">
+            <button type="button" id="side-join" title="Show the full-screen join screen (space)"
+                    class="block w-full hover:opacity-90 transition">
+                <img src="{{ qr_code_data_url }}" alt="Scan to join this session"
+                     class="w-full rounded-lg border border-gray-200 bg-white p-1"
+                     style="image-rendering: pixelated;">
+            </button>
+            <div>
+                <p class="uppercase tracking-[0.2em] text-gray-400 text-[11px]">Or go to</p>
+                <p class="font-semibold text-gray-800 break-all">{{ manual_join_url | replace('https://', '') | replace('http://', '') }}</p>
+                <p class="uppercase tracking-[0.2em] text-gray-400 text-[11px] mt-2">and enter code</p>
+                <p class="font-mono font-extrabold tracking-[0.12em] text-4xl text-indigo-700 leading-none mt-1">{{ current_session.code }}</p>
+            </div>
+            <p class="join-count text-xs text-gray-500">Waiting for responses…</p>
+            <p class="text-[11px] text-gray-400">Click the QR or press <kbd class="font-mono bg-gray-100 rounded px-1 py-0.5">space</kbd> for the full-screen join screen</p>
+        </div>
+    </div>
+</aside>
+<div class="flex-grow min-w-0 w-full">
+{% endif %}
 {# View switcher — presenter chooses how results are laid out #}
 <div id="view-switcher" class="flex items-center gap-2 mb-5 text-sm">
     <span class="text-gray-500">Layout:</span>
@@ -37,6 +64,10 @@
 </div>
 
 <div id="present-content"></div>
+{% if is_present and qr_code_data_url %}
+</div>
+</div>
+{% endif %}
 
 {# Persistent overlay used by the Grid view #}
 <div id="overlay" class="hidden fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
@@ -84,7 +115,7 @@
     </div>
 
     <p class="text-white/60 text-sm text-center">
-        <span id="join-count">Waiting for responses…</span>
+        <span id="join-count" class="join-count">Waiting for responses…</span>
         · press <kbd class="font-mono bg-white/15 rounded px-1.5 py-0.5">space</kbd> to switch views
     </p>
 </div>
@@ -95,10 +126,11 @@
 {% block scripts %}
 <script>
     const QUESTIONS = [
-        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type == 'image_choice' %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
+        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
         {% endfor %}
     ];
     const MODE = {{ mode | tojson }};
+    const SCATTER_COLORS = {{ (scatter_colors or {}) | tojson }};
     const SESSION_ID = {{ current_session.id }};
     const stats = {};                 // question_id -> latest stats from the server
     let overlayQid = null;
@@ -253,6 +285,92 @@
         return `<div class="grid gap-4 content-start" style="grid-template-columns:repeat(${cols},minmax(0,1fr));">${cards}</div>`;
     }
 
+    // Emoji results: every option stays visible even at zero votes; vote share
+    // scales the glyph so the room's mood reads instantly from the back row.
+    function emojiHTML(q, s) {
+        const opts = Array.isArray(q.options) ? q.options : [];
+        if (!opts.length) return '<p class="text-gray-400 italic text-center mt-4">No emojis configured.</p>';
+        const results = (s && s.results) || {};
+        const counts = opts.map(o => results[o] || 0);
+        const total = counts.reduce((a, b) => a + b, 0);
+        const maxCount = Math.max(0, ...counts);
+        const chips = opts.map((o, i) => {
+            const n = counts[i];
+            const pct = total ? Math.round(n / total * 100) : 0;
+            const leading = n > 0 && n === maxCount;
+            // 2rem at zero votes up to 5rem for the leader.
+            const size = 2 + (maxCount ? (n / maxCount) * 3 : 0);
+            return `<div class="flex flex-col items-center gap-1 ${leading ? '' : 'opacity-80'}">
+                <span style="font-size:${size}rem; line-height:1.1;">${esc(o)}</span>
+                <span class="text-sm font-semibold ${leading ? 'text-indigo-700' : 'text-gray-500'}">${n} (${pct}%)</span>
+            </div>`;
+        }).join('');
+        return `<div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 p-4">${chips}</div>`;
+    }
+
+    // Matrix results: the same grid orientation the audience tapped, shaded as
+    // a heatmap (row 1 at the top). Hot cells carry the room's clustering.
+    function matrixHTML(q, s) {
+        const cfg = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : {};
+        const cols = cfg.cols || 2, rows = cfg.rows || 2;
+        const results = (s && s.results) || {};
+        const maxCount = Math.max(0, ...Object.values(results));
+        const axisTop = (cfg.x_label || cfg.x_low || cfg.x_high) ? `
+            <div class="flex justify-between items-baseline text-xs md:text-sm text-gray-500 mb-1 gap-2">
+                <span>${esc(cfg.x_low || '')}</span>
+                <span class="font-semibold text-gray-700 text-center">${esc(cfg.x_label || '')}</span>
+                <span>${esc(cfg.x_high || '')}</span>
+            </div>` : '';
+        const axisLeft = (cfg.y_label || cfg.y_low || cfg.y_high) ? `
+            <div class="flex flex-col justify-between items-center text-xs md:text-sm text-gray-500 py-1 w-6 shrink-0">
+                <span class="text-center">${esc(cfg.y_high || '')}</span>
+                <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">${esc(cfg.y_label || '')}</span>
+                <span class="text-center">${esc(cfg.y_low || '')}</span>
+            </div>` : '';
+        let cells = '';
+        for (let r = 1; r <= rows; r++) {
+            for (let c = 1; c <= cols; c++) {
+                const n = results[`${c},${r}`] || 0;
+                const strength = maxCount ? n / maxCount : 0;
+                const bg = n ? `background-color: rgba(79,70,229,${0.15 + 0.85 * strength});` : '';
+                const txt = strength > 0.45 ? 'text-white' : 'text-gray-700';
+                cells += `<div class="rounded-md border border-gray-200 ${n ? '' : 'bg-gray-50'} min-h-16 md:min-h-24 flex items-center justify-center" style="${bg}">
+                    <span class="text-xl md:text-3xl font-bold ${txt}">${n || ''}</span>
+                </div>`;
+            }
+        }
+        return `${axisTop}<div class="flex gap-2 items-stretch h-full">${axisLeft}
+            <div class="grid gap-1.5 flex-grow content-stretch" style="grid-template-columns: repeat(${cols}, minmax(0, 1fr));">${cells}</div>
+        </div>`;
+    }
+
+    // Scatter results: one dot per respondent on a 0–100 plane; the optional
+    // colour/size dimensions are read straight off each point.
+    const SCATTER_RADII = { sm: 4, md: 7, lg: 11 };
+    function scatterConfig(q, s) {
+        const cfg = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : {};
+        const pts = (s && s.points) || [];
+        return { type: 'scatter',
+            data: { datasets: [{
+                label: 'Responses',
+                data: pts,
+                pointRadius: (ctx) => SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7,
+                pointHoverRadius: (ctx) => (SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7) + 2,
+                pointBackgroundColor: (ctx) => SCATTER_COLORS[(ctx.raw && ctx.raw.c)] || 'rgba(79,70,229,0.75)',
+            }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: { min: 0, max: 100, title: { display: !!cfg.x_label, text: cfg.x_label || '' } },
+                    y: { min: 0, max: 100, title: { display: !!cfg.y_label, text: cfg.y_label || '' } },
+                },
+                plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => {
+                        const p = ctx.raw || {};
+                        const extras = [p.c, p.s].filter(Boolean).join(', ');
+                        return ` (${Math.round(p.x)}, ${Math.round(p.y)})${extras ? ' — ' + extras : ''}`;
+                    } } } } } };
+    }
+
     function hostMarkup(q, hClass) {
         const s = stats[q.id];
         const total = s ? (s.total_responses || 0) : 0;
@@ -263,6 +381,12 @@
             inner = `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`;
         } else if (q.type === 'image_choice') {
             inner = `<div id="ic-${q.id}" class="w-full ${hClass} overflow-y-auto"></div>`;
+        } else if (q.type === 'emoji') {
+            inner = `<div id="em-${q.id}" class="w-full ${hClass} overflow-y-auto border rounded-md bg-gray-50"></div>`;
+        } else if (q.type === 'matrix') {
+            inner = `<div id="mx-${q.id}" class="w-full ${hClass} overflow-y-auto p-1"></div>`;
+        } else if (q.type === 'scatter') {
+            inner = `<div class="${hClass} relative"><canvas id="sc-${q.id}"></canvas></div>`;
         } else {
             inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
         }
@@ -277,10 +401,29 @@
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const cap = document.getElementById('cap-' + qid);
         if (cap) cap.innerHTML = captionFor(q, s);
-        // Image choice renders its images even before any votes arrive.
+        // Image choice renders its images even before any votes arrive; the
+        // emoji and matrix options are likewise worth showing at zero votes,
+        // and the scatter plot draws its axes so latecomers see the question.
         if (q.type === 'image_choice') {
             const el = document.getElementById('ic-' + qid);
             if (el) el.innerHTML = imageChoiceHTML(q, s);
+            return;
+        }
+        if (q.type === 'emoji') {
+            const el = document.getElementById('em-' + qid);
+            if (el) el.innerHTML = emojiHTML(q, s);
+            return;
+        }
+        if (q.type === 'matrix') {
+            const el = document.getElementById('mx-' + qid);
+            if (el) el.innerHTML = matrixHTML(q, s);
+            return;
+        }
+        if (q.type === 'scatter') {
+            if (document.getElementById('sc-' + qid)) {
+                const cfg = scatterConfig(q, s);
+                initChart('sc-' + qid, cfg.type, cfg.data, cfg.options);
+            }
             return;
         }
         if (!s) return;
@@ -302,7 +445,7 @@
 
     // Called when new results arrive — update whatever is on screen for that question.
     function refresh(qid) {
-        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid) || document.getElementById('ic-' + qid)) instantiate(qid);
+        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid) || document.getElementById('ic-' + qid) || document.getElementById('em-' + qid) || document.getElementById('mx-' + qid) || document.getElementById('sc-' + qid)) instantiate(qid);
         if (overlayQid === qid) instantiateOverlay(qid);
     }
 
@@ -414,6 +557,20 @@
             host.innerHTML = `<div class="h-[62vh] overflow-y-auto">${imageChoiceHTML(q, s)}</div>`;
             return;
         }
+        if (q.type === 'emoji') {
+            host.innerHTML = `<div class="h-[62vh] overflow-y-auto border rounded-md bg-gray-50">${emojiHTML(q, s)}</div>`;
+            return;
+        }
+        if (q.type === 'matrix') {
+            host.innerHTML = `<div class="h-[62vh] overflow-y-auto p-1">${matrixHTML(q, s)}</div>`;
+            return;
+        }
+        if (q.type === 'scatter') {
+            host.innerHTML = `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`;
+            const cfg = scatterConfig(q, s);
+            initChart('ov-cv', cfg.type, cfg.data, cfg.options);
+            return;
+        }
         const isCloud = (q.type === 'word_cloud');
         host.innerHTML = captionFor(q, s) + (isCloud
             ? `<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>`
@@ -459,13 +616,15 @@
         renderView();
     }
     // A live total tells the presenter at a glance that responses are landing.
+    // Shown on the join screen and in the results sidebar — keep both in sync.
     function updateJoinCount() {
-        const el = document.getElementById('join-count');
-        if (!el) return;
+        const els = document.querySelectorAll('.join-count');
+        if (!els.length) return;
         const total = Object.values(stats).reduce((n, s) => n + ((s && s.total_responses) || 0), 0);
-        el.textContent = total === 0
+        const text = total === 0
             ? 'Waiting for responses…'
             : `${total} response${total === 1 ? '' : 's'} so far`;
+        els.forEach(el => { el.textContent = text; });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -473,6 +632,8 @@
             document.getElementById('join-continue').addEventListener('click', hideJoin);
             const openJoin = document.getElementById('open-join');
             if (openJoin) openJoin.addEventListener('click', showJoin);
+            const sideJoin = document.getElementById('side-join');
+            if (sideJoin) sideJoin.addEventListener('click', showJoin);
             document.getElementById('join-fullscreen').addEventListener('click', () => {
                 if (document.fullscreenElement) document.exitFullscreen();
                 else document.documentElement.requestFullscreen().catch(() => {});

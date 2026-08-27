@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClassPulse User Guide</title>
-    <meta name="description" content="How to run real-time interactive sessions with ClassPulse: create sessions, use all nine question types, present live, read results, and let your audience propose questions.">
+    <meta name="description" content="How to run real-time interactive sessions with ClassPulse: create sessions, use all twelve question types, present live, read results, and let your audience propose questions.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* --- Brand system, mirrored from the ClassPulse app (landing/auth) so the
@@ -228,6 +228,21 @@
                         <p>Vote between images — design critiques, “which looks right?”, spot the difference. Results display the images with live tallies.</p>
                         <div class="cfg">Upload images, or paste one <code>Label|https://image-url</code> per line. At least two.</div>
                     </div>
+                    <div class="card">
+                        <h3><span class="chip">Emoji Poll</span></h3>
+                        <p>Answer with a single emoji — instant mood checks and reactions. Results grow each glyph with its share of the vote.</p>
+                        <div class="cfg">Pick a preset (mood, reactions, traffic light…) or type your own set of 2–12 emojis.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Grid / Matrix</span></h3>
+                        <p>Tap one cell of a labelled grid. A 2×2 “Likelihood × Impact” grid is a classic risk matrix; bigger grids work as heatmaps.</p>
+                        <div class="cfg">Grid size 2×2 up to 4×4, optional axis and end labels.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Scatter Plot</span></h3>
+                        <p>Drop a point anywhere on a labelled plane — predictions, estimates, “where do you stand?” Results plot every respondent's dot live.</p>
+                        <div class="cfg">Optional axis labels, plus optional colour and size dimensions for the respondent to pick.</div>
+                    </div>
                 </div>
 
                 <div class="callout">
@@ -242,7 +257,8 @@
 
                 <p>From an active session, click <em>Present</em>. You get:</p>
                 <ul>
-                    <li>A <strong>join QR code</strong> on screen so latecomers can jump in without interrupting.</li>
+                    <li>A <strong>full-screen join page</strong> (QR code and session code) to open with — press <span class="kbd">space</span> to flip between it and the results.</li>
+                    <li>A <strong>slim join panel beside the results</strong>, so latecomers can still scan while you present.</li>
                     <li><strong>One question at a time</strong>, with its live chart, word cloud, or image tallies.</li>
                     <li>An <strong>overview grid</strong> of every question — click any card to enlarge it.</li>
                     <li><strong>Move between questions</strong> with the on-screen <em>← Prev</em> / <em>Next →</em> buttons or the <span class="kbd">←</span> <span class="kbd">→</span> arrow keys.</li>
@@ -261,6 +277,9 @@
                     <li><strong>Rating</strong> shows the spread across the star scale.</li>
                     <li><strong>Word cloud</strong> and <strong>short answer</strong> show the text — as a cloud or a list.</li>
                     <li><strong>Image choice</strong> shows each image with its live vote tally.</li>
+                    <li><strong>Emoji</strong> sizes each glyph by its share of the vote, with counts and percentages.</li>
+                    <li><strong>Grid / matrix</strong> shades the cells as a heatmap — hot cells are where the room clustered.</li>
+                    <li><strong>Scatter</strong> plots every respondent's dot; colour and size carry the extra dimensions if enabled.</li>
                 </ul>
 
                 <h3>Exporting to CSV</h3>

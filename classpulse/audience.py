@@ -17,6 +17,7 @@ from .extensions import limiter
 from .extensions import db
 from .models import Question, Response, Session
 from .models import utcnow_iso
+from .questions import SCATTER_COLORS, SCATTER_SIZES, response_display_label
 from .sockets import broadcast_results
 from .utils import normalize_session_code, session_code_match
 
@@ -146,6 +147,55 @@ def _extract_response_value(question):
             return None, "Please choose one of the listed images."
         return chosen, None
 
+    if q_type == 'emoji':
+        emojis = _question_options(question)
+        if not isinstance(emojis, list):
+            emojis = []
+        chosen = request.form.get(field)
+        if chosen is None:
+            return None, "No response value submitted."
+        if chosen not in emojis:
+            return None, "Please choose one of the listed emojis."
+        return chosen, None
+
+    if q_type == 'matrix':
+        cfg = _question_options(question)
+        if not isinstance(cfg, dict):
+            cfg = {}
+        try:
+            cols = int(cfg.get('cols', 2))
+            rows = int(cfg.get('rows', 2))
+            col, row = (int(v) for v in str(request.form.get(field) or '').split(','))
+        except (ValueError, TypeError):
+            return None, "Please tap a cell in the grid."
+        if not (1 <= col <= cols and 1 <= row <= rows):
+            return None, "That cell is outside the grid."
+        return f"{col},{row}", None
+
+    if q_type == 'scatter':
+        cfg = _question_options(question)
+        if not isinstance(cfg, dict):
+            cfg = {}
+        try:
+            x = float(request.form.get(f'{field}-x'))
+            y = float(request.form.get(f'{field}-y'))
+        except (TypeError, ValueError):
+            return None, "Please tap the plot to place your point."
+        if not (0 <= x <= 100 and 0 <= y <= 100):
+            return None, "Your point is outside the plot."
+        point = {"x": round(x, 1), "y": round(y, 1)}
+        if cfg.get('allow_color'):
+            c = str(request.form.get(f'{field}-color') or '')
+            if c not in SCATTER_COLORS:
+                return None, "Please pick a colour."
+            point["c"] = c
+        if cfg.get('allow_size'):
+            s = str(request.form.get(f'{field}-size') or '')
+            if s not in SCATTER_SIZES:
+                return None, "Please pick a size."
+            point["s"] = s
+        return json.dumps(point, separators=(',', ':')), None
+
     # word_cloud, short_answer: free text with length caps.
     raw = request.form.get(field)
     if raw is None:
@@ -224,12 +274,19 @@ def init_app(app):
         previous_responses_db = Response.query.filter_by(
             session_id=current_session.id, respondent_id=respondent_id).all()
         previous_responses = {r.question_id: r.response_value for r in previous_responses_db}
+        # Raw stored values like "2,1" or scatter JSON mean nothing to a human;
+        # precompute friendly labels for the "you chose …" status lines.
+        previous_labels = {q.id: response_display_label(q.type, previous_responses.get(q.id))
+                           for q in active_questions if q.id in previous_responses}
 
         return _with_respondent_cookie(
             make_response(render_template('audience_view.html',
                                           current_session=current_session,
                                           questions=active_questions,
                                           active_question_ids=[q.id for q in active_questions],
+                                          previous_labels=previous_labels,
+                                          scatter_colors=SCATTER_COLORS,
+                                          scatter_sizes=SCATTER_SIZES,
                                           previous_responses=previous_responses)),
             respondent_id)
 
@@ -290,6 +347,7 @@ def init_app(app):
                 "success": True,
                 "message": "Your response was submitted!",
                 "response_value": response_value,
+                "response_label": response_display_label(question.type, response_value),
             })
         flash("Your response was submitted!", "success")
         return redirect(url_for('audience_view', code=question.session.code))

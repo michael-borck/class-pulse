@@ -129,7 +129,18 @@ const TYPES = {
     ranking:'Ranking',
     numeric:'Numeric',
     image_choice:'Image Choice',
-    multiple_choice_other:'Poll w/ Other'
+    multiple_choice_other:'Poll w/ Other',
+    emoji:'Emoji Poll',
+    matrix:'Grid / Matrix',
+    scatter:'Scatter Plot'
+};
+// Sane starting points for emoji polls; the list stays editable after picking.
+const EMOJI_PRESETS = {
+    'Mood scale': '😀 🙂 😐 🙁 😢',
+    'Reactions': '❤️ 😂 😮 😢 😡',
+    'Agree / Disagree': '👍 🤷 👎',
+    'Traffic light': '🟢 🟡 🔴',
+    'Confidence': '💪 🙂 😬 😰'
 };
 const esc = s => { const d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; };
 const AI_ENABLED = {{ ai_enabled|tojson }};
@@ -144,7 +155,10 @@ const CHIPS = {
     ranking: ['Reduce to 3 items', 'Make items more distinct', 'Reorder by importance'],
     numeric: ['Change the range', 'Make it a 0–10 scale', 'Make it a 0–100 scale'],
     image_choice: ['Use clearer images', 'Reduce to 2 images', 'Add a 4th image'],
-    multiple_choice_other: ["Add an 'Other' option", 'Make options more distinct', 'Add a 5th option']
+    multiple_choice_other: ["Add an 'Other' option", 'Make options more distinct', 'Add a 5th option'],
+    emoji: ['Switch to a mood scale', 'Use traffic-light emojis', 'Fewer choices'],
+    matrix: ['Make it a risk matrix', 'Switch to a 2×3 grid', 'Clarify the axis labels'],
+    scatter: ['Frame it as a prediction', 'Clarify the axis labels', 'Suggest what colour/size mean']
 };
 let edSelectedChip = '';
 let edSnapshot = null;
@@ -229,6 +243,9 @@ function summary(q) {
         return `${(q.options||[]).length} options`;
     if (t === 'ranking') return `${(q.options||[]).length} items`;
     if (t === 'image_choice') return `${(q.options||[]).length} images`;
+    if (t === 'emoji') return `${(q.options||[]).length} emojis`;
+    if (t === 'matrix') { const o = q.options || {}; return `${o.cols||2}×${o.rows||2} grid`; }
+    if (t === 'scatter') return 'scatter plot';
     if (t === 'rating') return `1–${q.max_rating} scale`;
     if (t === 'numeric') return 'numeric';
     if (t === 'short_answer') return 'short answer';
@@ -308,6 +325,14 @@ let editor = { mode: null, id: null };
 const modal = document.getElementById('modal');
 document.getElementById('modal-close').addEventListener('click', closeEditor);
 modal.addEventListener('click', e => { if (e.target === modal) closeEditor(); });
+// Delegated: the emoji preset picker is re-rendered with the editor body, so a
+// listener attached to it directly would die on every type switch.
+modal.addEventListener('change', e => {
+    if (e.target.id === 'ed-emoji-preset' && e.target.value) {
+        const o = document.getElementById('ed-options');
+        if (o) o.value = e.target.value;
+    }
+});
 
 function typeFields(type, q) {
     const LIST = ['multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other'];
@@ -339,6 +364,58 @@ function typeFields(type, q) {
             <div><label class="block text-sm font-medium text-gray-700">Step</label>
             <input id="ed-step" type="number" step="any" value="${o.step != null ? o.step : ''}" placeholder="(any)" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
         </div>`;
+    }
+    if (type === 'emoji') {
+        const v = (q && q.type === 'emoji') ? esc((q.options||[]).join(' ')) : EMOJI_PRESETS['Mood scale'];
+        return `<label class="block text-sm font-medium text-gray-700 mt-3">Start from a preset</label>
+        <select id="ed-emoji-preset" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+            <option value="">Custom set…</option>
+            ${Object.entries(EMOJI_PRESETS).map(([k, val]) => `<option value="${esc(val)}">${esc(k)} — ${esc(val)}</option>`).join('')}
+        </select>
+        <label class="block text-sm font-medium text-gray-700 mt-3">Emojis (space-separated, 2–12)</label>
+        <textarea id="ed-options" rows="2" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-lg">${v}</textarea>`;
+    }
+    if (type === 'matrix') {
+        const o = (q && q.type === 'matrix') ? (q.options || {}) : {};
+        const txt = (id, label, val, ph) => `<div><label class="block text-xs font-medium text-gray-500">${label}</label>
+            <input id="${id}" type="text" maxlength="60" value="${esc(val || '')}" placeholder="${ph}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>`;
+        return `<div class="grid grid-cols-2 gap-3 mt-3">
+            <div><label class="block text-sm font-medium text-gray-700">Columns (2–4)</label>
+            <input id="ed-cols" type="number" min="2" max="4" value="${o.cols || 2}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
+            <div><label class="block text-sm font-medium text-gray-700">Rows (2–4)</label>
+            <input id="ed-rows" type="number" min="2" max="4" value="${o.rows || 2}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            ${txt('ed-x-label', 'Horizontal axis label', o.x_label, 'e.g. Impact')}
+            ${txt('ed-y-label', 'Vertical axis label', o.y_label, 'e.g. Likelihood')}
+        </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            ${txt('ed-x-low', 'Left end (optional)', o.x_low, 'Low')}
+            ${txt('ed-x-high', 'Right end (optional)', o.x_high, 'High')}
+            ${txt('ed-y-low', 'Bottom end (optional)', o.y_low, 'Low')}
+            ${txt('ed-y-high', 'Top end (optional)', o.y_high, 'High')}
+        </div>
+        <p class="text-xs text-gray-400 mt-2">The audience taps one cell; results show as a heatmap. A 2×2 with “Likelihood × Impact” axes is a classic risk matrix.</p>`;
+    }
+    if (type === 'scatter') {
+        const o = (q && q.type === 'scatter') ? (q.options || {}) : {};
+        const txt = (id, label, val, ph) => `<div><label class="block text-xs font-medium text-gray-500">${label}</label>
+            <input id="${id}" type="text" maxlength="60" value="${esc(val || '')}" placeholder="${ph}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>`;
+        return `<div class="grid grid-cols-2 gap-3 mt-3">
+            ${txt('ed-x-label', 'Horizontal axis label', o.x_label, 'e.g. Price')}
+            ${txt('ed-y-label', 'Vertical axis label', o.y_label, 'e.g. Quality')}
+        </div>
+        <div class="mt-3 space-y-2">
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" id="ed-allow-color" ${o.allow_color ? 'checked' : ''} class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                Add a colour dimension (respondent picks a colour too)
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" id="ed-allow-size" ${o.allow_size ? 'checked' : ''} class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                Add a size dimension (respondent picks small / medium / large)
+            </label>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">The audience taps anywhere on a 0–100 × 0–100 plot; results show as a live scatter plot.</p>`;
     }
     if (type === 'rating') return `<label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
         <input id="ed-max" type="number" min="2" max="10" value="${q && q.type==='rating' ? q.max_rating : 5}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">`;
@@ -428,13 +505,27 @@ function closeEditor() { modal.classList.add('hidden'); }
 function readForm() {
     const type = document.getElementById('ed-type').value;
     const body = { type, title: document.getElementById('ed-title').value.trim() };
-    if (['multiple_choice','multi_select','ranking','multiple_choice_other','image_choice'].includes(type)) {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other','image_choice','emoji'].includes(type)) {
         body.options = document.getElementById('ed-options').value;
     }
     if (type === 'rating') body.max_rating = parseInt(document.getElementById('ed-max').value, 10) || 5;
     if (type === 'numeric') {
         const num = id => { const e = document.getElementById(id); const x = e ? e.value.trim() : ''; return x === '' ? null : Number(x); };
         body.min = num('ed-min'); body.max = num('ed-max'); body.step = num('ed-step');
+    }
+    if (type === 'matrix') {
+        const num = id => { const e = document.getElementById(id); return e ? parseInt(e.value, 10) : null; };
+        const txt = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+        body.cols = num('ed-cols'); body.rows = num('ed-rows');
+        body.x_label = txt('ed-x-label'); body.y_label = txt('ed-y-label');
+        body.x_low = txt('ed-x-low'); body.x_high = txt('ed-x-high');
+        body.y_low = txt('ed-y-low'); body.y_high = txt('ed-y-high');
+    }
+    if (type === 'scatter') {
+        const txt = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+        const chk = id => { const e = document.getElementById(id); return !!(e && e.checked); };
+        body.x_label = txt('ed-x-label'); body.y_label = txt('ed-y-label');
+        body.allow_color = chk('ed-allow-color'); body.allow_size = chk('ed-allow-size');
     }
     return body;
 }

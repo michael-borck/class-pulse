@@ -15,7 +15,7 @@ from .auth import login_required
 from .extensions import db, limiter
 from .models import Question, Response, Session
 from .questions import (
-    parse_question_payload, question_to_dict, session_to_dict
+    SCATTER_COLORS, parse_question_payload, question_to_dict, session_to_dict
 )
 from .sockets import broadcast_questions_changed
 from .utils import create_qr_code_data, csv_safe, generate_session_code
@@ -123,6 +123,7 @@ def init_app(app):
                                join_url=join_url,
                                manual_join_url=manual_join_url,
                                qr_code_data_url=qr_code_data_url,
+                               scatter_colors=SCATTER_COLORS,
                                mode='present')
 
     @app.route('/sessions/<int:session_id>/results')
@@ -149,7 +150,8 @@ def init_app(app):
         if question.session.user_id != session['user_id']:
             abort(403)
         stats = get_question_stats(question_id)
-        return render_template('question_results.html', question=question, stats=stats)
+        return render_template('question_results.html', question=question, stats=stats,
+                               scatter_colors=SCATTER_COLORS)
 
     # --- Exports ---
 

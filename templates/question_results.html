@@ -79,6 +79,65 @@
             </div>
         {% endfor %}
         </div>
+    {% elif stats.type == 'emoji' %}
+        {# Static snapshot of the sized-emoji view used in present mode. #}
+        <h4 class="text-lg font-semibold mb-2">Emoji Poll Results</h4>
+        {% set total = stats.total_responses or 0 %}
+        {% set ns = namespace(max=0) %}
+        {% for em in stats.options %}
+            {% set c = stats.results.get(em, 0) %}
+            {% if c > ns.max %}{% set ns.max = c %}{% endif %}
+        {% endfor %}
+        <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 p-4 border rounded-md bg-gray-50 min-h-40">
+        {% for em in stats.options %}
+            {% set c = stats.results.get(em, 0) %}
+            {% set pct = ((c / total * 100) | round | int) if total else 0 %}
+            {% set size = 2 + (c / ns.max * 3 if ns.max else 0) %}
+            <div class="flex flex-col items-center gap-1">
+                <span style="font-size: {{ '%.2f' | format(size) }}rem; line-height: 1.1;">{{ em }}</span>
+                <span class="text-sm font-semibold {{ 'text-indigo-700' if c > 0 and c == ns.max else 'text-gray-500' }}">{{ c }} ({{ pct }}%)</span>
+            </div>
+        {% endfor %}
+        </div>
+    {% elif stats.type == 'matrix' %}
+        {# Same orientation as the audience grid and the present-mode heatmap. #}
+        <h4 class="text-lg font-semibold mb-2">Grid Results</h4>
+        {% set grid = stats.grid %}
+        {% set ns = namespace(max=0) %}
+        {% for v in stats.results.values() %}{% if v > ns.max %}{% set ns.max = v %}{% endif %}{% endfor %}
+        {% if grid.get('x_label') or grid.get('x_low') or grid.get('x_high') %}
+        <div class="flex justify-between items-baseline text-xs text-gray-500 mb-1 gap-2">
+            <span>{{ grid.get('x_low', '') }}</span>
+            <span class="font-semibold text-gray-700 text-center">{{ grid.get('x_label', '') }}</span>
+            <span>{{ grid.get('x_high', '') }}</span>
+        </div>
+        {% endif %}
+        <div class="flex gap-2 items-stretch">
+            {% if grid.get('y_label') or grid.get('y_low') or grid.get('y_high') %}
+            <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 w-6 shrink-0">
+                <span class="text-center">{{ grid.get('y_high', '') }}</span>
+                <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ grid.get('y_label', '') }}</span>
+                <span class="text-center">{{ grid.get('y_low', '') }}</span>
+            </div>
+            {% endif %}
+            <div class="grid gap-1.5 flex-grow" style="grid-template-columns: repeat({{ grid.cols }}, minmax(0, 1fr));">
+            {% for r in range(1, grid.rows + 1) %}
+                {% for c in range(1, grid.cols + 1) %}
+                {% set n = stats.results.get(c ~ ',' ~ r, 0) %}
+                {% set strength = (n / ns.max) if ns.max else 0 %}
+                <div class="rounded-md border border-gray-200 {{ '' if n else 'bg-gray-50' }} min-h-16 md:min-h-24 flex items-center justify-center"
+                     {% if n %}style="background-color: rgba(79,70,229,{{ 0.15 + 0.85 * strength }});"{% endif %}>
+                    <span class="text-xl md:text-3xl font-bold {{ 'text-white' if strength > 0.45 else 'text-gray-700' }}">{{ n or '' }}</span>
+                </div>
+                {% endfor %}
+            {% endfor %}
+            </div>
+        </div>
+    {% elif stats.type == 'scatter' %}
+        <h4 class="text-lg font-semibold mb-2">Scatter Plot Results</h4>
+        <div class="h-64 md:h-96 relative">
+            <canvas id="chart-scatter-{{ question.id }}"></canvas>
+        </div>
     {% else %}
         <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
     {% endif %}
@@ -164,6 +223,31 @@
             initChart(canvasId, 'bar', chartData, horizontalBarChartOptions); // Use horizontal options
         } else if (statsData.type === 'word_cloud' && statsData.results) {
             initWordCloud(`wordcloud-${questionId}`, statsData.results);
+        } else if (statsData.type === 'scatter') {
+            const SCATTER_COLORS = {{ (scatter_colors or {}) | tojson }};
+            const SCATTER_RADII = { sm: 4, md: 7, lg: 11 };
+            const cfg = statsData.config || {};
+            initChart(`chart-scatter-${questionId}`, 'scatter', {
+                datasets: [{
+                    label: 'Responses',
+                    data: statsData.points || [],
+                    pointRadius: (ctx) => SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7,
+                    pointHoverRadius: (ctx) => (SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7) + 2,
+                    pointBackgroundColor: (ctx) => SCATTER_COLORS[(ctx.raw && ctx.raw.c)] || 'rgba(79,70,229,0.7)',
+                }]
+            }, {
+                ...chartOptions,
+                scales: {
+                    x: { min: 0, max: 100, title: { display: !!cfg.x_label, text: cfg.x_label || '' } },
+                    y: { min: 0, max: 100, title: { display: !!cfg.y_label, text: cfg.y_label || '' } },
+                },
+                plugins: { legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => {
+                        const p = ctx.raw || {};
+                        const extras = [p.c, p.s].filter(Boolean).join(', ');
+                        return ` (${Math.round(p.x)}, ${Math.round(p.y)})${extras ? ' — ' + extras : ''}`;
+                    } } } },
+            });
         } else if (statsData.type === 'short_answer') {
             const saItems = Array.isArray(statsData.results) ? statsData.results : [];
             const saList = document.getElementById('sa-list');

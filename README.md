@@ -31,6 +31,9 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 - **Word Cloud**: Generate word clouds from free-text responses
 - **Image Choice**: Compare images (uploaded or linked) and vote — results show the images with live tallies
 - **Poll w/ Other**: Multiple choice plus a free-text "Other" option
+- **Emoji Poll**: Answer with a single emoji from a presenter-chosen set (presets included) — results size each glyph by its share of the vote
+- **Grid / Matrix**: Tap one cell of a labelled grid (2×2 up to 4×4) — results show as a heatmap; a 2×2 "Likelihood × Impact" grid is a classic risk matrix
+- **Scatter Plot**: Drop a point anywhere on a 0–100 × 0–100 plane, with optional colour and size dimensions — results plot every respondent's dot live
 
 ## Setup
 
