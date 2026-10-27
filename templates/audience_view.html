@@ -400,22 +400,28 @@
         }
     });
 
+    // A form is "dirty" from the first edit until it's submitted successfully.
+    // Tracking edits (rather than inspecting field types) covers every input
+    // kind: textareas, numbers, checkboxes, ranking selects and scatter taps.
+    document.querySelectorAll('form[data-question-id]').forEach(form => {
+        const markDirty = () => { form.dataset.dirty = 'true'; };
+        form.addEventListener('input', markDirty);
+        form.addEventListener('change', markDirty);
+    });
+
     // True if the user has typed/selected something that has not been submitted yet.
     function hasUnsavedInput() {
-        return [...document.querySelectorAll('form[data-question-id]')].some(form => {
-            if (form.dataset.answered === 'true') return false;
-            const text = form.querySelector('input[type="text"]');
-            if (text && text.value.trim()) return true;
-            if (form.querySelector('input[type="radio"]:checked')) return true;
-            return false;
-        });
+        return [...document.querySelectorAll('form[data-question-id]')]
+            .some(form => form.dataset.dirty === 'true');
     }
 
     socket.on('questions_changed', (data) => {
         if (data.session_id !== sessionId) return;
         const incoming = (data.active_question_ids || []).slice().sort().join(',');
         const current = activeIds.slice().sort().join(',');
-        if (data.session_active === false || incoming !== current) {
+        // An edit keeps the same id set but may change the question's options.
+        const editedHere = activeIds.includes(data.edited_question_id);
+        if (data.session_active === false || incoming !== current || editedHere) {
             // Don't blow away in-progress answers; offer a refresh instead.
             if (hasUnsavedInput()) {
                 document.getElementById('refresh-banner').classList.remove('hidden');
@@ -513,6 +519,7 @@
 
                 if (response.ok && data.success) {
                     form.dataset.answered = 'true';
+                    form.dataset.dirty = 'false';
                     status.className = 'response-status mt-2 text-sm font-medium text-green-600';
                     const label = data.response_label || data.response_value;
                     const chose = label ? ' (you chose “' + label + '”)' : '';

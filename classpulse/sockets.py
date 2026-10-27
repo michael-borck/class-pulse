@@ -49,22 +49,24 @@ def broadcast_proposals_changed(session_id: int):
                   room=f'session_{session_id}')
 
 
-def broadcast_questions_changed(session_id: int):
+def broadcast_questions_changed(session_id: int, edited_question_id: int = None):
     """Notify audience members in a session room that the set of active
     questions (or the session's own active state) has changed, so their page
-    can update live instead of requiring a manual refresh."""
+    can update live instead of requiring a manual refresh.
+
+    An edit leaves the active-id set unchanged, so `edited_question_id` names
+    the question whose title/options changed; clients showing it reload it."""
     s = db.session.get(Session, session_id)
     active_ids = [q.id for q in s.questions if q.active] if s else []
     session_active = bool(s and s.is_live)
-    socketio.emit(
-        'questions_changed',
-        {
-            'session_id': session_id,
-            'active_question_ids': active_ids,
-            'session_active': session_active,
-        },
-        room=f'session_{session_id}',
-    )
+    payload = {
+        'session_id': session_id,
+        'active_question_ids': active_ids,
+        'session_active': session_active,
+    }
+    if edited_question_id is not None:
+        payload['edited_question_id'] = edited_question_id
+    socketio.emit('questions_changed', payload, room=f'session_{session_id}')
     current_app.logger.debug(f"Emitted questions_changed for room session_{session_id}")
 
 

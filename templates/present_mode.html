@@ -167,7 +167,9 @@
         if (MODE !== 'present' || d.session_id !== SESSION_ID) return;
         const incoming = (d.active_question_ids || []).slice().sort().join(',');
         const current = QUESTIONS.map(q => q.id).slice().sort().join(',');
-        if (incoming === current) return;
+        // An edit keeps the same id set but may change a question's options.
+        const edited = QUESTIONS.some(q => q.id === d.edited_question_id) ? d.edited_question_id : null;
+        if (incoming === current && edited === null) return;
         if (!document.getElementById('present-content')) {
             // Page rendered the "no active questions" empty state — rebuild it.
             window.location.reload();
@@ -186,9 +188,12 @@
         focusIdx = Math.min(focusIdx, Math.max(0, QUESTIONS.length - 1));
         if (overlayQid !== null && !QUESTIONS.some(q => q.id === overlayQid)) closeOverlay();
         added.forEach(q => socket.emit('join', { question_id: q.id }));
+        // Re-joining an edited question's room makes the server resend its
+        // stats, which carry the new option list.
+        if (edited !== null) socket.emit('join', { question_id: edited });
         renderView();
         if (added.length) toast(added.length === 1 ? `New question added: ${added[0].title}` : `${added.length} new questions added`);
-        else toast('Question list updated');
+        else toast(edited !== null ? 'Question updated' : 'Question list updated');
     });
 
     // --- Result hosts ---

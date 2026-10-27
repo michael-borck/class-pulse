@@ -344,12 +344,16 @@ def init_app(app):
         if structural and Response.query.filter_by(question_id=q.id).count() > 0:
             q.title = title
             db.session.commit()
+            broadcast_questions_changed(q.session_id, edited_question_id=q.id)
             return jsonify({"success": False, "partial": True,
                             "message": "Saved the title. Options/type can't change once "
                                        "responses exist — duplicate the question instead.",
                             "question": question_to_dict(q)})
         q.type, q.title, q.options = q_type, title, json.dumps(opts)
         db.session.commit()
+        # The active-id set is unchanged, so name the edited question; open
+        # audience pages and Present reload it rather than keep stale options.
+        broadcast_questions_changed(q.session_id, edited_question_id=q.id)
         return jsonify({"success": True, "question": question_to_dict(q)})
 
     @app.route('/api/questions/<int:question_id>/duplicate', methods=['POST'])
@@ -365,6 +369,7 @@ def init_app(app):
                      options=q.options, active=True, order=next_order)
         db.session.add(c)
         db.session.commit()
+        broadcast_questions_changed(q.session_id)  # the copy starts active
         return jsonify({"success": True, "question": question_to_dict(c)})
 
     @app.route('/api/questions/<int:question_id>/delete', methods=['POST'])

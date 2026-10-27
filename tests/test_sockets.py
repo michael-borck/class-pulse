@@ -138,3 +138,17 @@ def test_garbage_join_payloads_ignored(app, client):
     ws.emit('join', ['not', 'a', 'dict'])
     ws.emit('join_session', 'nope')
     assert ws.is_connected()
+
+
+def test_editing_a_question_notifies_the_session_room(app, client):
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice, active=True)
+    qid = create_question(app, sid)
+    login(client, 'alice')
+    ws = socketio.test_client(app, flask_test_client=client)
+    ws.emit('join_session', {'session_id': sid})
+    ws.get_received()
+    client.post(f'/api/questions/{qid}/edit',
+                json={'type': 'multiple_choice', 'title': 'Pick one', 'options': 'Red\nBlue'})
+    events = [r for r in ws.get_received() if r['name'] == 'questions_changed']
+    assert events and events[0]['args'][0]['edited_question_id'] == qid
