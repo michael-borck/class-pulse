@@ -71,7 +71,7 @@
         </div>
     </footer>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
         // Chart.js Initialization
         function initChart(canvasId, chartType, chartData, chartOptions) {
             const ctx = document.getElementById(canvasId);
@@ -213,6 +213,13 @@
                     });
             }
         }
+
+        // <form data-confirm="..."> asks before submitting. Inline onsubmit=
+        // handlers would be blocked by the CSP, which only runs nonce'd scripts.
+        document.addEventListener('submit', (e) => {
+            const msg = e.target.dataset && e.target.dataset.confirm;
+            if (msg && !confirm(msg)) e.preventDefault();
+        });
 
         // Add event listeners to action buttons after DOM loads
         document.addEventListener('DOMContentLoaded', () => {

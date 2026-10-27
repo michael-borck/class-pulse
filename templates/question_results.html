@@ -69,7 +69,7 @@
 {# Static snapshot (no live socket here); drawn by the same renderers as
    Present mode, so both pages show the same picture. #}
 <script src="{{ url_for('static', filename='js/results.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}">
     document.addEventListener('DOMContentLoaded', () => {
         const R = window.CPResults;
         const statsData = {{ stats | tojson }};

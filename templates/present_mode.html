@@ -123,7 +123,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/results.js') }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}">
     const QUESTIONS = [
         {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
         {% endfor %}

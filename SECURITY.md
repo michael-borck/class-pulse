@@ -30,6 +30,7 @@ Copy `.env.example` to `.env` and set at least:
 - **The session code is the audience credential** — opening a session's page with its code records the join in the signed session cookie, and the answer, proposal and socket endpoints require it. Guessing sequential question/session IDs isn't enough to post answers or listen in.
 - **Live-result snooping** — Socket.IO question rooms (live results, including verbatim short answers) are owner-only. Session rooms ("the question list changed" nudges) admit the owner and audience members who joined with the code. Socket events skip `before_request`, so the owner check re-validates the login itself: a cookie revoked by a password reset, or belonging to a blocked account, is refused.
 - **CSV formula injection** — exported response values are prefix-escaped so `=`/`+`/`-`/`@` cells don't execute in Excel/Sheets.
+- **Script injection** — the CSP's `script-src` allows same-origin files and inline scripts carrying a per-request nonce; inline event handlers and injected `<script>` tags don't run.
 - **Headers** — `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` on every response; `Strict-Transport-Security` when `SESSION_COOKIE_SECURE=true`.
 - **Cookies** — `HttpOnly`, `SameSite=Lax`, and `Secure` (opt-in) on session and respondent cookies.
 - **Audience proposals (cohort mode)** — off by default per session. Proposals from anonymous audience members are validated like presenter questions (types restricted further: no image URLs), capped at 5 per respondent per session, rate-limited, and moderated: a built-in keyword/leetspeak blocklist (extend via `instance/moderation_keywords.txt`, one term per line) plus an optional LLM check when AI is configured. Anything flagged — including when the AI provider errors — is hidden from the public list until the presenter approves or rejects it; nothing is auto-published on filter failure.
@@ -55,9 +56,9 @@ Copy `.env.example` to `.env` and set at least:
   cookie, so a participant can clear it to submit again. This is acceptable for
   formative polling but means response counts are **not** a trustworthy tally for
   anything graded.
-- **The CSP allows inline scripts** (`'unsafe-inline'`), because page scripts are
-  currently inline. It still restricts sources for scripts, connections, and
-  objects. Moving to nonce-based CSP would require externalising page scripts.
+- **Inline styles are allowed** (`style-src 'unsafe-inline'`), because templates
+  use `style=""` attributes. Styles can't run script; scripts themselves are
+  nonce-only (see Headers above).
 - **Image-choice questions load presenter-supplied image URLs** (`img-src https:`).
   Presenters are trusted users, but a malicious presenter could point images at a
   tracking endpoint.

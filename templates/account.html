@@ -42,7 +42,7 @@
         </p>
         {% endif %}
         <form action="{{ url_for('account_delete') }}" method="post"
-              onsubmit="return confirm('Permanently delete your account and everything in it? This cannot be undone.');">
+              data-confirm="Permanently delete your account and everything in it? This cannot be undone.">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label for="password" class="block text-sm font-medium text-gray-700">Confirm your password</label>
             <input type="password" id="password" name="password" required autocomplete="current-password"

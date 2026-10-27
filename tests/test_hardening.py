@@ -143,3 +143,27 @@ def test_additive_migration_ddl_is_postgres_safe():
     from classpulse import _ADDITIVE_COLUMNS
     ddl = {(t, c): d for t, c, d in _ADDITIVE_COLUMNS}
     assert ddl[('session', 'allow_proposals')].endswith('DEFAULT FALSE')
+
+
+def test_csp_scripts_need_the_request_nonce(app, client):
+    import re
+    resp = client.get('/join')
+    csp = resp.headers['Content-Security-Policy']
+    script_src = next(d for d in csp.split(';') if d.strip().startswith('script-src'))
+    assert "'unsafe-inline'" not in script_src
+    nonce = re.search(r"'nonce-([^']+)'", script_src).group(1)
+    tags = re.findall(rb'<script(?![^>]*\bsrc=)[^>]*>', resp.data)
+    assert tags and all(f'nonce="{nonce}"'.encode() in t for t in tags)
+    # A fresh nonce every request.
+    assert nonce not in client.get('/join').headers['Content-Security-Policy']
+
+
+def test_no_inline_event_handlers_in_templates():
+    # The CSP blocks onclick= and friends, so they'd silently do nothing.
+    import pathlib
+    import re
+    root = pathlib.Path(__file__).resolve().parent.parent / 'templates'
+    pages = [p for p in root.glob('*.html') if not p.name.startswith('._')]  # macOS metadata
+    offenders = [f'{p.name}: {m.group(0)}' for p in pages
+                 for m in re.finditer(r'\son[a-z]+\s*=\s*["\']', p.read_text(encoding='utf-8'))]
+    assert not offenders, offenders

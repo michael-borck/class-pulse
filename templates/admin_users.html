@@ -63,7 +63,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
     // Permanent user deletion. Kept out of the shared action-button handler
     // (whose delete branch is unreachable) so the confirm + reload are explicit.
     document.querySelectorAll('.user-delete-button').forEach(function (btn) {

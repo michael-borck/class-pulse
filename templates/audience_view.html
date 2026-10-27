@@ -14,7 +14,7 @@
 {# Banner shown when the presenter changes questions while the user has unsaved input #}
 <div id="refresh-banner" class="hidden flash-message flash-info flex items-center justify-between">
     <span>The presenter updated the questions.</span>
-    <button type="button" onclick="window.location.reload()"
+    <button type="button" id="refresh-now"
             class="action-button bg-brand-gradient">Show new questions</button>
 </div>
 
@@ -378,7 +378,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
     const socket = io();
     const sessionId = {{ current_session.id }};
     const activeIds = {{ active_question_ids | tojson }};
@@ -399,6 +399,8 @@
             ind.innerHTML = '<span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-2"></span>Reconnecting&hellip;';
         }
     });
+
+    document.getElementById('refresh-now').addEventListener('click', () => window.location.reload());
 
     // A form is "dirty" from the first edit until it's submitted successfully.
     // Tracking edits (rather than inspecting field types) covers every input

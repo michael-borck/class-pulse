@@ -116,7 +116,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const SID = {{ selected.id if selected else 'null' }};
 let questions = {{ (selected.questions if selected else []) | tojson }};

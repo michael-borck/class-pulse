@@ -175,9 +175,19 @@ def create_app(test_config: dict = None) -> Flask:
     app.jinja_env.filters['format_datetime'] = format_datetime_filter
     app.jinja_env.filters['fromjson'] = fromjson_filter
 
+    def _csp_nonce() -> str:
+        # One random nonce per request. Every inline <script> carries it as
+        # nonce="{{ csp_nonce }}", and the CSP allows only scripts with it, so
+        # markup injected into a page can't run script even if it slips past
+        # escaping.
+        if 'csp_nonce' not in g:
+            g.csp_nonce = secrets.token_urlsafe(18)
+        return g.csp_nonce
+
     @app.context_processor
     def inject_now():
-        return {'now': lambda: datetime.now(timezone.utc), 'app_version': APP_VERSION}
+        return {'now': lambda: datetime.now(timezone.utc), 'app_version': APP_VERSION,
+                'csp_nonce': _csp_nonce()}
 
     @app.before_request
     def enforce_body_limit():
@@ -221,10 +231,15 @@ def create_app(test_config: dict = None) -> Flask:
         return {'current_user': user, 'is_admin': is_admin, 'ai_enabled': ai.AI_ENABLED}
 
     # --- Security headers ---
+    # script-src allows same-origin files plus inline scripts bearing this
+    # request's nonce; inline event handlers (onclick=...) are blocked, so pages
+    # attach listeners in script instead. style-src keeps 'unsafe-inline'
+    # because templates use style="" attributes, which can't run script.
+    # A custom CONTENT_SECURITY_POLICY may use {nonce} to get the same nonce.
     csp = os.environ.get(
         'CONTENT_SECURITY_POLICY',
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'nonce-{nonce}'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data: https:; "
@@ -239,7 +254,8 @@ def create_app(test_config: dict = None) -> Flask:
         response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
         response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
         if csp:
-            response.headers.setdefault('Content-Security-Policy', csp)
+            response.headers.setdefault('Content-Security-Policy',
+                                        csp.replace('{nonce}', _csp_nonce()))
         if cookie_secure:
             response.headers.setdefault('Strict-Transport-Security',
                                         'max-age=31536000; includeSubDomains')
