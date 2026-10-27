@@ -180,7 +180,7 @@
             <!-- 3 -->
             <section class="doc" id="question-types">
                 <h2><span class="num">3</span>Question types</h2>
-                <p class="lead">Nine types, mixable within one session. Options are entered one per line unless noted.</p>
+                <p class="lead">Twelve types, mixable within one session. Options are entered one per line unless noted.</p>
 
                 <div class="qgrid">
                     <div class="card">
@@ -195,12 +195,12 @@
                     </div>
                     <div class="card">
                         <h3><span class="chip">Poll w/ Other</span></h3>
-                        <p>Multiple choice plus a free-text “Other” box for the option you didn't list.</p>
+                        <p>Multiple choice plus a free-text “Other” box for the option you didn't list. Results list the typed “Other” answers under the chart.</p>
                         <div class="cfg">At least two options.</div>
                     </div>
                     <div class="card">
                         <h3><span class="chip">Ranking</span></h3>
-                        <p>The audience drags a set of items into their preferred order. Results show the group's average ranking.</p>
+                        <p>The audience puts a set of items in order, best first, using the up/down arrows beside each one. Results show each item's score, best first: a longer bar means ranked higher.</p>
                         <div class="cfg">At least two items.</div>
                     </div>
                     <div class="card">
@@ -210,7 +210,7 @@
                     </div>
                     <div class="card">
                         <h3><span class="chip">Numeric</span></h3>
-                        <p>Collect a number. Results include the running average.</p>
+                        <p>Collect a number, decimals included. Results include the running average.</p>
                         <div class="cfg">Optional minimum, maximum, and step.</div>
                     </div>
                     <div class="card">
@@ -220,7 +220,7 @@
                     </div>
                     <div class="card">
                         <h3><span class="chip">Word Cloud</span></h3>
-                        <p>Free-text responses that build a word cloud in real time — great for warm-ups and sentiment.</p>
+                        <p>Short answers that build a word cloud in real time — great for warm-ups and sentiment. Each answer counts as a whole phrase, so “machine learning” stays together.</p>
                         <div class="cfg">No options to configure.</div>
                     </div>
                     <div class="card">
@@ -241,7 +241,7 @@
                     <div class="card">
                         <h3><span class="chip">Scatter Plot</span></h3>
                         <p>Drop a point anywhere on a labelled plane — predictions, estimates, “where do you stand?” Results plot every respondent's dot live.</p>
-                        <div class="cfg">Optional axis labels, plus optional colour and size dimensions for the respondent to pick.</div>
+                        <div class="cfg">Optional axis labels and end labels (“Cheap” … “Expensive”, shown instead of 0 and 100), quadrant lines, and colour and size dimensions for the respondent to pick.</div>
                     </div>
                 </div>
 
@@ -273,7 +273,8 @@
 
                 <h3>Reading results</h3>
                 <ul>
-                    <li><strong>Choice, select-all, ranking, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; ranking notes that a lower bar means ranked-better).</li>
+                    <li><strong>Choice, select-all, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; poll-with-other lists the typed “Other” answers).</li>
+                    <li><strong>Ranking</strong> shows each item's score, best first: a longer bar means ranked higher.</li>
                     <li><strong>Rating</strong> shows the spread across the star scale.</li>
                     <li><strong>Word cloud</strong> and <strong>short answer</strong> show the text — as a cloud or a list.</li>
                     <li><strong>Image choice</strong> shows each image with its live vote tally.</li>

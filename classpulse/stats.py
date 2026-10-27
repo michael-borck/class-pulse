@@ -37,6 +37,65 @@ def _word_counts(responses):
     return words
 
 
+def _phrase_counts(responses):
+    """Word-cloud tallies: each answer counts once, as a whole phrase.
+
+    Splitting on spaces turned "machine learning" into two unrelated words.
+    Answers are lower-cased with stray punctuation trimmed and runs of spaces
+    collapsed, so "Machine  learning!" and "machine learning" are one entry.
+    A lone stop word ("the") is dropped.
+    """
+    counts = {}
+    for resp in responses:
+        text = str(resp.response_value).lower()
+        kept = ''.join(ch if (ch.isalnum() or ch in " -'") else ' ' for ch in text)
+        phrase = ' '.join(kept.split()).strip(" -'")
+        if phrase and phrase not in STOP_WORDS:
+            counts[phrase] = counts.get(phrase, 0) + 1
+    return counts
+
+
+def _num_label(x):
+    return str(int(x)) if float(x).is_integer() else f"{x:.1f}".rstrip('0').rstrip('.')
+
+
+def _histogram(vals, lo, hi, step=None):
+    """Bucket counts between lo and hi. With a coarse step (at most 11 values,
+    e.g. a 1–10 slider) each value gets its own bar; otherwise ten even bins."""
+    if step and (hi - lo) / step <= 10:
+        keys, out = [], {}
+        n = int(round((hi - lo) / step))
+        for i in range(n + 1):
+            keys.append(lo + i * step)
+        for k in keys:
+            out[_num_label(k)] = 0
+        for v in vals:
+            nearest = min(keys, key=lambda k: abs(k - v))
+            out[_num_label(nearest)] += 1
+        return out
+    out = {}
+    width = (hi - lo) / 10
+    for i in range(10):
+        a, b = lo + i * width, lo + (i + 1) * width
+        out[f"{_num_label(a)}–{_num_label(b)}"] = sum(
+            1 for v in vals if a <= v < b or (i == 9 and v == b))
+    return out
+
+
+def _finite_floats(responses):
+    vals = []
+    for resp in responses:
+        try:
+            v = float(resp.response_value)
+        except (ValueError, TypeError):
+            continue
+        # Skip NaN/inf stored before the audience route rejected them: one
+        # would make the average NaN, which isn't valid JSON.
+        if math.isfinite(v):
+            vals.append(v)
+    return vals
+
+
 def _options_list(question):
     """The question's options as a list (choice-style types), or []."""
     parsed = parsed_options(question)
@@ -70,7 +129,8 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["options"] = options
 
     elif question.type == 'word_cloud':
-        stats["results"] = [{"text": w, "weight": c} for w, c in _word_counts(all_responses).items()]
+        stats["results"] = [{"text": w, "weight": c}
+                            for w, c in _phrase_counts(all_responses).items()]
 
     elif question.type == 'rating':
         try:
@@ -114,19 +174,16 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                     sums[opt] += pos
                     counts[opt] += 1
         stats["results"] = {o: (round(sums[o] / counts[o], 2) if counts[o] else 0) for o in options}
-        stats["options"] = options
+        # Charting the average position made the shortest bar the winner. The
+        # score turns it around: n points for an average of 1st, 1 for last,
+        # so a longer bar means ranked higher. Options with no votes score 0.
+        n = len(options)
+        stats["scores"] = {o: (round(n + 1 - sums[o] / counts[o], 2) if counts[o] else 0)
+                           for o in options}
+        stats["options"] = sorted(options, key=lambda o: -stats["scores"][o])
 
     elif question.type == 'numeric':
-        vals = []
-        for resp in all_responses:
-            try:
-                v = float(resp.response_value)
-            except (ValueError, TypeError):
-                continue
-            # Skip NaN/inf stored before the audience route rejected them:
-            # one would make the average NaN, which isn't valid JSON.
-            if math.isfinite(v):
-                vals.append(v)
+        vals = _finite_floats(all_responses)
         cfg = _options_dict(question)
         lo = hi = None
         if 'min' in cfg and 'max' in cfg:
@@ -140,14 +197,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
             lo, hi = min(vals), max(vals)
         results = {}
         if vals and lo is not None and hi is not None and hi > lo:
-            nb, step = 10, (hi - lo) / 10
-
-            def _lbl(x):
-                return f"{x:.1f}".rstrip('0').rstrip('.') if not float(x).is_integer() else str(int(x))
-            for i in range(nb):
-                a, b = lo + i * step, lo + (i + 1) * step
-                key = f"{_lbl(a)}–{_lbl(b)}"
-                results[key] = sum(1 for v in vals if a <= v < b or (i == nb - 1 and v == b))
+            results = _histogram(vals, lo, hi)
         elif vals:
             results[str(vals[0])] = len(vals)
         stats["results"] = results
@@ -210,21 +260,29 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                 pt["s"] = str(p["s"])
             points.append(pt)
         stats["points"] = points
-        stats["config"] = {"x_label": cfg.get("x_label", ""), "y_label": cfg.get("y_label", ""),
+        stats["config"] = {**{k: cfg.get(k, "") for k in
+                              ("x_label", "y_label", "x_low", "x_high", "y_low", "y_high")},
                            "allow_color": bool(cfg.get("allow_color")),
-                           "allow_size": bool(cfg.get("allow_size"))}
+                           "allow_size": bool(cfg.get("allow_size")),
+                           "quadrants": bool(cfg.get("quadrants"))}
 
     elif question.type == 'multiple_choice_other':
         options = [str(o) for o in _options_list(question)]
         labels = options + ['Other']
         results = dict.fromkeys(labels, 0)
+        others = []
         for resp in all_responses:
             v = str(resp.response_value)
             if v in options:
                 results[v] += 1
             else:
                 results['Other'] += 1
+                others.append({"text": v, "ts": resp.created_at})
         stats["results"] = results
         stats["options"] = labels
+        # The typed answers behind the "Other" bar, newest first.
+        others.sort(key=lambda a: a.get("ts") or "", reverse=True)
+        stats["other_answers"] = others
 
     return stats
+

@@ -405,7 +405,17 @@ function typeFields(type, q) {
             ${txt('ed-x-label', 'Horizontal axis label', o.x_label, 'e.g. Price')}
             ${txt('ed-y-label', 'Vertical axis label', o.y_label, 'e.g. Quality')}
         </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            ${txt('ed-x-low', 'Left end (optional)', o.x_low, 'e.g. Cheap')}
+            ${txt('ed-x-high', 'Right end (optional)', o.x_high, 'e.g. Expensive')}
+            ${txt('ed-y-low', 'Bottom end (optional)', o.y_low, 'e.g. Poor')}
+            ${txt('ed-y-high', 'Top end (optional)', o.y_high, 'e.g. Excellent')}
+        </div>
         <div class="mt-3 space-y-2">
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" id="ed-quadrants" ${o.quadrants ? 'checked' : ''} class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                Show quadrant lines (splits the plot into four, like a 2×2)
+            </label>
             <label class="flex items-center gap-2 text-sm text-gray-700">
                 <input type="checkbox" id="ed-allow-color" ${o.allow_color ? 'checked' : ''} class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
                 Add a colour dimension (respondent picks a colour too)
@@ -415,7 +425,7 @@ function typeFields(type, q) {
                 Add a size dimension (respondent picks small / medium / large)
             </label>
         </div>
-        <p class="text-xs text-gray-400 mt-2">The audience taps anywhere on a 0–100 × 0–100 plot; results show as a live scatter plot.</p>`;
+        <p class="text-xs text-gray-400 mt-2">The audience taps anywhere on the plot; results show as a live scatter plot. End labels replace the 0 and 100 at each end of an axis.</p>`;
     }
     if (type === 'rating') return `<label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
         <input id="ed-max" type="number" min="2" max="10" value="${q && q.type==='rating' ? q.max_rating : 5}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">`;
@@ -525,7 +535,10 @@ function readForm() {
         const txt = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
         const chk = id => { const e = document.getElementById(id); return !!(e && e.checked); };
         body.x_label = txt('ed-x-label'); body.y_label = txt('ed-y-label');
+        body.x_low = txt('ed-x-low'); body.x_high = txt('ed-x-high');
+        body.y_low = txt('ed-y-low'); body.y_high = txt('ed-y-high');
         body.allow_color = chk('ed-allow-color'); body.allow_size = chk('ed-allow-size');
+        body.quadrants = chk('ed-quadrants');
     }
     return body;
 }

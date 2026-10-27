@@ -217,6 +217,9 @@
             inner = `<div id="mx-${q.id}" class="w-full ${hClass} overflow-y-auto p-1"></div>`;
         } else {
             inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
+            if (q.type === 'multiple_choice_other' && !opts.compact) {
+                inner += `<div id="oth-${q.id}" class="max-h-40 overflow-y-auto"></div>`;
+            }
         }
         return `<div id="cap-${q.id}">${R.captionHTML(q.type, s)}</div>` + inner
             + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
@@ -247,6 +250,8 @@
         } else if (document.getElementById(ids.cv) && s.results) {
             const cfg = R.barConfig(q.type, s);
             initChart(ids.cv, cfg.type, cfg.data, cfg.options);
+            const oth = document.getElementById(ids.oth);
+            if (oth) oth.innerHTML = R.otherAnswersHTML(s);
         }
     }
 
@@ -260,7 +265,7 @@
         const cap = document.getElementById('cap-' + qid);
         if (cap) cap.innerHTML = R.captionHTML(q.type, s);
         draw(q, s, { ic: 'ic-' + qid, em: 'em-' + qid, mx: 'mx-' + qid, cv: 'cv-' + qid,
-                     sa: 'sa-' + qid, wc: 'wc-' + qid });
+                     sa: 'sa-' + qid, wc: 'wc-' + qid, oth: 'oth-' + qid });
     }
 
     function destroyVisibleCharts() {
@@ -368,11 +373,13 @@
             else if (q.type === 'image_choice') inner = '<div id="ov-ic" class="h-[62vh] overflow-y-auto"></div>';
             else if (q.type === 'emoji') inner = '<div id="ov-em" class="h-[62vh] overflow-y-auto border rounded-md bg-gray-50"></div>';
             else if (q.type === 'matrix') inner = '<div id="ov-mx" class="h-[62vh] overflow-y-auto p-1"></div>';
-            else inner = '<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>';
+            else inner = '<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>'
+                + (q.type === 'multiple_choice_other' ? '<div id="ov-oth" class="max-h-32 overflow-y-auto"></div>' : '');
             host.innerHTML = '<div id="ov-cap"></div>' + inner;
         }
         document.getElementById('ov-cap').innerHTML = R.captionHTML(q.type, s);
-        draw(q, s, { ic: 'ov-ic', em: 'ov-em', mx: 'ov-mx', cv: 'ov-cv', sa: 'ov-sa', wc: 'ov-wc' });
+        draw(q, s, { ic: 'ov-ic', em: 'ov-em', mx: 'ov-mx', cv: 'ov-cv', sa: 'ov-sa', wc: 'ov-wc',
+                     oth: 'ov-oth' });
     }
 
     function openOverlay(qid) {

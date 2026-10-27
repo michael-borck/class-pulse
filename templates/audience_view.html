@@ -97,32 +97,31 @@
             <textarea name="{{ input_name }}" required placeholder="Enter your answer"
                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-3">{{ previous_answer or '' }}</textarea>
         {% elif q.type == 'ranking' %}
+            {# Reorder with the arrows; the hidden rank-* inputs carry each
+               option's position, so without JavaScript the list still submits
+               as shown. #}
             {% set options = q.options | fromjson %}
-            {% set n = options | length %}
             {% set prev_order = previous_answer.split('\n') if previous_answer else [] %}
-            <p class="text-sm text-gray-600 mb-2">Assign a rank to each (1 = best)</p>
-            <div class="space-y-2">
-            {% for opt in options %}
-                {% set rank_pos = prev_order.index(opt) if opt in prev_order else none %}
-                {% set current_rank = (rank_pos + 1) if rank_pos is not none else none %}
-                <label class="flex items-center">
-                    <span class="inline-block w-48 text-gray-700 mr-3">{{ opt }}</span>
-                    <select name="rank-{{ q.id }}-{{ loop.index0 }}" required
-                            class="border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <option value="">—</option>
-                        {% for r in range(1, n + 1) %}
-                            <option value="{{ r }}" {{ 'selected' if r == current_rank }}>{{ r }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
+            {% set ordered = (prev_order | select('in', options) | list) + (options | reject('in', prev_order) | list) %}
+            <p class="text-sm text-gray-600 mb-2">Put them in order, best first. Use the arrows to move an item.</p>
+            <ol class="rk-list space-y-2" data-qid="{{ q.id }}">
+            {% for opt in ordered %}
+                <li class="rk-item flex items-center gap-2 border border-gray-200 rounded-md bg-white px-2 py-2">
+                    <span class="rk-pos w-7 h-7 shrink-0 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">{{ loop.index }}</span>
+                    <span class="flex-grow min-w-0 break-words text-gray-800">{{ opt }}</span>
+                    <input type="hidden" class="rk-input" name="rank-{{ q.id }}-{{ options.index(opt) }}" value="{{ loop.index }}">
+                    <button type="button" class="rk-up w-10 h-10 shrink-0 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-30" aria-label="Move {{ opt }} up">▲</button>
+                    <button type="button" class="rk-down w-10 h-10 shrink-0 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-30" aria-label="Move {{ opt }} down">▼</button>
+                </li>
             {% endfor %}
-            </div>
+            </ol>
         {% elif q.type == 'numeric' %}
             {% set config = q.options | fromjson %}
             <input type="number" name="{{ input_name }}" required
                    {% if config.get('min') is not none %}min="{{ config.min }}"{% endif %}
                    {% if config.get('max') is not none %}max="{{ config.max }}"{% endif %}
-                   {% if config.get('step') is not none %}step="{{ config.step }}"{% endif %}
+                   {# Without a step the browser only accepts whole numbers. #}
+                   step="{{ config.step if config.get('step') is not none else 'any' }}"
                    value="{{ previous_answer or '' }}"
                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-3">
         {% elif q.type == 'image_choice' %}
@@ -220,24 +219,29 @@
             <div class="mb-3">
                 {# Same chart frame as the results plot: Y up the left, X along the bottom. #}
                 <div class="grid gap-x-2 gap-y-1" style="grid-template-columns: auto minmax(0, 1fr);">
-                    <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 w-5" aria-hidden="true">
-                        <span>100</span>
+                    {# End labels ("Cheap" … "Expensive") replace 0/100 when given. #}
+                    <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 min-w-[1.25rem] max-w-[4.5rem] break-words text-center" aria-hidden="true">
+                        <span>{{ cfg.get('y_high') or '100' }}</span>
                         <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ cfg.get('y_label', '') }}</span>
-                        <span>0</span>
+                        <span>{{ cfg.get('y_low') or '0' }}</span>
                     </div>
                     <div class="sc-pad relative border-2 border-gray-200 rounded-md cursor-crosshair touch-none focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400"
                          data-qid="{{ q.id }}" tabindex="0" role="application"
                          aria-label="Plot for {{ q.title }}. Use the arrow keys to move your point; hold Shift for bigger steps."
                          style="aspect-ratio: 4/3; background-color: #fff; background-image: linear-gradient(#f3f4f6 1px, transparent 1px), linear-gradient(90deg, #f3f4f6 1px, transparent 1px); background-size: 10% 10%;">
+                        {% if cfg.get('quadrants') %}
+                        <div class="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-gray-400/70 pointer-events-none"></div>
+                        <div class="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-gray-400/70 pointer-events-none"></div>
+                        {% endif %}
                         <div id="sc-dot-{{ q.id }}"
                              class="absolute rounded-full bg-indigo-600 border-2 border-white shadow -translate-x-1/2 translate-y-1/2 pointer-events-none {{ 'hidden' if not prev }} {{ 'w-3 h-3' if prev and prev.get('s') == 'sm' else 'w-6 h-6' if prev and prev.get('s') == 'lg' else 'w-4 h-4' }}"
                              {% if prev %}style="left: {{ prev.x }}%; bottom: {{ prev.y }}%;{{ ' background-color: ' ~ scatter_colors[prev.c] ~ ';' if prev.get('c') and scatter_colors.get(prev.c) }}"{% endif %}></div>
                     </div>
                     <div></div>
                     <div class="flex justify-between items-baseline text-xs text-gray-500 gap-2" aria-hidden="true">
-                        <span>0</span>
+                        <span>{{ cfg.get('x_low') or '0' }}</span>
                         <span class="font-semibold text-gray-700 text-center">{{ cfg.get('x_label', '') }}</span>
-                        <span>100</span>
+                        <span>{{ cfg.get('x_high') or '100' }}</span>
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Tap the plot to place your point.</p>
@@ -817,5 +821,34 @@
             sw.classList.add('ring-2', 'ring-gray-800', 'ring-offset-2');
         });
     })();
+    /* ---------- ranking: reorder with the arrow buttons ---------- */
+    (function () {
+        function renumber(list) {
+            const items = [...list.querySelectorAll('.rk-item')];
+            items.forEach((li, i) => {
+                li.querySelector('.rk-pos').textContent = i + 1;
+                li.querySelector('.rk-input').value = i + 1;
+                li.querySelector('.rk-up').disabled = i === 0;
+                li.querySelector('.rk-down').disabled = i === items.length - 1;
+            });
+        }
+        document.querySelectorAll('.rk-list').forEach(renumber);
+        document.addEventListener('click', e => {
+            const btn = e.target.closest && e.target.closest('.rk-up, .rk-down');
+            if (!btn) return;
+            const li = btn.closest('.rk-item');
+            const list = li.parentElement;
+            if (btn.classList.contains('rk-up') && li.previousElementSibling) {
+                list.insertBefore(li, li.previousElementSibling);
+            } else if (btn.classList.contains('rk-down') && li.nextElementSibling) {
+                list.insertBefore(li.nextElementSibling, li);
+            }
+            renumber(list);
+            btn.focus();  // keep focus on the moved item's button
+            const form = list.closest('form');
+            if (form) form.dataset.dirty = 'true';
+        });
+    })();
+
 </script>
 {% endblock %}

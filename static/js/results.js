@@ -20,16 +20,31 @@
     const asObject = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     const asArray = (v) => Array.isArray(v) ? v : [];
 
-    const BAR_TYPES = ['multiple_choice', 'multi_select', 'ranking', 'numeric', 'multiple_choice_other'];
+    const BAR_TYPES = ['multiple_choice', 'multi_select', 'numeric', 'multiple_choice_other'];
+    const INDIGO = 'rgba(79,70,229,0.75)';
 
-    // Bar chart for the choice-style types and the rating scale.
+    // Bar charts: choice-style types, the numeric histogram, rating and
+    // ranking scores.
     function barConfig(type, s) {
         const results = (s && s.results) || {};
+        if (type === 'ranking') {
+            // Horizontal, so long option names stay readable. Plots the score
+            // (longer = ranked higher), already sorted best-first.
+            const labels = (s && s.options) || Object.keys(results);
+            const scores = (s && s.scores) || {};
+            return { type: 'bar',
+                data: { labels, datasets: [{ label: 'Score', data: labels.map(l => scores[l] || 0),
+                                             backgroundColor: INDIGO }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    scales: { x: { beginAtZero: true } },
+                    plugins: { legend: { display: false },
+                        tooltip: { callbacks: { label: (ctx) => ` average position ${results[ctx.label] || '–'}` } } } } };
+        }
         if (BAR_TYPES.includes(type)) {
             const labels = (s && s.options) || Object.keys(results);
             return { type: 'bar',
                 data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => results[l] || 0),
-                                             backgroundColor: 'rgba(79,70,229,0.75)' }] },
+                                             backgroundColor: INDIGO }] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
                     plugins: { legend: { display: false } } } };
@@ -44,15 +59,26 @@
                 plugins: { legend: { display: false } } } };
     }
 
-    function usesBarChart(type) { return BAR_TYPES.includes(type) || type === 'rating'; }
+    function usesBarChart(type) {
+        return BAR_TYPES.includes(type) || ['rating', 'ranking'].includes(type);
+    }
 
-    // Short line above the chart for types that need one.
+    // Short lines above the chart for types that need them.
     function captionHTML(type, s) {
+        let out = '';
         if (type === 'numeric' && s && s.average != null) {
-            return `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${esc(s.average)}</p>`;
+            out += `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${esc(s.average)}</p>`;
         }
-        if (type === 'ranking') return '<p class="text-xs text-gray-500 mb-1">lower bar = ranked better</p>';
-        return '';
+        if (type === 'ranking') out += '<p class="text-xs text-gray-500 mb-1">Longer bar = ranked higher</p>';
+        return out;
+    }
+
+    // The typed answers behind a poll's "Other" bar.
+    function otherAnswersHTML(s) {
+        const items = asArray(s && s.other_answers);
+        if (!items.length) return '';
+        return `<p class="text-xs font-semibold text-gray-500 mt-2 mb-1">"Other" answers (${items.length})</p>
+            <div class="space-y-1">${items.map(a => `<div class="bg-white border rounded px-2 py-1 text-sm text-gray-800">${esc(a.text)}</div>`).join('')}</div>`;
     }
 
     // Image choice: each image with its label, count, share and a bar; the
@@ -158,6 +184,23 @@
     // Scatter: one dot per respondent on a 0–100 plane; the optional colour
     // and size dimensions are read off each point.
     const SCATTER_RADII = { sm: 4, md: 7, lg: 11 };
+    // With end labels, an axis shows them at 0 and 100 and hides the numbers
+    // in between; quadrants darken the 50 gridline.
+    function scatterAxis(cfg, axis) {
+        const low = cfg[axis + '_low'], high = cfg[axis + '_high'];
+        const out = { min: 0, max: 100, title: { display: !!cfg[axis + '_label'], text: cfg[axis + '_label'] || '' } };
+        if (low || high) {
+            out.ticks = { stepSize: 50, autoSkip: false, maxRotation: 0,
+                callback: (v) => v === 0 ? (low || '0') : v === 100 ? (high || '100') : '' };
+        }
+        if (cfg.quadrants) {
+            out.grid = { color: (ctx) => ctx.tick && ctx.tick.value === 50 ? 'rgba(100,116,139,0.6)' : 'rgba(0,0,0,0.08)',
+                         lineWidth: (ctx) => ctx.tick && ctx.tick.value === 50 ? 2 : 1 };
+            if (!out.ticks) out.ticks = { stepSize: 10 };
+        }
+        return out;
+    }
+
     function scatterConfig(config, s, colors) {
         const cfg = asObject(config);
         const palette = asObject(colors);
@@ -171,10 +214,7 @@
                 pointBackgroundColor: (ctx) => palette[(ctx.raw && ctx.raw.c)] || 'rgba(79,70,229,0.75)',
             }] },
             options: { responsive: true, maintainAspectRatio: false,
-                scales: {
-                    x: { min: 0, max: 100, title: { display: !!cfg.x_label, text: cfg.x_label || '' } },
-                    y: { min: 0, max: 100, title: { display: !!cfg.y_label, text: cfg.y_label || '' } },
-                },
+                scales: { x: scatterAxis(cfg, 'x'), y: scatterAxis(cfg, 'y') },
                 plugins: { legend: { display: false },
                     tooltip: { callbacks: { label: (ctx) => {
                         const p = ctx.raw || {};
@@ -238,5 +278,6 @@
     window.CPResults = {
         esc, usesBarChart, barConfig, captionHTML, imageChoiceHTML, emojiHTML,
         matrixHTML, scatterConfig, shortAnswerHTML, populateShortAnswer,
+        otherAnswersHTML,
     };
 })();

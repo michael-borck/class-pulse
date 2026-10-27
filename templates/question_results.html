@@ -14,49 +14,34 @@
     <div class="p-6">
      <p class="text-sm text-gray-600 mb-4">Total Responses: {{ stats.total_responses }}</p>
 
-    {# Placeholder for chart canvas or word cloud div #}
-    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'] %}
-        <h4 class="text-lg font-semibold mb-2">
-            {% if stats.type == 'multiple_choice' %}Multiple Choice Results
-            {% elif stats.type == 'multi_select' %}Select-All Results
-            {% elif stats.type == 'ranking' %}Ranking Results
-            {% elif stats.type == 'numeric' %}Numeric Results
-            {% elif stats.type == 'multiple_choice_other' %}Poll Results{% endif %}
-        </h4>
-        {% if stats.type == 'numeric' and stats.average is defined and stats.average is not none %}
-            <p class="text-sm font-medium text-gray-700 mb-2">Average: {{ stats.average }}</p>
-        {% endif %}
-        {% if stats.type == 'ranking' %}
-            <p class="text-xs text-gray-500 mb-1">lower bar = ranked better</p>
-        {% endif %}
-        <div class="h-64 md:h-96 relative"> {# Increased height #}
-            <canvas id="chart-mc-{{ question.id }}"></canvas>
+    {% set headings = {
+        'multiple_choice': 'Multiple Choice Results', 'multi_select': 'Select-All Results',
+        'ranking': 'Ranking Results', 'numeric': 'Numeric Results',
+        'multiple_choice_other': 'Poll Results', 'rating': 'Rating Scale Results',
+        'short_answer': 'Short Answer Results', 'word_cloud': 'Word Cloud Results',
+        'image_choice': 'Image Choice Results', 'emoji': 'Emoji Poll Results',
+        'matrix': 'Grid Results', 'scatter': 'Scatter Plot Results',
+    } %}
+    {% if stats.type in headings %}
+        <h4 class="text-lg font-semibold mb-2">{{ headings[stats.type] }}</h4>
+        {# Average, ranking note. #}
+        <div id="result-caption"></div>
+    {% endif %}
+    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other','rating'] %}
+        <div class="h-64 md:h-96 relative">
+            <canvas id="chart-{{ question.id }}"></canvas>
         </div>
-    {% elif stats.type == 'rating' %}
-         <h4 class="text-lg font-semibold mb-2">Rating Scale Results</h4>
-         <div class="h-64 md:h-96 relative"> {# Increased height #}
-            <canvas id="chart-rating-{{ question.id }}"></canvas>
-        </div>
-    {% elif stats.type == 'short_answer' %}
-        <h4 class="text-lg font-semibold mb-2">Short Answer Results</h4>
-        <div id="result-host"></div>
+        {% if stats.type == 'multiple_choice_other' %}<div id="result-others" class="mt-2"></div>{% endif %}
     {% elif stats.type == 'word_cloud' %}
-        <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
         <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
-    {% elif stats.type == 'image_choice' %}
-        <h4 class="text-lg font-semibold mb-2">Image Choice Results</h4>
-        <div id="result-host"></div>
     {% elif stats.type == 'emoji' %}
-        <h4 class="text-lg font-semibold mb-2">Emoji Poll Results</h4>
         <div id="result-host" class="border rounded-md bg-gray-50 min-h-40"></div>
-    {% elif stats.type == 'matrix' %}
-        <h4 class="text-lg font-semibold mb-2">Grid Results</h4>
-        <div id="result-host"></div>
     {% elif stats.type == 'scatter' %}
-        <h4 class="text-lg font-semibold mb-2">Scatter Plot Results</h4>
         <div class="h-64 md:h-96 relative">
             <canvas id="chart-scatter-{{ question.id }}"></canvas>
         </div>
+    {% elif stats.type in headings %}
+        <div id="result-host"></div>
     {% else %}
         <p class="text-gray-500 italic">Cannot display results for this question type or no responses yet.</p>
     {% endif %}
@@ -84,10 +69,14 @@
         }
         const t = statsData.type;
 
+        const caption = document.getElementById('result-caption');
+        if (caption) caption.innerHTML = R.captionHTML(t, statsData);
+
         if (R.usesBarChart(t) && statsData.results) {
             const cfg = R.barConfig(t, statsData);
-            initChart(t === 'rating' ? `chart-rating-${questionId}` : `chart-mc-${questionId}`,
-                      cfg.type, cfg.data, cfg.options);
+            initChart(`chart-${questionId}`, cfg.type, cfg.data, cfg.options);
+            const others = document.getElementById('result-others');
+            if (others) others.innerHTML = R.otherAnswersHTML(statsData);
         } else if (t === 'word_cloud' && statsData.results) {
             initWordCloud(`wordcloud-${questionId}`, statsData.results);
         } else if (t === 'scatter') {

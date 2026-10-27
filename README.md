@@ -9,7 +9,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 ## Features
 
 - **Real-time Interaction**: Engage with your audience in real-time using WebSockets
-- **Nine Question Types**: Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, and poll-with-other (see below)
+- **Twelve Question Types**: Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, poll-with-other, emoji, grid, and scatter (see below)
 - **Image Uploads**: Upload images for image-choice questions — resized and re-encoded server-side to keep storage small — or link to images hosted elsewhere
 - **QR Code Generation**: Easy session joining with auto-generated QR codes
 - **Results Visualization**: See responses as they come in with instant updates, including live image tallies for image-choice questions
@@ -24,7 +24,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 
 - **Multiple Choice**: Present options and collect structured responses
 - **Select All**: Multiple-answer version of multiple choice
-- **Ranking**: Ask the audience to order a set of items
+- **Ranking**: Ask the audience to order a set of items (results show each item's score, best first)
 - **Numeric**: Collect numbers, with an optional min/max range
 - **Rating**: Collect numerical ratings on a defined scale
 - **Short Answer**: Free-text responses, viewable as a list or a word cloud
@@ -33,7 +33,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 - **Poll w/ Other**: Multiple choice plus a free-text "Other" option
 - **Emoji Poll**: Answer with a single emoji from a presenter-chosen set (presets included) — results size each glyph by its share of the vote
 - **Grid / Matrix**: Tap one cell of a labelled grid (2×2 up to 4×4) — results show as a heatmap; a 2×2 "Likelihood × Impact" grid is a classic risk matrix
-- **Scatter Plot**: Drop a point anywhere on a 0–100 × 0–100 plane, with optional colour and size dimensions — results plot every respondent's dot live
+- **Scatter Plot**: Drop a point anywhere on a labelled plane, with optional end labels, quadrant lines, and colour and size dimensions — results plot every respondent's dot live
 
 ## Setup
 

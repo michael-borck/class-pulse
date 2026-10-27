@@ -104,6 +104,13 @@
                 words = []; // Prevent error
             }
             words = words.filter(item => typeof item === 'object' && item !== null && 'text' in item && 'weight' in item);
+            // jQCloud inserts each word's text as HTML. Word-cloud entries are
+            // whole phrases from the audience, so escape them first.
+            words = words.map(w => {
+                const d = document.createElement('div');
+                d.textContent = String(w.text);
+                return { ...w, text: d.innerHTML };
+            });
 
             try {
                 element.empty().jQCloud(words, {

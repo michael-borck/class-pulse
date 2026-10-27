@@ -128,12 +128,16 @@ def build_options(q_type, src):
         return (cfg, None)
     if q_type == 'scatter':
         cfg = {}
-        for k in ('x_label', 'y_label'):
+        # End labels name what each end of an axis means ("Cheap" … "Expensive");
+        # without them the audience only sees 0 and 100.
+        for k in ('x_label', 'y_label', 'x_low', 'x_high', 'y_low', 'y_high'):
             v = str(src.get(k) or '').strip()[:MAX_AXIS_LABEL_LEN]
             if v:
                 cfg[k] = v
         cfg['allow_color'] = bool(src.get('allow_color'))
         cfg['allow_size'] = bool(src.get('allow_size'))
+        # Faint lines through the middle so a 2×2-style question reads as quadrants.
+        cfg['quadrants'] = bool(src.get('quadrants'))
         return (cfg, None)
     # word_cloud, short_answer carry no config
     return ({}, None)
@@ -230,6 +234,10 @@ def response_display_label(q_type, value, options=None):
         y = _axis_position(cfg.get('y_label'), rows - r + 1, rows, cfg.get('y_low'),
                            cfg.get('y_high'), 'Vertical')
         return f'{x}, {y}'
+    if q_type == 'ranking':
+        return ', '.join(f'{i}. {opt}' for i, opt in enumerate(str(value).split('\n'), 1))
+    if q_type == 'multi_select':
+        return ', '.join(str(value).split('\n'))
     if q_type == 'scatter':
         try:
             p = json.loads(value)
