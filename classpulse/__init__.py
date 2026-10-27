@@ -302,6 +302,8 @@ _ADDITIVE_COLUMNS = [
     # SQLite has accepted the FALSE keyword since 3.23.
     ('session', 'allow_proposals', 'BOOLEAN NOT NULL DEFAULT FALSE'),
     ('user', 'session_token', 'VARCHAR(32)'),
+    ('question', 'answer', 'TEXT'),
+    ('question', 'revealed', 'BOOLEAN NOT NULL DEFAULT FALSE'),
 ]
 
 

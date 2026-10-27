@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import false
+
 from .extensions import db
 
 
@@ -76,6 +78,11 @@ class Question(db.Model):
     active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.String, default=utcnow_iso)
     order = db.Column(db.Integer, default=0)
+    # Quiz mode: the correct answer as JSON (see questions.build_answer), or
+    # NULL for an ordinary poll. Results stay hidden in Present until the
+    # presenter reveals them; revealing also closes answering.
+    answer = db.Column(db.Text, nullable=True)
+    revealed = db.Column(db.Boolean, default=False, nullable=False, server_default=false())
     responses = db.relationship('Response', backref='question', lazy=True)
 
 

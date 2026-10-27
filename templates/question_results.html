@@ -25,7 +25,7 @@
     } %}
     {% if stats.type in headings %}
         <h4 class="text-lg font-semibold mb-2">{{ headings[stats.type] }}</h4>
-        {# Average, slider ends, ranking note. #}
+        {# Average, quiz answer and score, slider ends, ranking note. #}
         <div id="result-caption"></div>
     {% endif %}
     {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other','rating','slider','points'] %}
@@ -72,11 +72,13 @@
         }
         const t = statsData.type;
 
+        // The Results page is for the presenter, so quiz answers always show.
+        const view = { showAnswer: true };
         const caption = document.getElementById('result-caption');
-        if (caption) caption.innerHTML = R.captionHTML(t, statsData);
+        if (caption) caption.innerHTML = R.captionHTML(t, statsData, view);
 
         if (R.usesBarChart(t) && statsData.results) {
-            const cfg = R.barConfig(t, statsData);
+            const cfg = R.barConfig(t, statsData, view);
             initChart(`chart-${questionId}`, cfg.type, cfg.data, cfg.options);
             const others = document.getElementById('result-others');
             if (others) others.innerHTML = R.otherAnswersHTML(statsData);
@@ -88,7 +90,7 @@
             const cfg = R.scatterConfig(statsData.config, statsData, SCATTER_COLORS);
             initChart(`chart-scatter-${questionId}`, cfg.type, cfg.data, cfg.options);
         } else if (t === 'image_choice') {
-            host.innerHTML = R.imageChoiceHTML(options, statsData);
+            host.innerHTML = R.imageChoiceHTML(options, statsData, view);
         } else if (t === 'emoji') {
             host.innerHTML = R.emojiHTML(statsData.options, statsData);
         } else if (t === 'matrix') {

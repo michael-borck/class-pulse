@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from .extensions import db
 from .models import Question, Response
-from .questions import parsed_options
+from .questions import answer_text, is_correct, parsed_answer, parsed_options
 
 # Basic English stop words list (can be expanded)
 STOP_WORDS = frozenset([
@@ -341,5 +341,34 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         others.sort(key=lambda a: a.get("ts") or "", reverse=True)
         stats["other_answers"] = others
 
+    answer = parsed_answer(question)
+    if answer:
+        right = sum(1 for r in all_responses if is_correct(question.type, answer, r.response_value))
+        quiz = {"answer_text": answer_text(question.type, answer),
+                "correct_count": right,
+                "percent_correct": round(100 * right / total_responses) if total_responses else 0,
+                "revealed": bool(question.revealed)}
+        if question.type == 'numeric':
+            # Highlight the bar(s) that hold correct answers.
+            lo_ok = answer['value'] - (answer.get('tolerance') or 0)
+            hi_ok = answer['value'] + (answer.get('tolerance') or 0)
+            quiz["correct_labels"] = [k for k in stats.get("results", {}) if _bucket_overlaps(k, lo_ok, hi_ok)]
+        else:
+            quiz["correct_labels"] = list(answer.get('correct') or [])
+        stats["quiz"] = quiz
+
     return stats
 
+
+def _bucket_overlaps(label, lo, hi):
+    """Does a histogram label ("2–4", or a single value "3") overlap [lo, hi]?"""
+    try:
+        if '–' in label:
+            a, b = (float(x) for x in label.split('–'))
+        else:
+            a = b = float(label)
+    except ValueError:
+        return False
+    if a == b:
+        return lo <= a <= hi
+    return a <= hi and b > lo  # bins are half-open [a, b)

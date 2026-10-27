@@ -125,7 +125,7 @@
 <script src="{{ url_for('static', filename='js/results.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
     const QUESTIONS = [
-        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter', 'image_pin', 'slider', 'points'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
+        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter', 'image_pin', 'slider', 'points'] %}, options: {{ q.options | fromjson | tojson }}{% endif %}, quiz: {{ 'true' if q.answer else 'false' }}, revealed: {{ 'true' if q.revealed else 'false' }} },
         {% endfor %}
     ];
     const MODE = {{ mode | tojson }};
@@ -184,7 +184,8 @@
         QUESTIONS.length = 0;
         // Carry image_choice option URLs so present mode can show the images
         // (question_to_dict returns them as a {label,url} list; [] otherwise).
-        active.forEach(q => QUESTIONS.push({ id: q.id, type: q.type, title: q.title, options: q.options }));
+        active.forEach(q => QUESTIONS.push({ id: q.id, type: q.type, title: q.title, options: q.options,
+                                             quiz: !!q.answer, revealed: !!q.revealed }));
         focusIdx = Math.min(focusIdx, Math.max(0, QUESTIONS.length - 1));
         if (overlayQid !== null && !QUESTIONS.some(q => q.id === overlayQid)) closeOverlay();
         added.forEach(q => socket.emit('join', { question_id: q.id }));
@@ -192,8 +193,36 @@
         // stats, which carry the new option list.
         if (edited !== null) socket.emit('join', { question_id: edited });
         renderView();
+        // A reveal pressed on this screen comes back as an edit; no toast for it.
+        const ownReveal = edited !== null && edited === localReveal;
+        localReveal = null;
         if (added.length) toast(added.length === 1 ? `New question added: ${added[0].title}` : `${added.length} new questions added`);
-        else toast(edited !== null ? 'Question updated' : 'Question list updated');
+        else if (!ownReveal) toast(edited !== null ? 'Question updated' : 'Question list updated');
+    });
+
+    // --- Quiz mode ---
+    // Present hides a quiz question's results until the presenter reveals the
+    // answer; the Results views (MODE 'results') always show everything.
+    let localReveal = null;
+    const showAnswer = (q) => MODE === 'results' || !!q.revealed;
+    const isLocked = (q) => q.quiz && !showAnswer(q);
+
+    async function toggleReveal(qid) {
+        const q = QUESTIONS.find(x => x.id === qid);
+        if (!q || !q.quiz || MODE !== 'present') return;
+        localReveal = qid;
+        const r = await fetch(`/api/questions/${qid}/reveal`, { method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content } });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.success) { localReveal = null; toast(d.message || 'Could not reveal the answer.'); return; }
+        q.revealed = d.revealed;
+        document.getElementById('ov-host').dataset.qid = '';  // rebuild the overlay's host
+        renderView();
+        if (overlayQid === qid) instantiateOverlay(qid);
+    }
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('[data-reveal]');
+        if (b) toggleReveal(parseInt(b.dataset.reveal, 10));
     });
 
     // --- Result hosts ---
@@ -203,7 +232,9 @@
         const s = stats[q.id];
         const total = s ? (s.total_responses || 0) : 0;
         let inner;
-        if (q.type === 'short_answer') {
+        if (isLocked(q)) {
+            inner = `<div id="lock-${q.id}" class="w-full ${hClass}">${R.quizLockedHTML(q.id, total, opts.compact)}</div>`;
+        } else if (q.type === 'short_answer') {
             // Grid cards are click-to-enlarge overviews, so they skip the
             // Answers/Cloud toggle (a button can't sit inside the card's click target).
             inner = R.shortAnswerHTML('sa-' + q.id, hClass, !opts.compact);
@@ -223,17 +254,27 @@
                 inner += `<div id="oth-${q.id}" class="max-h-40 overflow-y-auto"></div>`;
             }
         }
-        return `<div id="cap-${q.id}">${R.captionHTML(q.type, s)}</div>` + inner
+        // Once revealed, a quiz question can be hidden again from Present.
+        const hide = (q.quiz && q.revealed && MODE === 'present' && !opts.compact)
+            ? `<button type="button" data-reveal="${q.id}" class="float-right text-xs text-gray-500 hover:text-gray-800 underline">Hide answer</button>` : '';
+        return `${hide}<div id="cap-${q.id}">${isLocked(q) ? '' : R.captionHTML(q.type, s, { showAnswer: showAnswer(q) })}</div>` + inner
             + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
     }
 
     // Draw a question into the host elements whose ids start with `prefix`
     // ('' for the in-page views, 'ov-' for the enlarge overlay).
     function draw(q, s, ids) {
+        const view = { showAnswer: showAnswer(q) };
+        if (isLocked(q)) {
+            const el = document.getElementById(ids.lock);
+            // Grid cards are click targets themselves, so they get no button.
+            if (el) el.innerHTML = R.quizLockedHTML(q.id, s ? (s.total_responses || 0) : 0, !!el.closest('[data-open]'));
+            return;
+        }
         // Image choice, emoji, matrix, scatter and pins render at zero votes
         // too, so latecomers see the options and axes before anyone answers.
         if (q.type === 'image_choice') {
-            const el = document.getElementById(ids.ic); if (el) el.innerHTML = R.imageChoiceHTML(q.options, s);
+            const el = document.getElementById(ids.ic); if (el) el.innerHTML = R.imageChoiceHTML(q.options, s, view);
         } else if (q.type === 'image_pin') {
             R.renderImagePin(document.getElementById(ids.pin), q.options, s);
         } else if (q.type === 'emoji') {
@@ -252,7 +293,7 @@
         } else if (q.type === 'word_cloud') {
             if (document.getElementById(ids.wc) && s.results) initWordCloud(ids.wc, s.results);
         } else if (document.getElementById(ids.cv) && s.results) {
-            const cfg = R.barConfig(q.type, s);
+            const cfg = R.barConfig(q.type, s, view);
             initChart(ids.cv, cfg.type, cfg.data, cfg.options);
             const oth = document.getElementById(ids.oth);
             if (oth) oth.innerHTML = R.otherAnswersHTML(s);
@@ -267,9 +308,10 @@
         const cnt = document.getElementById('cnt-' + qid);
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const cap = document.getElementById('cap-' + qid);
-        if (cap) cap.innerHTML = R.captionHTML(q.type, s);
+        if (cap) cap.innerHTML = isLocked(q) ? '' : R.captionHTML(q.type, s, { showAnswer: showAnswer(q) });
         draw(q, s, { ic: 'ic-' + qid, em: 'em-' + qid, mx: 'mx-' + qid, cv: 'cv-' + qid,
-                     sa: 'sa-' + qid, wc: 'wc-' + qid, pin: 'pin-' + qid, oth: 'oth-' + qid });
+                     sa: 'sa-' + qid, wc: 'wc-' + qid, pin: 'pin-' + qid, oth: 'oth-' + qid,
+                     lock: 'lock-' + qid });
     }
 
     function destroyVisibleCharts() {
@@ -372,7 +414,8 @@
         if (host.dataset.qid !== String(qid)) {
             host.dataset.qid = String(qid);
             let inner;
-            if (q.type === 'short_answer') inner = R.shortAnswerHTML('ov-sa', 'h-[58vh]', true);
+            if (isLocked(q)) inner = '<div id="ov-lock" class="h-[62vh]"></div>';
+            else if (q.type === 'short_answer') inner = R.shortAnswerHTML('ov-sa', 'h-[58vh]', true);
             else if (q.type === 'image_pin') inner = '<div id="ov-pin" class="h-[62vh]"></div>';
             else if (q.type === 'word_cloud') inner = '<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>';
             else if (q.type === 'image_choice') inner = '<div id="ov-ic" class="h-[62vh] overflow-y-auto"></div>';
@@ -382,9 +425,9 @@
                 + (q.type === 'multiple_choice_other' ? '<div id="ov-oth" class="max-h-32 overflow-y-auto"></div>' : '');
             host.innerHTML = '<div id="ov-cap"></div>' + inner;
         }
-        document.getElementById('ov-cap').innerHTML = R.captionHTML(q.type, s);
+        document.getElementById('ov-cap').innerHTML = isLocked(q) ? '' : R.captionHTML(q.type, s, { showAnswer: showAnswer(q) });
         draw(q, s, { ic: 'ov-ic', em: 'ov-em', mx: 'ov-mx', cv: 'ov-cv', sa: 'ov-sa', wc: 'ov-wc',
-                     pin: 'ov-pin', oth: 'ov-oth' });
+                     pin: 'ov-pin', oth: 'ov-oth', lock: 'ov-lock' });
     }
 
     function openOverlay(qid) {
@@ -458,6 +501,11 @@
                 if (overlayQid !== null) return closeOverlay();
             }
             if (joinVisible()) return;
+            // R reveals (or hides) the quiz answer for the question in view.
+            if ((e.key === 'r' || e.key === 'R') && !e.metaKey && !e.ctrlKey) {
+                const qid = overlayQid !== null ? overlayQid : (view === 'focus' && QUESTIONS[focusIdx] ? QUESTIONS[focusIdx].id : null);
+                if (qid !== null) toggleReveal(qid);
+            }
             if (view === 'focus' && overlayQid === null) {
                 if (e.key === 'ArrowLeft') fnav(-1);
                 if (e.key === 'ArrowRight') fnav(1);

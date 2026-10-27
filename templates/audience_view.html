@@ -49,7 +49,21 @@
           data-question-id="{{ q.id }}" data-answered="{{ 'true' if previous_answer is not none else 'false' }}"
           class="bg-white p-6 rounded-lg shadow-md">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h3 class="text-lg font-semibold mb-3 text-gray-800">{{ q.title }}</h3>
+        <h3 class="text-lg font-semibold mb-3 text-gray-800">
+            {% if q.answer %}<span class="align-middle text-[11px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 mr-1">Quiz</span>{% endif %}{{ q.title }}
+        </h3>
+        {# Quiz answer revealed: show how this student did; answering is closed. #}
+        {% set fb = quiz_feedback.get(q.id) %}
+        {% if fb %}
+        <div class="mb-3 rounded-md border px-3 py-2 text-sm font-medium
+                    {{ 'bg-green-50 border-green-200 text-green-800' if fb.correct else ('bg-red-50 border-red-200 text-red-800' if fb.answered else 'bg-gray-50 border-gray-200 text-gray-700') }}">
+            {% if fb.correct %}✓ Correct! The answer is {{ fb.answer_text }}.
+            {% elif fb.answered %}✗ Not this time. The answer is {{ fb.answer_text }}.
+            {% else %}The answer is {{ fb.answer_text }}.{% endif %}
+            <span class="font-normal">This question is now closed.</span>
+        </div>
+        {% endif %}
+        <fieldset {{ 'disabled' if fb }} class="min-w-0 border-0 p-0 m-0 {{ 'opacity-60' if fb }}">
 
         {% if q.type == 'multiple_choice' %}
             {% set options = q.options | fromjson %} {# Assuming options are stored as JSON list #}
@@ -360,12 +374,15 @@
                 <p class="pt-left mt-2 text-sm font-semibold" aria-live="polite"></p>
             </div>
         {% endif %}
+        </fieldset>
 
+        {% if not fb %}
         <button type="submit" class="mt-4 bg-brand-gradient text-white font-bold py-3 px-5 rounded-md text-sm shadow-brand">
             {{ 'Update Answer' if previous_answer is not none else 'Submit Answer' }}
         </button>
+        {% endif %}
         <div class="response-status mt-2 text-sm font-medium {{ 'text-green-600' if previous_answer is not none else '' }}">
-            {% if previous_answer is not none %}✓ Saved — this is your vote (you chose “{{ previous_labels.get(q.id, previous_answer) }}”). You can change it anytime; your latest answer replaces the old one — you don't get extra votes.{% endif %}
+            {% if previous_answer is not none and not fb %}✓ Saved — this is your vote (you chose “{{ previous_labels.get(q.id, previous_answer) }}”). You can change it anytime; your latest answer replaces the old one — you don't get extra votes.{% endif %}
         </div>
     </form>
     {% endfor %}

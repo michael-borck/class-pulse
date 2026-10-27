@@ -19,7 +19,10 @@ from sqlalchemy.exc import IntegrityError
 from .extensions import db, limiter
 from .models import Question, Response, Session
 from .models import utcnow_iso
-from .questions import SCATTER_COLORS, SCATTER_SIZES, parsed_options, response_display_label
+from .questions import (
+    SCATTER_COLORS, SCATTER_SIZES, answer_text, is_correct, parsed_answer, parsed_options,
+    response_display_label,
+)
 from .sockets import broadcast_results
 from .utils import (
     has_joined_session, mark_session_joined, normalize_session_code, session_code_match
@@ -383,8 +386,22 @@ def init_app(app):
             cell_labels[q.id] = {f'{c},{r}': response_display_label('matrix', f'{c},{r}', cfg)
                                  for c in range(1, cols + 1) for r in range(1, rows + 1)}
 
+        # Quiz questions whose answer is revealed: tell each student how they did.
+        quiz_feedback = {}
+        for q in active_questions:
+            answer = parsed_answer(q)
+            if not (answer and q.revealed):
+                continue
+            prev = previous_responses.get(q.id)
+            quiz_feedback[q.id] = {
+                'answered': prev is not None,
+                'correct': is_correct(q.type, answer, prev),
+                'answer_text': answer_text(q.type, answer),
+            }
+
         return _with_respondent_cookie(
             make_response(render_template('audience_view.html',
+                                          quiz_feedback=quiz_feedback,
                                           current_session=current_session,
                                           questions=active_questions,
                                           active_question_ids=[q.id for q in active_questions],
@@ -407,6 +424,13 @@ def init_app(app):
             abort(404)
         if not question.active or not question.session.is_live:
             msg = "Sorry, this question or session is no longer active."
+            if wants_json:
+                return jsonify({"success": False, "message": msg, "inactive": True}), 409
+            flash(msg, "warning")
+            return redirect(url_for('audience_view', code=question.session.code))
+        if question.revealed:
+            # Quiz answer is on screen; late answers would just copy it.
+            msg = "The answer has been revealed, so this question is closed."
             if wants_json:
                 return jsonify({"success": False, "message": msg, "inactive": True}), 409
             flash(msg, "warning")

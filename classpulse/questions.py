@@ -13,6 +13,9 @@ VALID_QUESTION_TYPES = (
     'image_pin', 'slider', 'points',
 )
 
+# Quiz mode: these types can carry a correct answer (Question.answer).
+QUIZ_TYPES = ('multiple_choice', 'multi_select', 'image_choice', 'numeric')
+
 # Slider defaults: a 0–100 scale in whole steps.
 SLIDER_DEFAULTS = {'min': 0.0, 'max': 100.0, 'step': 1.0}
 
@@ -196,6 +199,81 @@ def build_options(q_type, src):
     return ({}, None)
 
 
+def build_answer(q_type, src, options_value):
+    """Validate the optional quiz answer. Returns (answer_json_or_None, error).
+
+    Choice types send `answer` as option text, one per line (or a list); it
+    must match the options exactly. Numeric sends `answer_value` and an
+    optional `answer_tolerance`. An empty answer means "not a quiz question".
+    """
+    if q_type not in QUIZ_TYPES:
+        return (None, None)
+    if q_type == 'numeric':
+        raw = src.get('answer_value')
+        if raw in (None, ''):
+            return (None, None)
+        try:
+            value = float(raw)
+            tolerance = float(src.get('answer_tolerance') or 0)
+        except (ValueError, TypeError):
+            return (None, 'The correct value and tolerance must be numbers.')
+        if not (math.isfinite(value) and math.isfinite(tolerance)) or tolerance < 0:
+            return (None, 'The correct value and tolerance must be numbers (tolerance ≥ 0).')
+        return (json.dumps({'value': value, 'tolerance': tolerance}), None)
+    picks = [str(x).strip() for x in _option_lines(src.get('answer')) if str(x).strip()]
+    picks = list(dict.fromkeys(picks))
+    if not picks:
+        return (None, None)
+    if q_type == 'image_choice':
+        valid = [str(it.get('label', '')) for it in (options_value or []) if isinstance(it, dict)]
+    else:
+        valid = [str(o) for o in (options_value or [])]
+    unknown = [x for x in picks if x not in valid]
+    if unknown:
+        return (None, f'The correct answer "{unknown[0]}" isn\'t one of the options.')
+    if q_type != 'multi_select' and len(picks) > 1:
+        return (None, 'Mark exactly one correct answer (only select-all can have several).')
+    return (json.dumps({'correct': picks}), None)
+
+
+def parsed_answer(question):
+    """The question's quiz answer as a dict, or None when it isn't a quiz."""
+    if not question.answer:
+        return None
+    try:
+        data = json.loads(question.answer)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def is_correct(q_type, answer, value):
+    """Whether a stored response_value matches the quiz answer."""
+    if not answer or value is None:
+        return False
+    if q_type == 'numeric':
+        try:
+            v = float(value)
+            return math.isfinite(v) and abs(v - float(answer['value'])) <= float(answer.get('tolerance') or 0)
+        except (ValueError, TypeError, KeyError):
+            return False
+    correct = answer.get('correct') or []
+    if q_type == 'multi_select':
+        return set(str(value).split('\n')) == set(correct)
+    return str(value) in correct
+
+
+def answer_text(q_type, answer):
+    """The correct answer as students should read it."""
+    if not answer:
+        return ''
+    if q_type == 'numeric':
+        value = _fmt_num(answer.get('value'))
+        tol = answer.get('tolerance') or 0
+        return f'{value} (±{_fmt_num(tol)})' if tol else value
+    return ', '.join(answer.get('correct') or [])
+
+
 def _fmt_num(x):
     try:
         f = float(x)
@@ -250,6 +328,8 @@ def question_to_dict(q):
     if q.type in ('matrix', 'scatter', 'image_pin', 'slider', 'points') \
             and isinstance(parsed, dict):
         data['options'] = parsed
+    data['answer'] = parsed_answer(q)
+    data['revealed'] = bool(q.revealed)
     if q.type == 'rating' and isinstance(parsed, dict):
         try:
             data['max_rating'] = int(parsed.get('max_rating', 5))

@@ -1,8 +1,10 @@
-"""Pin on image, slider, points allocation, and the fixes to the numeric,
-word cloud, "Other" and ranking question types (plus scatter end labels)."""
+"""Quiz mode, pin on image, slider, points allocation, and the fixes to the
+numeric, word cloud, "Other" and ranking question types."""
 
 import json
 
+from classpulse.extensions import db
+from classpulse.models import Question
 from classpulse.stats import get_question_stats
 
 from conftest import (
@@ -26,6 +28,101 @@ def _create(client, sid, payload):
 def _stats(app, qid):
     with app.app_context():
         return get_question_stats(qid)
+
+
+# ---------- quiz mode ----------
+
+def test_quiz_answer_must_match_an_option(app, client):
+    sid = _presenter(app, client)
+    bad = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                                'answer': 'Marseille'})
+    assert bad.status_code == 400 and 'isn' in bad.get_json()['message']
+    two = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                                'answer': 'Paris\nLyon'})
+    assert two.status_code == 400  # single-answer types take exactly one
+    ok = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                               'answer': 'Paris'})
+    assert ok.get_json()['question']['answer'] == {'correct': ['Paris']}
+
+
+def test_quiz_scoring_and_reveal_closes_answers(app, client):
+    sid = _presenter(app, client)
+    q = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                              'answer': 'Paris'}).get_json()['question']
+    qid = q['id']
+    add_response(app, qid, sid, 'Paris', 'r1')
+    add_response(app, qid, sid, 'Lyon', 'r2')
+    quiz = _stats(app, qid)['quiz']
+    assert quiz['correct_count'] == 1 and quiz['percent_correct'] == 50
+    assert quiz['correct_labels'] == ['Paris'] and quiz['revealed'] is False
+
+    assert client.post(f'/api/questions/{qid}/reveal').get_json()['revealed'] is True
+    assert _stats(app, qid)['quiz']['revealed'] is True
+
+    student = app.test_client()
+    student.post('/join', data={'code': 'ABC123'})
+    r = student.post(f'/audience/respond/{qid}', data={f'response-{qid}': 'Paris'}, headers=AJAX)
+    assert r.status_code == 409 and 'revealed' in r.get_json()['message']
+
+
+def test_revealed_quiz_tells_each_student_how_they_did(app, client):
+    sid = _presenter(app, client)
+    qid = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                                'answer': 'Paris'}).get_json()['question']['id']
+    student = app.test_client()
+    student.post('/join', data={'code': 'ABC123'})
+    student.post(f'/audience/respond/{qid}', data={f'response-{qid}': 'Lyon'}, headers=AJAX)
+    client.post(f'/api/questions/{qid}/reveal')
+    page = student.get('/audience/ABC123').data
+    assert b'Not this time. The answer is Paris' in page
+    assert b'<fieldset disabled' in page
+
+
+def test_multi_select_and_numeric_quiz_scoring(app, client):
+    sid = _presenter(app, client)
+    ms = _create(client, sid, {'type': 'multi_select', 'options': 'A\nB\nC',
+                               'answer': 'A\nC'}).get_json()['question']['id']
+    add_response(app, ms, sid, 'A\nC', 'r1')
+    add_response(app, ms, sid, 'A', 'r2')  # partly right is wrong
+    assert _stats(app, ms)['quiz']['correct_count'] == 1
+
+    num = _create(client, sid, {'type': 'numeric', 'min': 0, 'max': 10,
+                                'answer_value': 3.14, 'answer_tolerance': 0.01}
+                  ).get_json()['question']['id']
+    add_response(app, num, sid, '3.141', 'r1')
+    add_response(app, num, sid, '3.2', 'r2')
+    quiz = _stats(app, num)['quiz']
+    assert quiz['correct_count'] == 1 and quiz['answer_text'] == '3.14 (±0.01)'
+    assert quiz['correct_labels'] == ['3–4']
+
+
+def test_answer_key_can_be_fixed_after_responses(app, client):
+    sid = _presenter(app, client)
+    qid = _create(client, sid, {'type': 'multiple_choice', 'options': 'Paris\nLyon',
+                                'answer': 'Lyon'}).get_json()['question']['id']
+    add_response(app, qid, sid, 'Paris', 'r1')
+    client.post(f'/api/questions/{qid}/edit', json={
+        'type': 'multiple_choice', 'title': 'Q?', 'options': 'Paris\nLyon', 'answer': 'Paris'})
+    assert _stats(app, qid)['quiz']['correct_count'] == 1
+
+
+def test_reveal_needs_an_answer_and_an_owner(app, client):
+    sid = _presenter(app, client)
+    plain = create_question(app, sid)
+    assert client.post(f'/api/questions/{plain}/reveal').status_code == 400
+    quiz = _create(client, sid, {'type': 'multiple_choice', 'options': 'A\nB',
+                                 'answer': 'A'}).get_json()['question']['id']
+    create_user(app, 'mallory')
+    other = app.test_client()
+    login(other, 'mallory')
+    assert other.post(f'/api/questions/{quiz}/reveal').status_code == 403
+
+
+def test_present_hides_quiz_until_revealed(app, client):
+    sid = _presenter(app, client)
+    _create(client, sid, {'type': 'multiple_choice', 'options': 'A\nB', 'answer': 'A'})
+    page = client.get(f'/present/{sid}').data
+    assert b'quiz: true, revealed: false' in page
 
 
 # ---------- pin on image ----------
@@ -162,6 +259,24 @@ def test_new_types_render_everywhere(app, client):
     assert client.get(f'/present/{sid}').status_code == 200
     assert client.get(f'/sessions/{sid}/results').status_code == 200
     assert client.get('/audience/ABC123').status_code == 200
+
+
+def test_migration_adds_quiz_columns(tmp_path):
+    import sqlite3
+    from conftest import make_app
+    db_path = tmp_path / 'old.db'
+    make_app({'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}'})
+    con = sqlite3.connect(db_path)
+    con.execute('ALTER TABLE question DROP COLUMN answer')
+    con.execute('ALTER TABLE question DROP COLUMN revealed')
+    con.commit()
+    con.close()
+    app = make_app({'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}'})
+    with app.app_context():
+        cols = {c['name'] for c in db.inspect(db.engine).get_columns('question')}
+        assert {'answer', 'revealed'} <= cols
+        assert Question.query.count() == 0
+
 
 def test_ranking_and_select_all_labels_read_as_lists():
     from classpulse.questions import response_display_label

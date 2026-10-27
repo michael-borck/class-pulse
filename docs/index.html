@@ -211,7 +211,7 @@
                     <div class="card">
                         <h3><span class="chip">Numeric</span></h3>
                         <p>Collect a number, decimals included. Results include the running average.</p>
-                        <div class="cfg">Optional minimum, maximum, and step.</div>
+                        <div class="cfg">Optional minimum, maximum, and step. Can be a quiz question (correct value, plus a tolerance).</div>
                     </div>
                     <div class="card">
                         <h3><span class="chip">Short Answer</span></h3>
@@ -260,6 +260,9 @@
                     </div>
                 </div>
 
+                <h3>Quiz mode</h3>
+                <p>Multiple choice, select-all, image choice and numeric questions can carry a <strong>correct answer</strong>. Set it in the question editor under <em>Quiz answer</em> (for select-all, list every correct option; for numeric, give the value and how close counts). In Present, a quiz question shows only how many have answered, so early answers don't steer the room. Press <em>Reveal answer</em> (or <span class="kbd">R</span>) to show the results with the correct answer in green and the percentage who got it right. Revealing closes the question, and each student's page tells them whether they were right. You can hide the answer again, and fix a wrong answer key even after responses arrive. Answers stay anonymous: there is no leaderboard.</p>
+
                 <div class="callout">
                     <strong>Uploaded images are handled safely.</strong> ClassPulse re-encodes and resizes them server-side, so what your audience sees is a clean, size-limited copy rather than the original file.
                 </div>
@@ -277,6 +280,7 @@
                     <li><strong>One question at a time</strong>, with its live chart, word cloud, or image tallies.</li>
                     <li>An <strong>overview grid</strong> of every question — click any card to enlarge it.</li>
                     <li><strong>Move between questions</strong> with the on-screen <em>← Prev</em> / <em>Next →</em> buttons or the <span class="kbd">←</span> <span class="kbd">→</span> arrow keys.</li>
+                    <li><strong>Reveal quiz answers</strong> with the <em>Reveal answer</em> button or the <span class="kbd">R</span> key (see Quiz mode).</li>
                 </ul>
                 <p>Because everything streams over a live connection, you never refresh — bars grow, words appear, and counts tick up while you talk.</p>
             </section>
@@ -288,7 +292,7 @@
 
                 <h3>Reading results</h3>
                 <ul>
-                    <li><strong>Choice, select-all, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; poll-with-other lists the typed “Other” answers).</li>
+                    <li><strong>Choice, select-all, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; poll-with-other lists the typed “Other” answers). Quiz questions show the correct answer in green with the percentage correct.</li>
                     <li><strong>Ranking</strong> shows each item's score, best first: a longer bar means ranked higher.</li>
                     <li><strong>Slider</strong> shows how answers spread between the two end labels, with the average and median.</li>
                     <li><strong>Points allocation</strong> shows the average points each item received per person.</li>

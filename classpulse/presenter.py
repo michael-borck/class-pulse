@@ -15,9 +15,10 @@ from .auth import login_required
 from .extensions import db, limiter
 from .models import Question, Response, Session
 from .questions import (
-    SCATTER_COLORS, parse_question_payload, question_to_dict, session_to_dict
+    SCATTER_COLORS, build_answer, parse_question_payload, parsed_options, question_to_dict,
+    session_to_dict,
 )
-from .sockets import broadcast_questions_changed
+from .sockets import broadcast_questions_changed, broadcast_results
 from .utils import create_qr_code_data, csv_safe, generate_session_code, request_json_object
 
 
@@ -282,12 +283,14 @@ def init_app(app):
         if s.archived:
             return jsonify({"success": False,
                             "message": "Cannot add questions to this session."}), 400
-        err, q_type, title, opts = parse_question_payload(request_json_object())
-        if err:
-            return jsonify({"success": False, "message": err}), 400
+        data = request_json_object()
+        err, q_type, title, opts = parse_question_payload(data)
+        answer, answer_err = build_answer(q_type, data, opts) if not err else (None, None)
+        if err or answer_err:
+            return jsonify({"success": False, "message": err or answer_err}), 400
         next_order = max([q.order for q in s.questions], default=0) + 1
         q = Question(session_id=s.id, type=q_type, title=title, options=json.dumps(opts),
-                     active=True, order=next_order)
+                     answer=answer, active=True, order=next_order)
         db.session.add(q)
         db.session.commit()
         broadcast_questions_changed(s.id)
@@ -317,7 +320,8 @@ def init_app(app):
             return jsonify({"success": False, "message": "Permission denied."}), 403
         if q.session.archived:
             return jsonify({"success": False, "message": "Cannot edit this question."}), 400
-        err, q_type, title, opts = parse_question_payload(request_json_object())
+        data = request_json_object()
+        err, q_type, title, opts = parse_question_payload(data)
         if err:
             return jsonify({"success": False, "message": err}), 400
         # Title can always change; structural edits are blocked once responses exist
@@ -325,13 +329,23 @@ def init_app(app):
         structural = (q_type != q.type) or (json.dumps(opts) != (q.options or ''))
         if structural and Response.query.filter_by(question_id=q.id).count() > 0:
             q.title = title
+            # The quiz answer can still change (fixing a wrong key re-scores
+            # the existing responses), as long as it fits the unchanged options.
+            answer, answer_err = build_answer(q.type, data, parsed_options(q))
+            if not answer_err:
+                q.answer = answer
             db.session.commit()
             broadcast_questions_changed(q.session_id, edited_question_id=q.id)
             return jsonify({"success": False, "partial": True,
                             "message": "Saved the title. Options/type can't change once "
                                        "responses exist — duplicate the question instead.",
                             "question": question_to_dict(q)})
-        q.type, q.title, q.options = q_type, title, json.dumps(opts)
+        answer, answer_err = build_answer(q_type, data, opts)
+        if answer_err:
+            return jsonify({"success": False, "message": answer_err}), 400
+        q.type, q.title, q.options, q.answer = q_type, title, json.dumps(opts), answer
+        if not answer:
+            q.revealed = False
         db.session.commit()
         # The active-id set is unchanged, so name the edited question; open
         # audience pages and Present reload it rather than keep stale options.
@@ -348,11 +362,30 @@ def init_app(app):
             return jsonify({"success": False, "message": "Cannot modify this session."}), 400
         next_order = max([x.order for x in q.session.questions], default=0) + 1
         c = Question(session_id=q.session_id, type=q.type, title=f"{q.title} (copy)"[:255],
-                     options=q.options, active=True, order=next_order)
+                     options=q.options, answer=q.answer, active=True, order=next_order)
         db.session.add(c)
         db.session.commit()
         broadcast_questions_changed(q.session_id)  # the copy starts active
         return jsonify({"success": True, "question": question_to_dict(c)})
+
+    @app.route('/api/questions/<int:question_id>/reveal', methods=['POST'])
+    @login_required
+    def api_reveal_question(question_id):
+        """Quiz mode: show (or hide again) the answer and results.
+
+        Revealing also closes answering, and nudges open audience pages so each
+        student sees whether they were right.
+        """
+        q = Question.query.get_or_404(question_id)
+        if q.session.user_id != session['user_id']:
+            return jsonify({"success": False, "message": "Permission denied."}), 403
+        if not q.answer:
+            return jsonify({"success": False, "message": "This question has no correct answer set."}), 400
+        q.revealed = not q.revealed
+        db.session.commit()
+        broadcast_questions_changed(q.session_id, edited_question_id=q.id)
+        broadcast_results(q.id)
+        return jsonify({"success": True, "revealed": q.revealed})
 
     @app.route('/api/questions/<int:question_id>/delete', methods=['POST'])
     @login_required

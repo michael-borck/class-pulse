@@ -22,6 +22,17 @@
 
     const BAR_TYPES = ['multiple_choice', 'multi_select', 'numeric', 'multiple_choice_other', 'slider'];
     const INDIGO = 'rgba(79,70,229,0.75)';
+    const GREEN = 'rgba(22,163,74,0.85)';
+    const MUTED = 'rgba(148,163,184,0.6)';
+
+    // Quiz mode: once the answer is shown, correct bars turn green and the
+    // rest go grey, so the right answer reads from the back of the room.
+    function barColours(labels, s, opts) {
+        const quiz = s && s.quiz;
+        if (!(quiz && opts && opts.showAnswer)) return INDIGO;
+        const right = new Set(quiz.correct_labels || []);
+        return labels.map(l => right.has(l) ? GREEN : MUTED);
+    }
 
     // Bar charts: choice-style types, numeric/slider histograms, rating,
     // ranking scores and points allocations.
@@ -47,7 +58,7 @@
             const labels = (s && s.options) || Object.keys(results);
             return { type: 'bar',
                 data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => results[l] || 0),
-                                             backgroundColor: INDIGO }] },
+                                             backgroundColor: barColours(labels, s, opts) }] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
                     plugins: { legend: { display: false } } } };
@@ -66,9 +77,15 @@
         return BAR_TYPES.includes(type) || ['rating', 'ranking', 'points'].includes(type);
     }
 
-    // Short lines above the chart for types that need them.
-    function captionHTML(type, s) {
+    // Short lines above the chart for types that need them. `opts.showAnswer`
+    // adds the quiz answer and score once the presenter has revealed it.
+    function captionHTML(type, s, opts) {
         let out = '';
+        const quiz = s && s.quiz;
+        if (quiz && opts && opts.showAnswer) {
+            out += `<p class="text-sm font-semibold text-green-700 mb-1">✓ Answer: ${esc(quiz.answer_text)}
+                <span class="font-normal text-gray-600">· ${quiz.percent_correct}% correct (${quiz.correct_count} of ${(s && s.total_responses) || 0})</span></p>`;
+        }
         if (type === 'numeric' && s && s.average != null) {
             out += `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${esc(s.average)}</p>`;
         }
@@ -86,6 +103,17 @@
             out += `<p class="text-xs text-gray-500 mb-1">Average points per person, out of ${esc(s.total || 100)}</p>`;
         }
         return out;
+    }
+
+    // Quiz mode, before the reveal: the projected screen shows only how many
+    // have answered, so early answers don't steer the rest of the room.
+    function quizLockedHTML(qid, total, compact) {
+        return `<div class="h-full min-h-[8rem] flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-md bg-gray-50 text-center p-4">
+            <span class="text-3xl" aria-hidden="true">🔒</span>
+            <p class="text-sm text-gray-600">Results hidden until you reveal the answer</p>
+            <p class="text-2xl font-bold text-indigo-700">${total} answered</p>
+            ${compact ? '' : `<button type="button" data-reveal="${qid}" class="mt-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-4 py-2 rounded-full">Reveal answer <kbd class="opacity-70">R</kbd></button>`}
+        </div>`;
     }
 
     // The typed answers behind a poll's "Other" bar.
@@ -123,8 +151,10 @@
 
     // Image choice: each image with its label, count, share and a bar; the
     // leader is outlined. Renders at zero votes too, so the room sees the options.
-    function imageChoiceHTML(options, s) {
+    function imageChoiceHTML(options, s, view) {
         const opts = asArray(options);
+        const quiz = s && s.quiz;
+        const right = new Set((quiz && view && view.showAnswer) ? (quiz.correct_labels || []) : []);
         if (!opts.length) return '<p class="text-gray-400 italic text-center mt-4">No images configured.</p>';
         const results = (s && s.results) || {};
         const counts = opts.map(o => results[o.label] || 0);
@@ -135,7 +165,11 @@
             const count = counts[i];
             const pct = total ? Math.round(count / total * 100) : 0;
             const leading = count > 0 && count === maxCount;
-            return `<div class="rounded-lg border ${leading ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200'} bg-white overflow-hidden flex flex-col">
+            const isRight = right.has(o.label);
+            const frame = isRight ? 'border-green-600 ring-4 ring-green-300'
+                : leading && !right.size ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200';
+            return `<div class="relative rounded-lg border ${frame} bg-white overflow-hidden flex flex-col">
+                ${isRight ? '<span class="absolute top-2 left-2 z-10 bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">✓ Correct</span>' : ''}
                 <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
                     <img src="${esc(o.url)}" alt="${esc(o.label)}" class="w-full h-full object-contain" loading="lazy">
                 </div>
@@ -318,6 +352,6 @@
     window.CPResults = {
         esc, usesBarChart, barConfig, captionHTML, imageChoiceHTML, emojiHTML,
         matrixHTML, scatterConfig, shortAnswerHTML, populateShortAnswer,
-        otherAnswersHTML, renderImagePin,
+        quizLockedHTML, otherAnswersHTML, renderImagePin,
     };
 })();

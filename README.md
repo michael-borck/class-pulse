@@ -10,6 +10,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 
 - **Real-time Interaction**: Engage with your audience in real-time using WebSockets
 - **Fifteen Question Types**: Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, poll-with-other, emoji, grid, scatter, pin on image, slider, and points allocation (see below)
+- **Quiz Mode**: Mark the correct answer on choice and numeric questions; results stay hidden in Present until you reveal them, then show who got it right
 - **Image Uploads**: Upload images for image-choice questions — resized and re-encoded server-side to keep storage small — or link to images hosted elsewhere
 - **QR Code Generation**: Easy session joining with auto-generated QR codes
 - **Results Visualization**: See responses as they come in with instant updates, including live image tallies for image-choice questions
