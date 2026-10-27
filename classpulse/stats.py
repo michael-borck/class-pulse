@@ -266,6 +266,63 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                            "allow_size": bool(cfg.get("allow_size")),
                            "quadrants": bool(cfg.get("quadrants"))}
 
+    elif question.type == 'image_pin':
+        pins = []
+        for resp in all_responses:
+            try:
+                p = json.loads(resp.response_value)
+                pin = {"x": float(p["x"]), "y": float(p["y"])}
+            except (json.JSONDecodeError, TypeError, ValueError, KeyError):
+                continue
+            if 0 <= pin["x"] <= 100 and 0 <= pin["y"] <= 100:
+                pins.append(pin)
+        stats["points"] = pins
+        stats["config"] = {"image_url": _options_dict(question).get("image_url", "")}
+
+    elif question.type == 'slider':
+        cfg = _options_dict(question)
+        try:
+            lo, hi = float(cfg.get('min', 0)), float(cfg.get('max', 100))
+            step = float(cfg.get('step', 1))
+        except (ValueError, TypeError):
+            lo, hi, step = 0.0, 100.0, 1.0
+        vals = [v for v in _finite_floats(all_responses) if lo <= v <= hi]
+        stats["results"] = _histogram(vals, lo, hi, step) if hi > lo else {}
+        stats["options"] = list(stats["results"])
+        if vals:
+            ordered = sorted(vals)
+            mid = len(ordered) // 2
+            median = ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+            stats["average"] = round(sum(vals) / len(vals), 2)
+            stats["median"] = round(median, 2)
+        stats["config"] = {"min": lo, "max": hi, "low_label": cfg.get("low_label", ""),
+                           "high_label": cfg.get("high_label", "")}
+
+    elif question.type == 'points':
+        cfg = _options_dict(question)
+        items = [str(i) for i in cfg.get('items') or []]
+        totals = dict.fromkeys(items, 0)
+        n = 0
+        for resp in all_responses:
+            try:
+                alloc = json.loads(resp.response_value)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(alloc, dict):
+                continue
+            n += 1
+            for item in items:
+                try:
+                    totals[item] += max(0, int(alloc.get(item, 0)))
+                except (ValueError, TypeError):
+                    pass
+        # Average points per respondent: comparable across class sizes, and
+        # the bars sum to the per-student total.
+        stats["results"] = {i: (round(totals[i] / n, 1) if n else 0) for i in items}
+        stats["totals"] = totals
+        stats["options"] = items
+        stats["total"] = int(cfg.get('total') or 100)
+
     elif question.type == 'multiple_choice_other':
         options = [str(o) for o in _options_list(question)]
         labels = options + ['Other']

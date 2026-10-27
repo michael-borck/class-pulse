@@ -9,7 +9,7 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 ## Features
 
 - **Real-time Interaction**: Engage with your audience in real-time using WebSockets
-- **Twelve Question Types**: Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, poll-with-other, emoji, grid, and scatter (see below)
+- **Fifteen Question Types**: Multiple choice, select-all, ranking, numeric, rating, short answer, word cloud, image choice, poll-with-other, emoji, grid, scatter, pin on image, slider, and points allocation (see below)
 - **Image Uploads**: Upload images for image-choice questions — resized and re-encoded server-side to keep storage small — or link to images hosted elsewhere
 - **QR Code Generation**: Easy session joining with auto-generated QR codes
 - **Results Visualization**: See responses as they come in with instant updates, including live image tallies for image-choice questions
@@ -34,6 +34,9 @@ ClassPulse is a real-time audience engagement web application built with Flask. 
 - **Emoji Poll**: Answer with a single emoji from a presenter-chosen set (presets included) — results size each glyph by its share of the vote
 - **Grid / Matrix**: Tap one cell of a labelled grid (2×2 up to 4×4) — results show as a heatmap; a 2×2 "Likelihood × Impact" grid is a classic risk matrix
 - **Scatter Plot**: Drop a point anywhere on a labelled plane, with optional end labels, quadrant lines, and colour and size dimensions — results plot every respondent's dot live
+- **Pin on Image**: Tap a spot on an image (diagram, map, screenshot) — results show every pin on the image
+- **Slider**: Drag between two labelled ends — results show the spread, average and median
+- **Points Allocation**: Share a budget of points across items — results show how strongly the room prefers each one
 
 ## Setup
 

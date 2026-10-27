@@ -18,16 +18,17 @@
         'multiple_choice': 'Multiple Choice Results', 'multi_select': 'Select-All Results',
         'ranking': 'Ranking Results', 'numeric': 'Numeric Results',
         'multiple_choice_other': 'Poll Results', 'rating': 'Rating Scale Results',
+        'slider': 'Slider Results', 'points': 'Points Allocation Results',
         'short_answer': 'Short Answer Results', 'word_cloud': 'Word Cloud Results',
         'image_choice': 'Image Choice Results', 'emoji': 'Emoji Poll Results',
-        'matrix': 'Grid Results', 'scatter': 'Scatter Plot Results',
+        'matrix': 'Grid Results', 'scatter': 'Scatter Plot Results', 'image_pin': 'Pin on Image Results',
     } %}
     {% if stats.type in headings %}
         <h4 class="text-lg font-semibold mb-2">{{ headings[stats.type] }}</h4>
-        {# Average, ranking note. #}
+        {# Average, slider ends, ranking note. #}
         <div id="result-caption"></div>
     {% endif %}
-    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other','rating'] %}
+    {% if stats.type in ['multiple_choice','multi_select','ranking','numeric','multiple_choice_other','rating','slider','points'] %}
         <div class="h-64 md:h-96 relative">
             <canvas id="chart-{{ question.id }}"></canvas>
         </div>
@@ -36,6 +37,8 @@
         <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
     {% elif stats.type == 'emoji' %}
         <div id="result-host" class="border rounded-md bg-gray-50 min-h-40"></div>
+    {% elif stats.type == 'image_pin' %}
+        <div id="result-host" class="h-80 md:h-[32rem]"></div>
     {% elif stats.type == 'scatter' %}
         <div class="h-64 md:h-96 relative">
             <canvas id="chart-scatter-{{ question.id }}"></canvas>
@@ -77,6 +80,8 @@
             initChart(`chart-${questionId}`, cfg.type, cfg.data, cfg.options);
             const others = document.getElementById('result-others');
             if (others) others.innerHTML = R.otherAnswersHTML(statsData);
+        } else if (t === 'image_pin') {
+            R.renderImagePin(host, statsData.config, statsData);
         } else if (t === 'word_cloud' && statsData.results) {
             initWordCloud(`wordcloud-${questionId}`, statsData.results);
         } else if (t === 'scatter') {

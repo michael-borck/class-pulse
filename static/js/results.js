@@ -20,25 +20,28 @@
     const asObject = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
     const asArray = (v) => Array.isArray(v) ? v : [];
 
-    const BAR_TYPES = ['multiple_choice', 'multi_select', 'numeric', 'multiple_choice_other'];
+    const BAR_TYPES = ['multiple_choice', 'multi_select', 'numeric', 'multiple_choice_other', 'slider'];
     const INDIGO = 'rgba(79,70,229,0.75)';
 
-    // Bar charts: choice-style types, the numeric histogram, rating and
-    // ranking scores.
-    function barConfig(type, s) {
+    // Bar charts: choice-style types, numeric/slider histograms, rating,
+    // ranking scores and points allocations.
+    function barConfig(type, s, opts) {
         const results = (s && s.results) || {};
-        if (type === 'ranking') {
-            // Horizontal, so long option names stay readable. Plots the score
-            // (longer = ranked higher), already sorted best-first.
+        if (type === 'ranking' || type === 'points') {
+            // Horizontal, so long option names stay readable. Ranking plots the
+            // score (longer = ranked higher) already sorted best-first; points
+            // plots the average allocation per person.
             const labels = (s && s.options) || Object.keys(results);
-            const scores = (s && s.scores) || {};
+            const values = type === 'ranking' ? ((s && s.scores) || {}) : results;
             return { type: 'bar',
-                data: { labels, datasets: [{ label: 'Score', data: labels.map(l => scores[l] || 0),
-                                             backgroundColor: INDIGO }] },
+                data: { labels, datasets: [{ label: type === 'ranking' ? 'Score' : 'Average points',
+                                             data: labels.map(l => values[l] || 0), backgroundColor: INDIGO }] },
                 options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                     scales: { x: { beginAtZero: true } },
                     plugins: { legend: { display: false },
-                        tooltip: { callbacks: { label: (ctx) => ` average position ${results[ctx.label] || '–'}` } } } } };
+                        tooltip: { callbacks: { label: (ctx) => type === 'ranking'
+                            ? ` average position ${results[ctx.label] || '–'}`
+                            : ` ${ctx.parsed.x} points on average` } } } } };
         }
         if (BAR_TYPES.includes(type)) {
             const labels = (s && s.options) || Object.keys(results);
@@ -60,7 +63,7 @@
     }
 
     function usesBarChart(type) {
-        return BAR_TYPES.includes(type) || ['rating', 'ranking'].includes(type);
+        return BAR_TYPES.includes(type) || ['rating', 'ranking', 'points'].includes(type);
     }
 
     // Short lines above the chart for types that need them.
@@ -69,7 +72,19 @@
         if (type === 'numeric' && s && s.average != null) {
             out += `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${esc(s.average)}</p>`;
         }
+        if (type === 'slider') {
+            const cfg = (s && s.config) || {};
+            if (s && s.average != null) {
+                out += `<p class="text-sm font-medium text-gray-700 mb-1">Average: ${esc(s.average)} · Median: ${esc(s.median)}</p>`;
+            }
+            if (cfg.low_label || cfg.high_label) {
+                out += `<div class="flex justify-between text-xs text-gray-500 mb-1"><span>← ${esc(cfg.low_label || cfg.min)}</span><span>${esc(cfg.high_label || cfg.max)} →</span></div>`;
+            }
+        }
         if (type === 'ranking') out += '<p class="text-xs text-gray-500 mb-1">Longer bar = ranked higher</p>';
+        if (type === 'points' && s) {
+            out += `<p class="text-xs text-gray-500 mb-1">Average points per person, out of ${esc(s.total || 100)}</p>`;
+        }
         return out;
     }
 
@@ -79,6 +94,31 @@
         if (!items.length) return '';
         return `<p class="text-xs font-semibold text-gray-500 mt-2 mb-1">"Other" answers (${items.length})</p>
             <div class="space-y-1">${items.map(a => `<div class="bg-white border rounded px-2 py-1 text-sm text-gray-800">${esc(a.text)}</div>`).join('')}</div>`;
+    }
+
+    // Pin on image: every pin drawn over the image in an SVG whose viewBox is
+    // the image's own pixel size, so pins land on the right spot however the
+    // image is scaled or letterboxed. Overlapping translucent pins darken
+    // where the room agrees.
+    const imageSizes = {};
+    function renderImagePin(el, config, s) {
+        if (!el) return;
+        const url = asObject(config).image_url;
+        if (!url) { el.innerHTML = '<p class="text-gray-400 italic text-center mt-4">No image configured.</p>'; return; }
+        const size = imageSizes[url];
+        if (!size) {
+            const img = new Image();
+            img.onload = () => { imageSizes[url] = [img.naturalWidth || 1000, img.naturalHeight || 750]; renderImagePin(el, config, s); };
+            img.onerror = () => { el.innerHTML = '<p class="text-red-500 text-center mt-4">Image failed to load.</p>'; };
+            img.src = url;
+            return;
+        }
+        const [w, h] = size;
+        const r = Math.max(w, h) * 0.018;
+        const pins = asArray(s && s.points).map(p =>
+            `<circle cx="${(p.x / 100 * w).toFixed(1)}" cy="${(p.y / 100 * h).toFixed(1)}" r="${r.toFixed(1)}" fill="rgba(220,38,38,0.4)" stroke="white" stroke-width="${(r / 5).toFixed(1)}"/>`).join('');
+        el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" class="w-full h-full" role="img" aria-label="${asArray(s && s.points).length} pins on the image">
+            <image href="${esc(url)}" width="${w}" height="${h}"/>${pins}</svg>`;
     }
 
     // Image choice: each image with its label, count, share and a bar; the
@@ -278,6 +318,6 @@
     window.CPResults = {
         esc, usesBarChart, barConfig, captionHTML, imageChoiceHTML, emojiHTML,
         matrixHTML, scatterConfig, shortAnswerHTML, populateShortAnswer,
-        otherAnswersHTML,
+        otherAnswersHTML, renderImagePin,
     };
 })();

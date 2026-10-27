@@ -300,6 +300,65 @@
                        class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </label>
             </div>
+        {% elif q.type == 'image_pin' %}
+            {# Tap the image to drop a pin. x/y are percentages of the image
+               itself (y from the top); the wrapper is exactly the image's size
+               so the percentages line up with what's drawn. #}
+            {% set cfg = q.options | fromjson %}
+            {% set prev = (previous_answer | fromjson) if previous_answer else none %}
+            <div class="mb-3">
+                <div class="pin-pad relative w-fit max-w-full cursor-crosshair touch-none select-none rounded-md overflow-hidden border-2 border-gray-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400"
+                     data-qid="{{ q.id }}" tabindex="0" role="application"
+                     aria-label="Image for {{ q.title }}. Use the arrow keys to move your pin; hold Shift for bigger steps.">
+                    <img src="{{ cfg.get('image_url', '') }}" alt="" class="block max-w-full h-auto" draggable="false">
+                    <div id="pin-dot-{{ q.id }}"
+                         class="absolute w-5 h-5 rounded-full bg-red-600 border-2 border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none {{ 'hidden' if not prev }}"
+                         {% if prev %}style="left: {{ prev.x }}%; top: {{ prev.y }}%;"{% endif %}></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Tap the image to drop your pin.</p>
+                <p id="pin-live-{{ q.id }}" class="sr-only" aria-live="polite"></p>
+                <input type="hidden" name="response-{{ q.id }}-x" id="pin-x-{{ q.id }}" value="{{ prev.x if prev else '' }}">
+                <input type="hidden" name="response-{{ q.id }}-y" id="pin-y-{{ q.id }}" value="{{ prev.y if prev else '' }}">
+            </div>
+        {% elif q.type == 'slider' %}
+            {# The range input has no name: the hidden field stays empty until the
+               student moves the slider, so nobody "answers" the midpoint by
+               accident. #}
+            {% set cfg = q.options | fromjson %}
+            {% set lo = cfg.get('min', 0) %}
+            {% set hi = cfg.get('max', 100) %}
+            {% set start = previous_answer if previous_answer is not none else (lo + hi) / 2 %}
+            <div class="mb-3">
+                <div class="flex justify-between gap-4 text-sm text-gray-600 mb-1">
+                    <span>{{ cfg.get('low_label') or '%g' | format(lo) }}</span>
+                    <span class="text-right">{{ cfg.get('high_label') or '%g' | format(hi) }}</span>
+                </div>
+                <input type="range" class="sl-range w-full h-8 accent-indigo-600" data-qid="{{ q.id }}"
+                       min="{{ '%g' | format(lo) }}" max="{{ '%g' | format(hi) }}" step="{{ '%g' | format(cfg.get('step', 1)) }}"
+                       value="{{ start }}" aria-label="{{ q.title }}">
+                <input type="hidden" name="{{ input_name }}" id="sl-val-{{ q.id }}" value="{{ previous_answer or '' }}">
+                <p class="text-center mt-1">
+                    <span id="sl-read-{{ q.id }}" class="text-2xl font-bold {{ 'text-indigo-700' if previous_answer is not none else 'text-gray-300' }}">{{ previous_answer if previous_answer is not none else 'Drag the slider' }}</span>
+                </p>
+            </div>
+        {% elif q.type == 'points' %}
+            {% set cfg = q.options | fromjson %}
+            {% set prev = (previous_answer | fromjson) if previous_answer else {} %}
+            {% set total = cfg.get('total', 100) %}
+            <div class="pt-wrap mb-3" data-total="{{ total }}">
+                <p class="text-sm text-gray-600 mb-2">Share out <strong>{{ total }}</strong> points. Give more to what matters most to you.</p>
+                {% for item in cfg.get('items', []) %}
+                <div class="flex items-center gap-2 py-1.5 border-b border-gray-100">
+                    <span class="flex-grow min-w-0 break-words text-gray-800">{{ item }}</span>
+                    <button type="button" class="pt-dec w-10 h-10 shrink-0 rounded-md border border-gray-300 text-lg hover:bg-gray-100" aria-label="Fewer points for {{ item }}">−</button>
+                    <input type="number" inputmode="numeric" min="0" max="{{ total }}" step="1"
+                           name="{{ input_name }}-{{ loop.index0 }}" value="{{ prev.get(item, 0) }}"
+                           class="pt-input w-16 shrink-0 text-center border border-gray-300 rounded-md py-2" aria-label="Points for {{ item }}">
+                    <button type="button" class="pt-inc w-10 h-10 shrink-0 rounded-md border border-gray-300 text-lg hover:bg-gray-100" aria-label="More points for {{ item }}">+</button>
+                </div>
+                {% endfor %}
+                <p class="pt-left mt-2 text-sm font-semibold" aria-live="polite"></p>
+            </div>
         {% endif %}
 
         <button type="submit" class="mt-4 bg-brand-gradient text-white font-bold py-3 px-5 rounded-md text-sm shadow-brand">
@@ -850,5 +909,88 @@
         });
     })();
 
+    /* ---------- pin on image: tap or arrow keys ---------- */
+    (function () {
+        const clamp = v => Math.min(100, Math.max(0, v));
+        function place(qid, x, y) {
+            x = clamp(x); y = clamp(y);
+            document.getElementById('pin-x-' + qid).value = x.toFixed(1);
+            document.getElementById('pin-y-' + qid).value = y.toFixed(1);
+            const d = document.getElementById('pin-dot-' + qid);
+            d.classList.remove('hidden');
+            d.style.left = x + '%';
+            d.style.top = y + '%';
+            const live = document.getElementById('pin-live-' + qid);
+            if (live) live.textContent = `Pin at ${Math.round(x)}% across, ${Math.round(y)}% down.`;
+            const form = d.closest('form');
+            if (form) form.dataset.dirty = 'true';
+        }
+        document.querySelectorAll('.pin-pad').forEach(pad => {
+            const qid = pad.dataset.qid;
+            pad.addEventListener('pointerdown', e => {
+                if (pad.closest('fieldset:disabled')) return;
+                e.preventDefault();
+                pad.focus({ preventScroll: true });
+                const rect = pad.querySelector('img').getBoundingClientRect();
+                place(qid, (e.clientX - rect.left) / rect.width * 100, (e.clientY - rect.top) / rect.height * 100);
+            });
+            pad.addEventListener('keydown', e => {
+                const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+                const m = moves[e.key];
+                if (!m || pad.closest('fieldset:disabled')) return;
+                e.preventDefault();
+                const xs = document.getElementById('pin-x-' + qid).value;
+                const ys = document.getElementById('pin-y-' + qid).value;
+                if (xs === '' || ys === '') return place(qid, 50, 50);
+                const step = e.shiftKey ? 10 : 2;
+                place(qid, parseFloat(xs) + m[0] * step, parseFloat(ys) + m[1] * step);
+            });
+        });
+    })();
+
+    /* ---------- slider: answer only once moved ---------- */
+    document.querySelectorAll('.sl-range').forEach(range => {
+        const qid = range.dataset.qid;
+        range.addEventListener('input', () => {
+            document.getElementById('sl-val-' + qid).value = range.value;
+            const read = document.getElementById('sl-read-' + qid);
+            read.textContent = range.value;
+            read.classList.remove('text-gray-300');
+            read.classList.add('text-indigo-700');
+        });
+    });
+
+    /* ---------- points: running total ---------- */
+    (function () {
+        function update(wrap) {
+            const total = parseInt(wrap.dataset.total, 10) || 100;
+            const used = [...wrap.querySelectorAll('.pt-input')]
+                .reduce((n, el) => n + Math.max(0, parseInt(el.value, 10) || 0), 0);
+            const left = total - used;
+            const out = wrap.querySelector('.pt-left');
+            out.className = 'pt-left mt-2 text-sm font-semibold ' +
+                (left === 0 ? 'text-green-700' : left < 0 ? 'text-red-600' : 'text-gray-600');
+            out.textContent = left === 0 ? `✓ All ${total} points shared`
+                : left > 0 ? `${left} point${left === 1 ? '' : 's'} left to share`
+                : `${-left} point${left === -1 ? '' : 's'} too many`;
+        }
+        document.querySelectorAll('.pt-wrap').forEach(update);
+        document.addEventListener('input', e => {
+            if (e.target.classList && e.target.classList.contains('pt-input')) update(e.target.closest('.pt-wrap'));
+        });
+        document.addEventListener('click', e => {
+            const btn = e.target.closest && e.target.closest('.pt-inc, .pt-dec');
+            if (!btn) return;
+            const wrap = btn.closest('.pt-wrap');
+            const input = btn.parentElement.querySelector('.pt-input');
+            const total = parseInt(wrap.dataset.total, 10) || 100;
+            const step = Math.max(1, Math.round(total / 20));  // 5 points of 100
+            const cur = Math.max(0, parseInt(input.value, 10) || 0);
+            input.value = btn.classList.contains('pt-inc') ? Math.min(total, cur + step) : Math.max(0, cur - step);
+            update(wrap);
+            const form = wrap.closest('form');
+            if (form) form.dataset.dirty = 'true';
+        });
+    })();
 </script>
 {% endblock %}

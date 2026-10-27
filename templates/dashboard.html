@@ -132,7 +132,10 @@ const TYPES = {
     multiple_choice_other:'Poll w/ Other',
     emoji:'Emoji Poll',
     matrix:'Grid / Matrix',
-    scatter:'Scatter Plot'
+    scatter:'Scatter Plot',
+    image_pin:'Pin on Image',
+    slider:'Slider',
+    points:'Points Allocation'
 };
 // Sane starting points for emoji polls; the list stays editable after picking.
 const EMOJI_PRESETS = {
@@ -158,7 +161,10 @@ const CHIPS = {
     multiple_choice_other: ["Add an 'Other' option", 'Make options more distinct', 'Add a 5th option'],
     emoji: ['Switch to a mood scale', 'Use traffic-light emojis', 'Fewer choices'],
     matrix: ['Make it a risk matrix', 'Switch to a 2×3 grid', 'Clarify the axis labels'],
-    scatter: ['Frame it as a prediction', 'Clarify the axis labels', 'Suggest what colour/size mean']
+    scatter: ['Frame it as a prediction', 'Clarify the axis labels', 'Suggest what colour/size mean'],
+    image_pin: ['Make it a "find the" question', 'Clarify what to mark'],
+    slider: ['Reword the end labels', 'Make it a confidence check'],
+    points: ['Reduce to 4 items', 'Make items more distinct']
 };
 let edSelectedChip = '';
 let edSnapshot = null;
@@ -246,6 +252,9 @@ function summary(q) {
     if (t === 'emoji') return `${(q.options||[]).length} emojis`;
     if (t === 'matrix') { const o = q.options || {}; return `${o.cols||2}×${o.rows||2} grid`; }
     if (t === 'scatter') return 'scatter plot';
+    if (t === 'image_pin') return 'pin on image';
+    if (t === 'slider') { const o = q.options || {}; return `slider ${o.min ?? 0}–${o.max ?? 100}`; }
+    if (t === 'points') { const o = q.options || {}; return `${(o.items||[]).length} items, ${o.total||100} points`; }
     if (t === 'rating') return `1–${q.max_rating} scale`;
     if (t === 'numeric') return 'numeric';
     if (t === 'short_answer') return 'short answer';
@@ -427,6 +436,41 @@ function typeFields(type, q) {
         </div>
         <p class="text-xs text-gray-400 mt-2">The audience taps anywhere on the plot; results show as a live scatter plot. End labels replace the 0 and 100 at each end of an axis.</p>`;
     }
+    if (type === 'image_pin') {
+        const o = (q && q.type === 'image_pin') ? (q.options || {}) : {};
+        const uploader = (SID !== null) ? `<div class="mt-2 flex items-center gap-2">
+            <input type="file" id="ed-image-file" accept="image/*" class="hidden">
+            <button type="button" id="ed-image-btn" class="text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 font-semibold py-1 px-2 rounded-md">⬆ Upload image</button>
+            <span id="ed-image-status" class="text-xs text-gray-500"></span>
+        </div>` : '';
+        return `<label class="block text-sm font-medium text-gray-700 mt-3">Image</label>
+        <input id="ed-pin-url" type="text" value="${esc(o.image_url || '')}" placeholder="Upload, or paste an https:// image URL" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+        ${uploader}
+        <p class="text-xs text-gray-400 mt-2">The audience taps a spot on the image (a diagram, map, or screenshot); results show every pin on the image.</p>`;
+    }
+    if (type === 'slider') {
+        const o = (q && q.type === 'slider') ? (q.options || {}) : {};
+        const num = (id, label, val, ph) => `<div><label class="block text-sm font-medium text-gray-700">${label}</label>
+            <input id="${id}" type="number" step="any" value="${val != null ? val : ''}" placeholder="${ph}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>`;
+        const txt = (id, label, val, ph) => `<div><label class="block text-xs font-medium text-gray-500">${label}</label>
+            <input id="${id}" type="text" maxlength="60" value="${esc(val || '')}" placeholder="${ph}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"></div>`;
+        return `<div class="grid grid-cols-3 gap-3 mt-3">
+            ${num('ed-min', 'Min', o.min, '0')}${num('ed-max', 'Max', o.max, '100')}${num('ed-step', 'Step', o.step, '1')}
+        </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            ${txt('ed-low-label', 'Left end label', o.low_label, 'e.g. Not at all')}
+            ${txt('ed-high-label', 'Right end label', o.high_label, 'e.g. Completely')}
+        </div>
+        <p class="text-xs text-gray-400 mt-2">The audience drags a slider; results show the spread with the average and median.</p>`;
+    }
+    if (type === 'points') {
+        const o = (q && q.type === 'points') ? (q.options || {}) : {};
+        return `<label class="block text-sm font-medium text-gray-700 mt-3">Items (one per line, 2–10)</label>
+        <textarea id="ed-options" rows="4" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm">${esc((o.items || []).join('\n'))}</textarea>
+        <label class="block text-sm font-medium text-gray-700 mt-3">Points to share out</label>
+        <input id="ed-total" type="number" min="2" max="1000" value="${o.total || 100}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">
+        <p class="text-xs text-gray-400 mt-2">Each person splits the points across the items, so results show how strongly the room prefers each one.</p>`;
+    }
     if (type === 'rating') return `<label class="block text-sm font-medium text-gray-700 mt-3">Maximum rating</label>
         <input id="ed-max" type="number" min="2" max="10" value="${q && q.type==='rating' ? q.max_rating : 5}" class="mt-1 block w-32 px-3 py-2 border border-gray-300 rounded-md text-sm">`;
     // word_cloud, short_answer — no config
@@ -515,8 +559,15 @@ function closeEditor() { modal.classList.add('hidden'); }
 function readForm() {
     const type = document.getElementById('ed-type').value;
     const body = { type, title: document.getElementById('ed-title').value.trim() };
-    if (['multiple_choice','multi_select','ranking','multiple_choice_other','image_choice','emoji'].includes(type)) {
+    if (['multiple_choice','multi_select','ranking','multiple_choice_other','image_choice','emoji','points'].includes(type)) {
         body.options = document.getElementById('ed-options').value;
+    }
+    const val = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+    if (type === 'points') body.total = parseInt(val('ed-total'), 10) || 100;
+    if (type === 'image_pin') body.image_url = val('ed-pin-url');
+    if (type === 'slider') {
+        body.min = val('ed-min'); body.max = val('ed-max'); body.step = val('ed-step');
+        body.low_label = val('ed-low-label'); body.high_label = val('ed-high-label');
     }
     if (type === 'rating') body.max_rating = parseInt(document.getElementById('ed-max').value, 10) || 5;
     if (type === 'numeric') {
@@ -735,6 +786,9 @@ document.getElementById('modal-body')?.addEventListener('change', async e => {
         const r = await fetch(`/api/sessions/${SID}/upload-image`, { method:'POST', headers:{ 'X-CSRFToken': CSRF }, body: fd });
         const d = await r.json().catch(() => ({}));
         if (r.ok && d.url) {
+            // Pin on image takes a single image; image choice appends a line.
+            const pin = document.getElementById('ed-pin-url');
+            if (pin) { pin.value = d.url; setStatus('✓ Uploaded', 'text-green-600'); return; }
             const ta = document.getElementById('ed-options');
             const label = (file.name.replace(/\.[^.]+$/, '') || 'Image').slice(0, 60);
             const line = `${label}|${d.url}`;

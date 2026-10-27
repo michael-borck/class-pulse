@@ -125,7 +125,7 @@
 <script src="{{ url_for('static', filename='js/results.js') }}"></script>
 <script nonce="{{ csp_nonce }}">
     const QUESTIONS = [
-        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
+        {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter', 'image_pin', 'slider', 'points'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
         {% endfor %}
     ];
     const MODE = {{ mode | tojson }};
@@ -215,6 +215,8 @@
             inner = `<div id="em-${q.id}" class="w-full ${hClass} overflow-y-auto border rounded-md bg-gray-50"></div>`;
         } else if (q.type === 'matrix') {
             inner = `<div id="mx-${q.id}" class="w-full ${hClass} overflow-y-auto p-1"></div>`;
+        } else if (q.type === 'image_pin') {
+            inner = `<div id="pin-${q.id}" class="w-full ${hClass}"></div>`;
         } else {
             inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
             if (q.type === 'multiple_choice_other' && !opts.compact) {
@@ -228,10 +230,12 @@
     // Draw a question into the host elements whose ids start with `prefix`
     // ('' for the in-page views, 'ov-' for the enlarge overlay).
     function draw(q, s, ids) {
-        // Image choice, emoji, matrix and scatter render at zero votes too, so
-        // latecomers see the options and axes before anyone has answered.
+        // Image choice, emoji, matrix, scatter and pins render at zero votes
+        // too, so latecomers see the options and axes before anyone answers.
         if (q.type === 'image_choice') {
             const el = document.getElementById(ids.ic); if (el) el.innerHTML = R.imageChoiceHTML(q.options, s);
+        } else if (q.type === 'image_pin') {
+            R.renderImagePin(document.getElementById(ids.pin), q.options, s);
         } else if (q.type === 'emoji') {
             const el = document.getElementById(ids.em); if (el) el.innerHTML = R.emojiHTML(q.options, s);
         } else if (q.type === 'matrix') {
@@ -265,7 +269,7 @@
         const cap = document.getElementById('cap-' + qid);
         if (cap) cap.innerHTML = R.captionHTML(q.type, s);
         draw(q, s, { ic: 'ic-' + qid, em: 'em-' + qid, mx: 'mx-' + qid, cv: 'cv-' + qid,
-                     sa: 'sa-' + qid, wc: 'wc-' + qid, oth: 'oth-' + qid });
+                     sa: 'sa-' + qid, wc: 'wc-' + qid, pin: 'pin-' + qid, oth: 'oth-' + qid });
     }
 
     function destroyVisibleCharts() {
@@ -369,6 +373,7 @@
             host.dataset.qid = String(qid);
             let inner;
             if (q.type === 'short_answer') inner = R.shortAnswerHTML('ov-sa', 'h-[58vh]', true);
+            else if (q.type === 'image_pin') inner = '<div id="ov-pin" class="h-[62vh]"></div>';
             else if (q.type === 'word_cloud') inner = '<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>';
             else if (q.type === 'image_choice') inner = '<div id="ov-ic" class="h-[62vh] overflow-y-auto"></div>';
             else if (q.type === 'emoji') inner = '<div id="ov-em" class="h-[62vh] overflow-y-auto border rounded-md bg-gray-50"></div>';
@@ -379,7 +384,7 @@
         }
         document.getElementById('ov-cap').innerHTML = R.captionHTML(q.type, s);
         draw(q, s, { ic: 'ov-ic', em: 'ov-em', mx: 'ov-mx', cv: 'ov-cv', sa: 'ov-sa', wc: 'ov-wc',
-                     oth: 'ov-oth' });
+                     pin: 'ov-pin', oth: 'ov-oth' });
     }
 
     function openOverlay(qid) {

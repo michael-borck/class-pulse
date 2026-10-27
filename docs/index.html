@@ -180,7 +180,7 @@
             <!-- 3 -->
             <section class="doc" id="question-types">
                 <h2><span class="num">3</span>Question types</h2>
-                <p class="lead">Twelve types, mixable within one session. Options are entered one per line unless noted.</p>
+                <p class="lead">Fifteen types, mixable within one session. Options are entered one per line unless noted.</p>
 
                 <div class="qgrid">
                     <div class="card">
@@ -243,6 +243,21 @@
                         <p>Drop a point anywhere on a labelled plane — predictions, estimates, “where do you stand?” Results plot every respondent's dot live.</p>
                         <div class="cfg">Optional axis labels and end labels (“Cheap” … “Expensive”, shown instead of 0 and 100), quadrant lines, and colour and size dimensions for the respondent to pick.</div>
                     </div>
+                    <div class="card">
+                        <h3><span class="chip">Pin on Image</span></h3>
+                        <p>Tap a spot on an image: label a diagram, find the bug in a screenshot, mark a place on a map. Results show every pin on the image; clusters show where the room agrees.</p>
+                        <div class="cfg">Upload an image or paste an https:// image URL.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Slider</span></h3>
+                        <p>Drag a slider between two labelled ends, e.g. “How confident are you?” from “Not at all” to “Completely”. Results show the spread with the average and median.</p>
+                        <div class="cfg">Minimum, maximum and step (default 0–100 in steps of 1), plus a label for each end.</div>
+                    </div>
+                    <div class="card">
+                        <h3><span class="chip">Points Allocation</span></h3>
+                        <p>Each person shares out a budget of points across the items, so you see how strongly the room prefers each one, not just which won. Answers must use exactly the full budget.</p>
+                        <div class="cfg">2–10 items and a points total (default 100).</div>
+                    </div>
                 </div>
 
                 <div class="callout">
@@ -275,6 +290,9 @@
                 <ul>
                     <li><strong>Choice, select-all, numeric, poll-with-other</strong> render as bar charts (numeric also shows the average; poll-with-other lists the typed “Other” answers).</li>
                     <li><strong>Ranking</strong> shows each item's score, best first: a longer bar means ranked higher.</li>
+                    <li><strong>Slider</strong> shows how answers spread between the two end labels, with the average and median.</li>
+                    <li><strong>Points allocation</strong> shows the average points each item received per person.</li>
+                    <li><strong>Pin on image</strong> draws every pin on the image.</li>
                     <li><strong>Rating</strong> shows the spread across the star scale.</li>
                     <li><strong>Word cloud</strong> and <strong>short answer</strong> show the text — as a cloud or a list.</li>
                     <li><strong>Image choice</strong> shows each image with its live vote tally.</li>

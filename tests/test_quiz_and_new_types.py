@@ -1,9 +1,13 @@
-"""Fixes to the numeric, word cloud, "Other" and ranking question types,
-and scatter end labels."""
+"""Pin on image, slider, points allocation, and the fixes to the numeric,
+word cloud, "Other" and ranking question types (plus scatter end labels)."""
+
+import json
 
 from classpulse.stats import get_question_stats
 
-from conftest import add_response, create_question, create_session, create_user, login
+from conftest import (
+    add_response, create_question, create_session, create_user, join_session, login
+)
 
 AJAX = {'X-Requested-With': 'XMLHttpRequest'}
 
@@ -22,6 +26,70 @@ def _create(client, sid, payload):
 def _stats(app, qid):
     with app.app_context():
         return get_question_stats(qid)
+
+
+# ---------- pin on image ----------
+
+def test_image_pin_create_respond_and_stats(app, client):
+    sid = _presenter(app, client)
+    assert _create(client, sid, {'type': 'image_pin', 'image_url': 'javascript:alert(1)'}
+                   ).status_code == 400
+    qid = _create(client, sid, {'type': 'image_pin', 'image_url': '/uploads/1/map.jpg'}
+                  ).get_json()['question']['id']
+    join_session(client)
+    ok = client.post(f'/audience/respond/{qid}', data={
+        f'response-{qid}-x': '25', f'response-{qid}-y': '75'}, headers=AJAX)
+    assert ok.status_code == 200
+    bad = client.post(f'/audience/respond/{qid}', data={
+        f'response-{qid}-x': '125', f'response-{qid}-y': '75'}, headers=AJAX)
+    assert bad.status_code == 400
+    stats = _stats(app, qid)
+    assert stats['points'] == [{'x': 25.0, 'y': 75.0}]
+    assert stats['config']['image_url'] == '/uploads/1/map.jpg'
+
+
+# ---------- slider ----------
+
+def test_slider_validation_and_stats(app, client):
+    sid = _presenter(app, client)
+    assert _create(client, sid, {'type': 'slider', 'min': 10, 'max': 1}).status_code == 400
+    qid = _create(client, sid, {'type': 'slider', 'min': 1, 'max': 5, 'step': 1,
+                                'low_label': 'Not at all', 'high_label': 'Completely'}
+                  ).get_json()['question']['id']
+    join_session(client)
+    assert client.post(f'/audience/respond/{qid}', data={f'response-{qid}': ''},
+                       headers=AJAX).status_code == 400  # never moved
+    assert client.post(f'/audience/respond/{qid}', data={f'response-{qid}': '9'},
+                       headers=AJAX).status_code == 400  # out of range
+    assert client.post(f'/audience/respond/{qid}', data={f'response-{qid}': '4'},
+                       headers=AJAX).status_code == 200
+    add_response(app, qid, sid, '2', 'r2')
+    stats = _stats(app, qid)
+    assert stats['results'] == {'1': 0, '2': 1, '3': 0, '4': 1, '5': 0}  # one bar per step
+    assert stats['average'] == 3.0 and stats['median'] == 3.0
+    assert stats['config']['low_label'] == 'Not at all'
+
+
+# ---------- points allocation ----------
+
+def test_points_must_add_up_and_average(app, client):
+    sid = _presenter(app, client)
+    qid = _create(client, sid, {'type': 'points', 'options': 'Algebra\nGeometry\nStats',
+                                'total': 100}).get_json()['question']['id']
+    join_session(client)
+
+    def send(a, b, c):
+        return client.post(f'/audience/respond/{qid}', data={
+            f'response-{qid}-0': a, f'response-{qid}-1': b, f'response-{qid}-2': c}, headers=AJAX)
+    assert send('50', '30', '30').status_code == 400   # 110
+    assert send('-10', '60', '50').status_code == 400  # negative
+    r = send('50', '30', '20')
+    assert r.status_code == 200
+    assert r.get_json()['response_label'] == 'Algebra: 50, Geometry: 30, Stats: 20'
+    add_response(app, qid, sid, json.dumps({'Algebra': 0, 'Geometry': 100, 'Stats': 0}), 'r2')
+    stats = _stats(app, qid)
+    assert stats['results'] == {'Algebra': 25.0, 'Geometry': 65.0, 'Stats': 10.0}
+    assert stats['total'] == 100
 
 
 # ---------- fixes to existing types ----------
@@ -78,6 +146,22 @@ def test_scatter_end_labels_and_quadrants(app, client):
     assert cfg['x_low'] == 'Cheap' and cfg['x_high'] == 'Expensive' and cfg['quadrants'] is True
     page = client.get('/audience/ABC123').data
     assert b'Cheap' in page and b'Expensive' in page
+
+
+def test_new_types_render_everywhere(app, client):
+    sid = _presenter(app, client)
+    cases = [
+        ('image_pin', {'image_url': '/uploads/1/a.jpg'}, '{"x":10,"y":20}'),
+        ('slider', {'min': 0, 'max': 100, 'step': 1}, '42'),
+        ('points', {'items': ['A', 'B'], 'total': 10}, '{"A":4,"B":6}'),
+    ]
+    for q_type, options, value in cases:
+        qid = create_question(app, sid, q_type=q_type, title=f'T {q_type}', options=options)
+        add_response(app, qid, sid, value, respondent_id='r1')
+        assert client.get(f'/questions/{qid}/results').status_code == 200, q_type
+    assert client.get(f'/present/{sid}').status_code == 200
+    assert client.get(f'/sessions/{sid}/results').status_code == 200
+    assert client.get('/audience/ABC123').status_code == 200
 
 def test_ranking_and_select_all_labels_read_as_lists():
     from classpulse.questions import response_display_label

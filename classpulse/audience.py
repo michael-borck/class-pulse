@@ -207,6 +207,50 @@ def _extract_response_value(question):
             point["s"] = s
         return json.dumps(point, separators=(',', ':')), None
 
+    if q_type == 'image_pin':
+        # x/y are percentages of the image box, y measured from the top (the
+        # image's own orientation, unlike scatter's chart-style y).
+        try:
+            x = float(request.form.get(f'{field}-x'))
+            y = float(request.form.get(f'{field}-y'))
+        except (TypeError, ValueError):
+            return None, "Tap the image to drop your pin."
+        if not (0 <= x <= 100 and 0 <= y <= 100):
+            return None, "Your pin is outside the image."
+        return json.dumps({"x": round(x, 1), "y": round(y, 1)}, separators=(',', ':')), None
+
+    if q_type == 'slider':
+        cfg = parsed_options(question)
+        cfg = cfg if isinstance(cfg, dict) else {}
+        try:
+            value = float(request.form.get(field))
+            lo, hi = float(cfg.get('min', 0)), float(cfg.get('max', 100))
+        except (TypeError, ValueError):
+            return None, "Move the slider to answer."
+        if not math.isfinite(value) or not lo <= value <= hi:
+            return None, "That value is outside the slider's range."
+        return f"{value:g}", None
+
+    if q_type == 'points':
+        cfg = parsed_options(question)
+        cfg = cfg if isinstance(cfg, dict) else {}
+        items = [str(i) for i in cfg.get('items') or []]
+        total = int(cfg.get('total') or 100)
+        alloc = {}
+        for idx, item in enumerate(items):
+            raw = (request.form.get(f'{field}-{idx}') or '0').strip() or '0'
+            try:
+                n = int(raw)
+            except ValueError:
+                return None, "Points must be whole numbers."
+            if n < 0:
+                return None, "Points can't be negative."
+            alloc[item] = n
+        spent = sum(alloc.values())
+        if spent != total:
+            return None, f"Share out exactly {total} points (you've used {spent})."
+        return json.dumps(alloc, separators=(',', ':')), None
+
     # word_cloud, short_answer: free text with length caps.
     raw = request.form.get(field)
     if raw is None:

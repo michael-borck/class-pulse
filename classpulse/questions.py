@@ -10,7 +10,16 @@ VALID_QUESTION_TYPES = (
     'multi_select', 'short_answer', 'ranking', 'numeric',
     'image_choice', 'multiple_choice_other',
     'emoji', 'matrix', 'scatter',
+    'image_pin', 'slider', 'points',
 )
+
+# Slider defaults: a 0–100 scale in whole steps.
+SLIDER_DEFAULTS = {'min': 0.0, 'max': 100.0, 'step': 1.0}
+
+# Points allocation: the audience splits `total` points across the items.
+POINTS_DEFAULT_TOTAL = 100
+POINTS_MAX_TOTAL = 1000
+POINTS_MAX_ITEMS = 10
 
 # Server-side caps for content authored by presenters (titles/options) and,
 # more importantly, submitted by the anonymous audience (see audience.py).
@@ -139,8 +148,60 @@ def build_options(q_type, src):
         # Faint lines through the middle so a 2×2-style question reads as quadrants.
         cfg['quadrants'] = bool(src.get('quadrants'))
         return (cfg, None)
+    if q_type == 'image_pin':
+        url = str(src.get('image_url') or '').strip()
+        if not url:
+            return (None, 'Add an image (upload one or paste its URL).')
+        if not (url.startswith('https://') or url.startswith('/uploads/')):
+            return (None, 'The image must be an upload or an https:// URL.')
+        return ({'image_url': url[:1000]}, None)
+    if q_type == 'slider':
+        cfg = dict(SLIDER_DEFAULTS)
+        for k in ('min', 'max', 'step'):
+            v = src.get(k)
+            if v in (None, ''):
+                continue
+            try:
+                f = float(v)
+            except (ValueError, TypeError):
+                return (None, f'The slider {k} must be a number.')
+            if not math.isfinite(f):
+                return (None, f'The slider {k} must be a number.')
+            cfg[k] = f
+        if cfg['min'] >= cfg['max']:
+            return (None, 'The slider minimum must be below its maximum.')
+        if cfg['step'] <= 0 or cfg['step'] > cfg['max'] - cfg['min']:
+            return (None, 'The slider step must be positive and fit inside the range.')
+        for k in ('low_label', 'high_label'):
+            v = str(src.get(k) or '').strip()[:MAX_AXIS_LABEL_LEN]
+            if v:
+                cfg[k] = v
+        return (cfg, None)
+    if q_type == 'points':
+        items = [str(o).strip()[:MAX_OPTION_LEN] for o in _option_lines(src.get('options'))
+                 if str(o).strip()]
+        items = list(dict.fromkeys(items))
+        if len(items) < 2:
+            return (None, 'Add at least two items to share points between.')
+        if len(items) > POINTS_MAX_ITEMS:
+            return (None, f'Too many items (max {POINTS_MAX_ITEMS}).')
+        try:
+            total = int(src.get('total') or POINTS_DEFAULT_TOTAL)
+        except (ValueError, TypeError):
+            return (None, 'The points total must be a whole number.')
+        if not 2 <= total <= POINTS_MAX_TOTAL:
+            return (None, f'The points total must be between 2 and {POINTS_MAX_TOTAL}.')
+        return ({'items': items, 'total': total}, None)
     # word_cloud, short_answer carry no config
     return ({}, None)
+
+
+def _fmt_num(x):
+    try:
+        f = float(x)
+    except (ValueError, TypeError):
+        return str(x)
+    return str(int(f)) if f.is_integer() else f'{f:g}'
 
 
 def parse_question_payload(data):
@@ -186,7 +247,8 @@ def question_to_dict(q):
                               and isinstance(parsed, list)) else [],
         'max_rating': 5,
     }
-    if q.type in ('matrix', 'scatter') and isinstance(parsed, dict):
+    if q.type in ('matrix', 'scatter', 'image_pin', 'slider', 'points') \
+            and isinstance(parsed, dict):
         data['options'] = parsed
     if q.type == 'rating' and isinstance(parsed, dict):
         try:
@@ -238,6 +300,16 @@ def response_display_label(q_type, value, options=None):
         return ', '.join(f'{i}. {opt}' for i, opt in enumerate(str(value).split('\n'), 1))
     if q_type == 'multi_select':
         return ', '.join(str(value).split('\n'))
+    if q_type == 'image_pin':
+        return 'a spot on the image'
+    if q_type == 'slider':
+        return _fmt_num(value)
+    if q_type == 'points':
+        try:
+            alloc = json.loads(value)
+            return ', '.join(f'{k}: {v}' for k, v in alloc.items())
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            return str(value)
     if q_type == 'scatter':
         try:
             p = json.loads(value)
