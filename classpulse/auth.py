@@ -17,6 +17,7 @@ from functools import wraps
 from flask import (
     current_app, flash, g, redirect, render_template, request, session, url_for,
 )
+from sqlalchemy import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .accounts import is_last_admin, purge_user
@@ -31,6 +32,24 @@ from .models import (
 # alphanumeric space (~2.8e12) is ample.
 _CODE_CHARSET = string.ascii_uppercase + string.digits
 _CODE_LENGTH = 8
+
+
+# Emails and usernames match case-insensitively: Bob@x.com and bob@x.com are one
+# inbox, and people don't remember how they capitalised a username. New emails
+# are stored lower-cased. Older rows may differ only by case; the lowest id wins
+# so a lookup is still deterministic.
+def _user_by_email(email):
+    email = (email or '').strip().lower()
+    if not email:
+        return None
+    return User.query.filter(func.lower(User.email) == email).order_by(User.id).first()
+
+
+def _user_by_username(username):
+    username = (username or '').strip().lower()
+    if not username:
+        return None
+    return User.query.filter(func.lower(User.username) == username).order_by(User.id).first()
 
 
 def _generate_code() -> str:
@@ -156,7 +175,7 @@ def init_app(app):
         if request.method == 'POST':
             username = request.form.get('username')
             password = request.form.get('password') or ''
-            user = User.query.filter_by(username=username).first()
+            user = _user_by_username(username)
 
             if not user:
                 # Equalize timing with the real-user path.
@@ -236,7 +255,7 @@ def init_app(app):
 
         if request.method == 'POST':
             username = (request.form.get('username') or '').strip()
-            email = (request.form.get('email') or '').strip()
+            email = (request.form.get('email') or '').strip().lower()
             # The column is 100 chars; cap here so the insert can't fail on PostgreSQL.
             display_name = ((request.form.get('display_name') or '').strip() or username)[:100]
             password = request.form.get('password')
@@ -260,9 +279,9 @@ def init_app(app):
             if email and allowed_domains and email.rsplit('@', 1)[-1].lower() not in allowed_domains:
                 errors.append("Registration is restricted to these email domains: "
                               + ", ".join(allowed_domains) + ".")
-            if username and User.query.filter_by(username=username).first():
+            if username and _user_by_username(username):
                 errors.append("Username already taken.")
-            if email and User.query.filter_by(email=email).first():
+            if email and _user_by_email(email):
                 errors.append("Email address already registered.")
 
             if errors:
@@ -336,7 +355,7 @@ def init_app(app):
         if request.method == 'POST':
             email = (request.form.get('email') or '').strip()
             code = request.form.get('code') or ''
-            user = User.query.filter_by(email=email).first()
+            user = _user_by_email(email)
 
             if user and not user.is_verified and _consume_email_code(user, EMAIL_CODE_VERIFY, code):
                 user.is_verified = True
@@ -356,7 +375,7 @@ def init_app(app):
     @limiter.limit("5 per hour")
     def resend_verification():
         email = (request.form.get('email') or '').strip()
-        user = User.query.filter_by(email=email).first()
+        user = _user_by_email(email)
         # Only unverified accounts get a fresh code; response is always generic.
         if user and not user.is_verified:
             code = _issue_email_code(user, EMAIL_CODE_VERIFY)
@@ -378,7 +397,7 @@ def init_app(app):
 
         if request.method == 'POST':
             email = (request.form.get('email') or '').strip()
-            user = User.query.filter_by(email=email).first()
+            user = _user_by_email(email)
             # Don't send reset codes to archived accounts, but never reveal it.
             if user and not user.is_archived:
                 code = _issue_email_code(user, EMAIL_CODE_RESET)
@@ -416,7 +435,7 @@ def init_app(app):
                     flash(error, "danger")
                 return render_template('reset_password.html', email=email)
 
-            user = User.query.filter_by(email=email).first()
+            user = _user_by_email(email)
             if not user or not _consume_email_code(user, EMAIL_CODE_RESET, code):
                 flash("That code is invalid or has expired. Request a new one.", "danger")
                 return render_template('reset_password.html', email=email)

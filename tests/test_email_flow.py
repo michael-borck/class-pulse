@@ -256,3 +256,38 @@ def test_reset_stays_generic_when_the_provider_fails(app, client, monkeypatch):
     # same generic message — otherwise the failure itself leaks who has an account.
     assert flashes(real) == flashes(unknown)
     assert any(b'sent it a code' in f for f in flashes(real))
+
+
+# --- case-insensitive accounts ---------------------------------------------
+
+def test_registration_rejects_case_variants_of_existing_accounts(app, client):
+    register(client, 'alice')
+    resp = register(client, 'ALICE', email='Alice@Example.com')
+    assert b'Username already taken' in resp.data
+    assert b'Email address already registered' in resp.data
+    with app.app_context():
+        assert User.query.count() == 1
+
+
+def test_new_emails_are_stored_lower_case(app, client):
+    register(client, 'alice', email='Alice@Example.COM')
+    with app.app_context():
+        assert User.query.filter_by(username='alice').first().email == 'alice@example.com'
+
+
+def test_login_ignores_username_case(app, client):
+    create_user(app, 'Carol')
+    resp = login(client, 'carol')
+    assert b'Welcome back' in resp.data
+
+
+def test_password_reset_matches_email_case_insensitively(app, client):
+    create_user(app, 'dave')  # stored as dave@example.com
+    client.post('/forgot-password', data={'email': 'DAVE@Example.com'})
+    code = latest_code(app, 'dave@example.com', EMAIL_CODE_RESET)
+    assert code is not None
+    resp = client.post('/reset-password', data={
+        'email': 'Dave@EXAMPLE.com', 'code': code,
+        'password': 'a-brand-new-password', 'confirm_password': 'a-brand-new-password',
+    }, follow_redirects=True)
+    assert b'Password reset' in resp.data
