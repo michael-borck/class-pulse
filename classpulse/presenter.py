@@ -13,7 +13,7 @@ from .accounts import purge_session
 from .ai import generate_question_with_ai
 from .auth import login_required
 from .extensions import db, limiter
-from .models import Question, Response, Session
+from .models import Proposal, Question, Response, Session
 from .questions import (
     SCATTER_COLORS, build_answer, parse_question_payload, parsed_options, question_to_dict,
     session_to_dict,
@@ -24,6 +24,23 @@ from .utils import create_qr_code_data, csv_safe, generate_session_code, request
 
 def _owned_session_or_404(session_id):
     return Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
+
+
+def _clone_question(q, target, order, title=None, active=True):
+    """Copy question `q` into session `target`: type, title, options and quiz
+    answer, but no responses. Uploaded images are copied into the target
+    session's folder so the copy survives the original session's deletion."""
+    from .uploads import copy_upload_to_session
+    opts = parsed_options(q)
+    if q.type == 'image_choice' and isinstance(opts, list):
+        opts = [{**it, 'url': copy_upload_to_session(it.get('url'), target.id)}
+                if isinstance(it, dict) else it for it in opts]
+    elif q.type == 'image_pin' and isinstance(opts, dict):
+        opts = {**opts, 'image_url': copy_upload_to_session(opts.get('image_url'), target.id)}
+    copy = Question(session_id=target.id, type=q.type, title=(title or q.title)[:255],
+                    options=json.dumps(opts), answer=q.answer, active=active, order=order)
+    db.session.add(copy)
+    return copy
 
 
 def _render_dashboard(selected_id=None):
@@ -220,6 +237,27 @@ def init_app(app):
         db.session.commit()
         return jsonify({"success": True, "session": session_to_dict(s, include_questions=True)})
 
+    @app.route('/api/sessions/<int:session_id>/clone', methods=['POST'])
+    @login_required
+    def api_clone_session(session_id):
+        """Start a new session from an existing one's questions (no responses).
+
+        For running the same lesson with another class: the copy gets its own
+        code and starts inactive. Works from archived sessions too, which is
+        where last term's lessons usually live.
+        """
+        src = _owned_session_or_404(session_id)
+        name = str(request_json_object().get('name') or '').strip()[:100] \
+            or f"{src.name} (copy)"[:100]
+        new = Session(name=name, code=generate_session_code(), user_id=session['user_id'],
+                      active=False, archived=False, allow_proposals=src.allow_proposals)
+        db.session.add(new)
+        db.session.flush()  # assigns new.id, which upload copies need
+        for i, q in enumerate(src.questions):
+            _clone_question(q, new, order=i, active=q.active)
+        db.session.commit()
+        return jsonify({"success": True, "session": session_to_dict(new)})
+
     @app.route('/api/sessions/<int:session_id>/rename', methods=['POST'])
     @login_required
     def api_rename_session(session_id):
@@ -368,6 +406,30 @@ def init_app(app):
         broadcast_questions_changed(q.session_id)  # the copy starts active
         return jsonify({"success": True, "question": question_to_dict(c)})
 
+    @app.route('/api/questions/<int:question_id>/copy', methods=['POST'])
+    @login_required
+    def api_copy_question(question_id):
+        """Copy a question into another of the presenter's sessions (no responses)."""
+        q = Question.query.get_or_404(question_id)
+        if q.session.user_id != session['user_id']:
+            return jsonify({"success": False, "message": "Permission denied."}), 403
+        try:
+            target_id = int(request_json_object().get('session_id'))
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "Choose a session to copy to."}), 400
+        target = Session.query.filter_by(id=target_id, user_id=session['user_id']).first()
+        if target is None:
+            return jsonify({"success": False, "message": "Session not found."}), 404
+        if target.archived:
+            return jsonify({"success": False,
+                            "message": "That session is archived. Unarchive it first."}), 400
+        next_order = max([x.order for x in target.questions], default=0) + 1
+        copy = _clone_question(q, target, order=next_order)
+        db.session.commit()
+        broadcast_questions_changed(target.id)
+        return jsonify({"success": True, "question": question_to_dict(copy),
+                        "session": {"id": target.id, "name": target.name}})
+
     @app.route('/api/questions/<int:question_id>/reveal', methods=['POST'])
     @login_required
     def api_reveal_question(question_id):
@@ -390,7 +452,8 @@ def init_app(app):
     @app.route('/api/questions/<int:question_id>/delete', methods=['POST'])
     @login_required
     def api_delete_question(question_id):
-        """Delete a question (only if no responses exist)."""
+        """Delete a question. One with responses needs {"force": true}: the
+        dashboard asks first, naming how many responses go with it."""
         question = Question.query.get_or_404(question_id)
         if question.session.user_id != session['user_id']:
             return jsonify({"success": False, "message": "Permission denied."}), 403
@@ -398,13 +461,17 @@ def init_app(app):
             return jsonify({"success": False,
                             "message": "Cannot delete question in an archived session."}), 400
         response_count = Response.query.filter_by(question_id=question_id).count()
-        if response_count > 0:
+        if response_count > 0 and request_json_object().get('force') is not True:
             return jsonify({
-                "success": False,
-                "message": f"Cannot delete question with {response_count} response(s). "
-                           "Deactivate instead."
-            }), 400
+                "success": False, "needs_confirm": True, "response_count": response_count,
+                "message": f"This question has {response_count} response(s). "
+                           "Delete it and its responses permanently?"
+            }), 409
         session_id = question.session_id
+        Response.query.filter_by(question_id=question_id).delete(synchronize_session=False)
+        # An approved audience proposal points at the question it became.
+        Proposal.query.filter_by(question_id=question_id).update(
+            {Proposal.question_id: None}, synchronize_session=False)
         db.session.delete(question)
         db.session.commit()
         # A deleted question may have been active; refresh audience views

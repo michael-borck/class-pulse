@@ -59,7 +59,8 @@
                 {% endif %}
                 <a href="{{ url_for('session_results', session_id=selected.id) }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Results</a>
                 <a href="{{ url_for('export_session_results', session_id=selected.id) }}" target="_blank" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Export</a>
-                <button id="pill-archive" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Archive</button>
+                <button id="pill-clone" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-full text-xs" title="Start a new session with copies of these questions (no responses)">New session from this</button>
+                <button id="pill-archive" class="bg-gray-500 hover:bg-gray-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">{{ 'Unarchive' if selected.archived else 'Archive' }}</button>
                 <button id="pill-delete" class="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-full text-xs">Delete</button>
             </div>
         </div>
@@ -120,6 +121,9 @@
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 const SID = {{ selected.id if selected else 'null' }};
 let questions = {{ (selected.questions if selected else []) | tojson }};
+// Every session the presenter owns: the "Copy to…" picker lists the others.
+const SESSIONS = {{ sessions | tojson }};
+const SELECTED_ARCHIVED = {{ (selected.archived if selected else false) | tojson }};
 const TYPES = {
     multiple_choice:'Multiple Choice',
     word_cloud:'Word Cloud',
@@ -232,8 +236,17 @@ if (SID !== null) {
         const { ok, data } = await api(`/api/sessions/${SID}/toggle`);
         if (ok && data.success) window.location.reload(); else alert((data && data.message) || 'Failed.');
     });
+    document.getElementById('pill-clone').addEventListener('click', async () => {
+        const current = document.getElementById('session-name').value.trim() || 'Untitled session';
+        const name = prompt('Name for the new session (it gets copies of these questions, without responses):',
+                            `${current} (copy)`);
+        if (name === null) return;
+        const { ok, data } = await api(`/api/sessions/${SID}/clone`, { name: name.trim() });
+        if (ok && data.success) window.location.href = '/sessions/' + data.session.id;
+        else alert((data && data.message) || 'Could not create the new session.');
+    });
     document.getElementById('pill-archive').addEventListener('click', async () => {
-        if (!confirm('Archive this session?')) return;
+        if (!confirm(SELECTED_ARCHIVED ? 'Unarchive this session?' : 'Archive this session?')) return;
         await fetch(`/api/sessions/${SID}/archive`, { method:'POST', headers:{ 'X-CSRFToken': CSRF } });
         window.location.href = '{{ url_for("dashboard") }}';
     });
@@ -286,6 +299,7 @@ function renderQuestions() {
                 ${live}
                 <button data-act="edit" data-id="${q.id}" class="text-indigo-600 hover:underline">Edit</button>
                 <button data-act="dup" data-id="${q.id}" class="text-gray-500 hover:underline">Duplicate</button>
+                <button data-act="copy" data-id="${q.id}" class="text-gray-500 hover:underline" title="Copy to another session">Copy to…</button>
                 <button data-act="del" data-id="${q.id}" class="text-red-600 hover:underline">Delete</button>
             </div>
         </div>`;
@@ -319,9 +333,16 @@ if (SID !== null) {
             else alert((data && data.message) || 'Could not duplicate.');
             return;
         }
+        if (act === 'copy') return openCopyPicker(id);
         if (act === 'del') {
-            if (!confirm('Delete this question?')) return;
-            const { ok, data } = await api(`/api/questions/${id}/delete`);
+            // A question with responses takes them with it, so say how many.
+            const q = questions.find(x => x.id === id);
+            const n = q ? q.response_count : 0;
+            const msg = n > 0
+                ? `This question has ${n} response${n === 1 ? '' : 's'}. Delete the question and its responses permanently? This cannot be undone.`
+                : 'Delete this question?';
+            if (!confirm(msg)) return;
+            const { ok, data } = await api(`/api/questions/${id}/delete`, { force: n > 0 });
             if (ok && data.success) { questions = questions.filter(q => q.id !== id); renderQuestions(); }
             else alert((data && data.message) || 'Could not delete.');
             return;
@@ -329,6 +350,41 @@ if (SID !== null) {
     });
     document.getElementById('add-question').addEventListener('click', () => openEditor('add'));
     renderQuestions();
+}
+
+/* ---------- copy a question to another session ---------- */
+function openCopyPicker(id) {
+    const q = questions.find(x => x.id === id);
+    const targets = SESSIONS.filter(s => s.id !== SID && !s.archived);
+    const list = targets.length
+        ? targets.map(s => `<button type="button" data-copy-to="${s.id}"
+                class="w-full text-left border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 rounded-md px-3 py-2">
+                <span class="font-medium text-gray-800">${esc(s.name)}</span>
+                <span class="text-xs text-gray-500 ml-1">${s.question_count} question${s.question_count === 1 ? '' : 's'} · ${esc(s.code)}</span>
+            </button>`).join('')
+        : '<p class="text-sm text-gray-500">No other active sessions. Create one first, or use <em>New session from this</em> to copy every question.</p>';
+    document.getElementById('modal-body').innerHTML = `
+        <h3 class="text-lg font-semibold mb-1">Copy to another session</h3>
+        <p class="text-sm text-gray-500 mb-3">“${esc(q ? q.title : '')}” is copied with its options and quiz answer, but not its responses.</p>
+        <div class="space-y-2 max-h-[50vh] overflow-y-auto">${list}</div>
+        <div id="copy-status" class="text-sm mt-3 hidden"></div>
+        <div class="flex gap-2 mt-4"><button type="button" id="copy-close" class="text-gray-600 hover:bg-gray-100 font-semibold py-2 px-4 rounded-md text-sm">Close</button></div>`;
+    modal.classList.remove('hidden');
+    document.getElementById('copy-close').addEventListener('click', closeEditor);
+    document.querySelectorAll('[data-copy-to]').forEach(b => b.addEventListener('click', async () => {
+        const { ok, data } = await api(`/api/questions/${id}/copy`, { session_id: parseInt(b.dataset.copyTo, 10) });
+        const st = document.getElementById('copy-status');
+        st.classList.remove('hidden');
+        if (ok && data.success) {
+            const target = SESSIONS.find(s => s.id === data.session.id);
+            if (target) target.question_count += 1;
+            st.className = 'text-sm mt-3 text-green-700';
+            st.innerHTML = `✓ Copied to <a class="underline" href="/sessions/${data.session.id}">${esc(data.session.name)}</a>.`;
+        } else {
+            st.className = 'text-sm mt-3 text-red-600';
+            st.textContent = (data && data.message) || 'Could not copy the question.';
+        }
+    }));
 }
 
 /* ---------- editor overlay ---------- */

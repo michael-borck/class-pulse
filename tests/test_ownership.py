@@ -25,6 +25,10 @@ def test_cannot_modify_another_users_session_or_question(app, client):
                        json={'type': 'multiple_choice', 'title': 'x',
                              'options': 'a\nb'}).status_code == 403
     assert client.post(f'/api/questions/{qid}/delete').status_code == 403
+    assert client.post(f'/api/questions/{qid}/delete', json={'force': True}).status_code == 403
+    assert client.post(f'/api/sessions/{sid}/clone').status_code == 404
+    bobs = create_session(app, create_user(app, 'carol'), code='CAR111')
+    assert client.post(f'/api/questions/{qid}/copy', json={'session_id': bobs}).status_code == 403
     assert client.get(f'/questions/{qid}/results').status_code == 403
     assert client.get(f'/questions/{qid}/export').status_code == 403
 

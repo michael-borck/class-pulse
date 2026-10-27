@@ -72,6 +72,30 @@ def process_and_save(file_storage, session_id):
     return f"/uploads/{int(session_id)}/{name}"
 
 
+_UPLOAD_URL_RE = re.compile(r'^/uploads/(\d+)/([0-9a-f]{32}\.jpg)$')
+
+
+def copy_upload_to_session(url, target_session_id):
+    """Give `target_session_id` its own copy of an uploaded image.
+
+    Uploads live in their session's folder and are removed when that session
+    is deleted, so a copied question that kept pointing at the original file
+    would break later. Returns the copy's URL; external URLs, images already
+    in the target session, and missing files come back unchanged.
+    """
+    m = _UPLOAD_URL_RE.match(url or '')
+    if not m or int(m.group(1)) == int(target_session_id):
+        return url
+    src = os.path.join(_session_dir(m.group(1)), m.group(2))
+    if not os.path.isfile(src):
+        return url
+    target_dir = _session_dir(target_session_id)
+    os.makedirs(target_dir, exist_ok=True)
+    name = uuid.uuid4().hex + ".jpg"
+    shutil.copyfile(src, os.path.join(target_dir, name))
+    return f"/uploads/{int(target_session_id)}/{name}"
+
+
 def delete_session_uploads(session_id):
     """Remove a session's upload directory, if any (best-effort)."""
     shutil.rmtree(_session_dir(session_id), ignore_errors=True)

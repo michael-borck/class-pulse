@@ -84,13 +84,114 @@ def test_delete_with_responses_is_hard_and_cascades(app, client):
         assert Response.query.filter_by(session_id=sid).count() == 0
 
 
-def test_question_delete_blocked_with_responses(app, client):
+def test_question_delete_with_responses_needs_confirmation(app, client):
+    from classpulse.models import Response
     alice = create_user(app, 'alice')
     sid = create_session(app, alice)
     qid = create_question(app, sid)
     add_response(app, qid, sid, 'Red', '00000000-0000-4000-8000-000000000000')
     login(client, 'alice')
-    assert client.post(f'/api/questions/{qid}/delete').status_code == 400
+    first = client.post(f'/api/questions/{qid}/delete')
+    assert first.status_code == 409
+    assert first.get_json()['needs_confirm'] and first.get_json()['response_count'] == 1
+    assert client.post(f'/api/questions/{qid}/delete', json={'force': True}).status_code == 200
+    with app.app_context():
+        assert db.session.get(Question, qid) is None
+        assert Response.query.filter_by(question_id=qid).count() == 0
+
+
+def test_deleting_a_question_from_an_approved_proposal(app, client):
+    # The proposal keeps its history but no longer points at the question.
+    from classpulse.models import Proposal
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    qid = create_question(app, sid)
+    with app.app_context():
+        db.session.add(Proposal(session_id=sid, respondent_id='r1', type='short_answer',
+                                title='Asked', status='approved', question_id=qid))
+        db.session.commit()
+    login(client, 'alice')
+    assert client.post(f'/api/questions/{qid}/delete').status_code == 200
+    with app.app_context():
+        assert Proposal.query.first().question_id is None
+
+
+def test_question_delete_blocked_in_archived_session(app, client):
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice, archived=True)
+    qid = create_question(app, sid)
+    login(client, 'alice')
+    assert client.post(f'/api/questions/{qid}/delete', json={'force': True}).status_code == 400
+
+
+def _upload(client, sid):
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new('RGB', (40, 30), 'red').save(buf, 'PNG')
+    buf.seek(0)
+    resp = client.post(f'/api/sessions/{sid}/upload-image',
+                       data={'image': (buf, 'red.png')}, content_type='multipart/form-data')
+    return resp.get_json()['url']
+
+
+def test_copy_question_to_another_session(app, client, tmp_path):
+    app.config['UPLOAD_DIR'] = str(tmp_path)
+    alice = create_user(app, 'alice')
+    src = create_session(app, alice, code='SRC111')
+    dst = create_session(app, alice, code='DST222', name='Next week')
+    login(client, 'alice')
+    url = _upload(client, src)
+    q = client.post(f'/api/sessions/{src}/questions', json={
+        'type': 'image_choice', 'title': 'Which?', 'options': f'Red|{url}\nOther|https://example.com/b.png',
+        'answer': 'Red'}).get_json()['question']
+    add_response(app, q['id'], src, 'Red', 'r1')
+
+    resp = client.post(f'/api/questions/{q["id"]}/copy', json={'session_id': dst})
+    body = resp.get_json()
+    assert resp.status_code == 200 and body['session']['name'] == 'Next week'
+    copy = body['question']
+    assert copy['title'] == 'Which?' and copy['answer'] == {'correct': ['Red']}
+    assert copy['response_count'] == 0
+    # The uploaded image now has its own copy in the target session's folder;
+    # the external URL is left alone.
+    new_url = copy['options'][0]['url']
+    assert new_url.startswith(f'/uploads/{dst}/') and new_url != url
+    assert copy['options'][1]['url'] == 'https://example.com/b.png'
+    assert client.get(new_url).status_code == 200
+    client.post(f'/api/sessions/{src}/delete')
+    assert client.get(new_url).status_code == 200  # survives the original's deletion
+
+
+def test_copy_rules(app, client):
+    alice = create_user(app, 'alice')
+    src = create_session(app, alice, code='SRC111')
+    archived = create_session(app, alice, code='ARC333', archived=True)
+    qid = create_question(app, src)
+    bob = create_user(app, 'bob')
+    bobs = create_session(app, bob, code='BOB444')
+    login(client, 'alice')
+    assert client.post(f'/api/questions/{qid}/copy', json={'session_id': archived}).status_code == 400
+    assert client.post(f'/api/questions/{qid}/copy', json={'session_id': bobs}).status_code == 404
+    assert client.post(f'/api/questions/{qid}/copy', json={}).status_code == 400
+
+
+def test_new_session_from_existing(app, client):
+    alice = create_user(app, 'alice')
+    src = create_session(app, alice, archived=True, name='Week 3')  # archived lessons can be reused
+    q1 = create_question(app, src, title='one')
+    create_question(app, src, title='two', active=False)
+    add_response(app, q1, src, 'Red', 'r1')
+    login(client, 'alice')
+    body = client.post(f'/api/sessions/{src}/clone', json={}).get_json()
+    new = body['session']
+    assert body['success'] and new['name'] == 'Week 3 (copy)'
+    assert new['active'] is False and new['archived'] is False and new['code']
+    qs = client.get(f'/api/sessions/{new["id"]}/questions').get_json()['questions']
+    assert [(q['title'], q['active'], q['response_count']) for q in qs] == [
+        ('one', True, 0), ('two', False, 0)]
+    named = client.post(f'/api/sessions/{src}/clone', json={'name': 'Class B'}).get_json()
+    assert named['session']['name'] == 'Class B'
 
 
 def test_reorder(app, client):
