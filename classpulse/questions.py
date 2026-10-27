@@ -181,20 +181,42 @@ def question_to_dict(q):
     return data
 
 
-def response_display_label(q_type, value):
+def _axis_position(label, pos, n, low, high, default_name):
+    """Describe where `pos` (1 = low end) sits on an n-step axis, in the
+    presenter's own words where they gave them: "Impact: high"."""
+    if pos == 1:
+        where = low or 'low'
+    elif pos == n:
+        where = high or 'high'
+    else:
+        where = 'middle' if n == 3 else f'{pos} of {n}'
+    return f'{label or default_name}: {where}'
+
+
+def response_display_label(q_type, value, options=None):
     """Human-readable version of a stored response_value for status lines.
 
     Matrix cells ("2,1") and scatter points (JSON) are meaningless raw; every
-    other type already reads fine as-is.
+    other type already reads fine as-is. `options` is the question's parsed
+    config, used to name matrix positions with the axis labels.
     """
     if value is None:
         return ''
     if q_type == 'matrix':
+        cfg = options if isinstance(options, dict) else {}
         try:
-            c, r = str(value).split(',')
-            return f'column {int(c)}, row {int(r)}'
+            c, r = (int(v) for v in str(value).split(','))
+            cols = int(cfg.get('cols', 2))
+            rows = int(cfg.get('rows', 2))
         except (ValueError, TypeError):
             return str(value)
+        # Rows are stored top-first (row 1 is the top of the grid), but the
+        # grid reads like a chart (low at the bottom), so count up from there.
+        x = _axis_position(cfg.get('x_label'), c, cols, cfg.get('x_low'), cfg.get('x_high'),
+                           'Horizontal')
+        y = _axis_position(cfg.get('y_label'), rows - r + 1, rows, cfg.get('y_low'),
+                           cfg.get('y_high'), 'Vertical')
+        return f'{x}, {y}'
     if q_type == 'scatter':
         try:
             p = json.loads(value)

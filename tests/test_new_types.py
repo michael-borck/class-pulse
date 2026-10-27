@@ -82,13 +82,36 @@ def test_matrix_create_and_respond(app, client):
     r = client.post(f'/audience/respond/{qid}', data={f'response-{qid}': '2,1'},
                     headers=AJAX)
     assert r.status_code == 200, r.get_json()
-    assert r.get_json()['response_label'] == 'column 2, row 1'
+    # Row 1 is the top row, i.e. the high end of Y; the label speaks in the
+    # presenter's axis words rather than raw grid coordinates.
+    assert r.get_json()['response_label'] == 'Impact: middle, Likelihood: High'
     with app.app_context():
         stats = get_question_stats(qid)
     assert stats['results']['2,1'] == 1
     assert stats['results']['1,2'] == 0
     assert stats['grid'] == {'cols': 3, 'rows': 2, 'x_label': 'Impact',
                              'y_label': 'Likelihood', 'y_high': 'High'}
+
+
+def test_matrix_label_counts_rows_from_the_bottom():
+    from classpulse.questions import response_display_label
+    cfg = {'cols': 2, 'rows': 4, 'x_low': 'Rare', 'x_high': 'Often'}
+    assert response_display_label('matrix', '1,4', cfg) == 'Horizontal: Rare, Vertical: low'
+    assert response_display_label('matrix', '2,1', cfg) == 'Horizontal: Often, Vertical: high'
+    assert response_display_label('matrix', '1,2', cfg) == 'Horizontal: Rare, Vertical: 3 of 4'
+
+
+def test_matrix_cells_have_axis_aria_labels(app, client):
+    uid = create_user(app, 'alice')
+    sid = create_session(app, uid)
+    create_question(app, sid, q_type='matrix', title='Risk',
+                    options={'cols': 2, 'rows': 2, 'x_label': 'Impact', 'y_label': 'Likelihood'})
+    with app.app_context():
+        from classpulse.models import Session
+        code = Session.query.get(sid).code
+    resp = client.get(f'/audience/{code}')
+    assert b'aria-label="Impact: low, Likelihood: low"' in resp.data
+    assert b'aria-label="Impact: high, Likelihood: high"' in resp.data
 
 
 def test_matrix_rejects_cell_outside_grid(app, client):

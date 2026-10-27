@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./templates/**/*.html'],
+  content: ['./templates/**/*.html', './static/js/**/*.js'],
   safelist: [
     // Utility classes that are only ever applied at runtime from JS strings,
     // so Tailwind can't discover them by scanning the templates statically.

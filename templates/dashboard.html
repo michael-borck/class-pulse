@@ -395,7 +395,7 @@ function typeFields(type, q) {
             ${txt('ed-y-low', 'Bottom end (optional)', o.y_low, 'Low')}
             ${txt('ed-y-high', 'Top end (optional)', o.y_high, 'High')}
         </div>
-        <p class="text-xs text-gray-400 mt-2">The audience taps one cell; results show as a heatmap. A 2×2 with “Likelihood × Impact” axes is a classic risk matrix.</p>`;
+        <p class="text-xs text-gray-400 mt-2">Laid out like a chart: the horizontal axis runs along the bottom and the vertical axis up the left, so low/low is the bottom-left cell. The audience taps one cell; results show as a heatmap. A 2×2 with “Likelihood × Impact” axes is a classic risk matrix.</p>`;
     }
     if (type === 'scatter') {
         const o = (q && q.type === 'scatter') ? (q.options || {}) : {};

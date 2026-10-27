@@ -122,6 +122,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/results.js') }}"></script>
 <script>
     const QUESTIONS = [
         {% for q in active_questions %}{ id: {{ q.id }}, type: {{ q.type | tojson }}, title: {{ q.title | tojson }}{% if q.type in ['image_choice', 'emoji', 'matrix', 'scatter'] %}, options: {{ q.options | fromjson | tojson }}{% endif %} },
@@ -138,7 +139,8 @@
     let view = localStorage.getItem('cp_present_view') || 'focus';
     if (!VIEWS.includes(view)) view = 'focus';
 
-    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+    const R = window.CPResults;
+    const esc = R.esc;
 
     // Small non-blocking notice (e.g. a question was added mid-presentation).
     function toast(msg) {
@@ -189,192 +191,17 @@
         else toast('Question list updated');
     });
 
-    // --- Chart config from stats ---
-    function chartConfig(q, s) {
-        if (['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'].includes(s.type)) {
-            const labels = s.options || Object.keys(s.results || {});
-            return { type: 'bar',
-                data: { labels, datasets: [{ label: 'Votes', data: labels.map(l => (s.results || {})[l] || 0), backgroundColor: 'rgba(79,70,229,0.75)' }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } } };
-        }
-        const max = s.max_rating || 5;
-        const labels = Array.from({ length: max }, (_, i) => `${i + 1} ⭐`);
-        return { type: 'bar',
-            data: { labels, datasets: [{ label: 'Ratings', data: labels.map((_, i) => (s.results || {})[String(i + 1)] || 0), backgroundColor: 'rgba(249,115,22,0.75)' }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } } };
-    }
-
-    // Caption / summary shown above the chart for certain types (numeric average, ranking note).
-    function captionFor(q, s) {
-        if (!s) return '';
-        if (q.type === 'numeric' && s.average != null) {
-            return `<p class="text-sm font-medium text-gray-700 mb-2">Average: ${s.average}</p>`;
-        }
-        if (q.type === 'ranking') {
-            return `<p class="text-xs text-gray-500 mb-1">lower bar = ranked better</p>`;
-        }
-        return '';
-    }
-    // Markup for a single result host (canvas or word-cloud div) + response count.
-    // Short-answer results: a readable answers list with a cloud toggle.
-    function saMarkup(id, hClass) {
-        return `<div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
-                  <button type="button" data-sa-q="${id}" data-sa-view="list" class="sa-btn-${id} px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
-                  <button type="button" data-sa-q="${id}" data-sa-view="cloud" class="sa-btn-${id} px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
-                </div>
-                <div id="sa-list-${id}" class="w-full ${hClass} overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
-                <div id="sa-cloud-${id}" class="hidden w-full ${hClass} border rounded-md bg-gray-50"></div>`;
-    }
-    function saPopulate(qid, s) {
-        const listEl = document.getElementById('sa-list-' + qid);
-        if (listEl) {
-            const items = Array.isArray(s.results) ? s.results : [];
-            listEl.innerHTML = items.length
-                ? items.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${esc(a && a.text != null ? a.text : a)}</div>`).join('')
-                : `<p class="text-sm text-gray-400 italic">No answers yet.</p>`;
-        }
-        const cloudEl = document.getElementById('sa-cloud-' + qid);
-        if (cloudEl && s.cloud) initWordCloud('sa-cloud-' + qid, s.cloud);
-        document.querySelectorAll('.sa-btn-' + qid).forEach(b => {
-            if (b.dataset.saWired) return; b.dataset.saWired = '1';
-            b.addEventListener('click', () => {
-                const v = b.dataset.saView;
-                const list = document.getElementById('sa-list-' + qid);
-                const cloud = document.getElementById('sa-cloud-' + qid);
-                if (list && cloud) { list.classList.toggle('hidden', v !== 'list'); cloud.classList.toggle('hidden', v !== 'cloud'); }
-                document.querySelectorAll('.sa-btn-' + qid).forEach(x => {
-                    const on = x.dataset.saView === v;
-                    x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
-                    x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
-                });
-            });
-        });
-    }
-    // Image-choice results: show each option's image with its label, live vote
-    // count/percentage and a proportional bar; highlight the current leader. `s`
-    // may be undefined (before any votes) — images still render with zero counts.
-    function imageChoiceHTML(q, s) {
-        const opts = Array.isArray(q.options) ? q.options : [];
-        if (!opts.length) return '<p class="text-gray-400 italic text-center mt-4">No images configured.</p>';
-        const results = (s && s.results) || {};
-        const counts = opts.map(o => results[o.label] || 0);
-        const total = counts.reduce((a, b) => a + b, 0);
-        const maxCount = Math.max(0, ...counts);
-        const cols = Math.min(opts.length, 3);
-        const cards = opts.map((o, i) => {
-            const count = counts[i];
-            const pct = total ? Math.round(count / total * 100) : 0;
-            const leading = count > 0 && count === maxCount;
-            return `<div class="rounded-lg border ${leading ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200'} bg-white overflow-hidden flex flex-col">
-                <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
-                    <img src="${esc(o.url)}" alt="${esc(o.label)}" class="w-full h-full object-contain" loading="lazy">
-                </div>
-                <div class="p-3">
-                    <div class="flex items-baseline justify-between gap-2">
-                        <span class="font-semibold text-gray-800 truncate">${esc(o.label)}</span>
-                        <span class="text-sm text-gray-600 shrink-0">${count} (${pct}%)</span>
-                    </div>
-                    <div class="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
-                        <div class="h-full ${leading ? 'bg-indigo-600' : 'bg-indigo-400'}" style="width:${pct}%"></div>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-        return `<div class="grid gap-4 content-start" style="grid-template-columns:repeat(${cols},minmax(0,1fr));">${cards}</div>`;
-    }
-
-    // Emoji results: every option stays visible even at zero votes; vote share
-    // scales the glyph so the room's mood reads instantly from the back row.
-    function emojiHTML(q, s) {
-        const opts = Array.isArray(q.options) ? q.options : [];
-        if (!opts.length) return '<p class="text-gray-400 italic text-center mt-4">No emojis configured.</p>';
-        const results = (s && s.results) || {};
-        const counts = opts.map(o => results[o] || 0);
-        const total = counts.reduce((a, b) => a + b, 0);
-        const maxCount = Math.max(0, ...counts);
-        const chips = opts.map((o, i) => {
-            const n = counts[i];
-            const pct = total ? Math.round(n / total * 100) : 0;
-            const leading = n > 0 && n === maxCount;
-            // 2rem at zero votes up to 5rem for the leader.
-            const size = 2 + (maxCount ? (n / maxCount) * 3 : 0);
-            return `<div class="flex flex-col items-center gap-1 ${leading ? '' : 'opacity-80'}">
-                <span style="font-size:${size}rem; line-height:1.1;">${esc(o)}</span>
-                <span class="text-sm font-semibold ${leading ? 'text-indigo-700' : 'text-gray-500'}">${n} (${pct}%)</span>
-            </div>`;
-        }).join('');
-        return `<div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 p-4">${chips}</div>`;
-    }
-
-    // Matrix results: the same grid orientation the audience tapped, shaded as
-    // a heatmap (row 1 at the top). Hot cells carry the room's clustering.
-    function matrixHTML(q, s) {
-        const cfg = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : {};
-        const cols = cfg.cols || 2, rows = cfg.rows || 2;
-        const results = (s && s.results) || {};
-        const maxCount = Math.max(0, ...Object.values(results));
-        const axisTop = (cfg.x_label || cfg.x_low || cfg.x_high) ? `
-            <div class="flex justify-between items-baseline text-xs md:text-sm text-gray-500 mb-1 gap-2">
-                <span>${esc(cfg.x_low || '')}</span>
-                <span class="font-semibold text-gray-700 text-center">${esc(cfg.x_label || '')}</span>
-                <span>${esc(cfg.x_high || '')}</span>
-            </div>` : '';
-        const axisLeft = (cfg.y_label || cfg.y_low || cfg.y_high) ? `
-            <div class="flex flex-col justify-between items-center text-xs md:text-sm text-gray-500 py-1 w-6 shrink-0">
-                <span class="text-center">${esc(cfg.y_high || '')}</span>
-                <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">${esc(cfg.y_label || '')}</span>
-                <span class="text-center">${esc(cfg.y_low || '')}</span>
-            </div>` : '';
-        let cells = '';
-        for (let r = 1; r <= rows; r++) {
-            for (let c = 1; c <= cols; c++) {
-                const n = results[`${c},${r}`] || 0;
-                const strength = maxCount ? n / maxCount : 0;
-                const bg = n ? `background-color: rgba(79,70,229,${0.15 + 0.85 * strength});` : '';
-                const txt = strength > 0.45 ? 'text-white' : 'text-gray-700';
-                cells += `<div class="rounded-md border border-gray-200 ${n ? '' : 'bg-gray-50'} min-h-16 md:min-h-24 flex items-center justify-center" style="${bg}">
-                    <span class="text-xl md:text-3xl font-bold ${txt}">${n || ''}</span>
-                </div>`;
-            }
-        }
-        return `${axisTop}<div class="flex gap-2 items-stretch h-full">${axisLeft}
-            <div class="grid gap-1.5 flex-grow content-stretch" style="grid-template-columns: repeat(${cols}, minmax(0, 1fr));">${cells}</div>
-        </div>`;
-    }
-
-    // Scatter results: one dot per respondent on a 0–100 plane; the optional
-    // colour/size dimensions are read straight off each point.
-    const SCATTER_RADII = { sm: 4, md: 7, lg: 11 };
-    function scatterConfig(q, s) {
-        const cfg = (q.options && typeof q.options === 'object' && !Array.isArray(q.options)) ? q.options : {};
-        const pts = (s && s.points) || [];
-        return { type: 'scatter',
-            data: { datasets: [{
-                label: 'Responses',
-                data: pts,
-                pointRadius: (ctx) => SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7,
-                pointHoverRadius: (ctx) => (SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7) + 2,
-                pointBackgroundColor: (ctx) => SCATTER_COLORS[(ctx.raw && ctx.raw.c)] || 'rgba(79,70,229,0.75)',
-            }] },
-            options: { responsive: true, maintainAspectRatio: false,
-                scales: {
-                    x: { min: 0, max: 100, title: { display: !!cfg.x_label, text: cfg.x_label || '' } },
-                    y: { min: 0, max: 100, title: { display: !!cfg.y_label, text: cfg.y_label || '' } },
-                },
-                plugins: { legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => {
-                        const p = ctx.raw || {};
-                        const extras = [p.c, p.s].filter(Boolean).join(', ');
-                        return ` (${Math.round(p.x)}, ${Math.round(p.y)})${extras ? ' — ' + extras : ''}`;
-                    } } } } } };
-    }
-
-    function hostMarkup(q, hClass) {
+    // --- Result hosts ---
+    // Rendering lives in static/js/results.js (shared with the Results page).
+    // These helpers only decide which host element a question gets and fill it.
+    function hostMarkup(q, hClass, opts = {}) {
         const s = stats[q.id];
         const total = s ? (s.total_responses || 0) : 0;
         let inner;
         if (q.type === 'short_answer') {
-            inner = saMarkup(q.id, hClass);
+            // Grid cards are click-to-enlarge overviews, so they skip the
+            // Answers/Cloud toggle (a button can't sit inside the card's click target).
+            inner = R.shortAnswerHTML('sa-' + q.id, hClass, !opts.compact);
         } else if (q.type === 'word_cloud') {
             inner = `<div id="wc-${q.id}" class="w-full ${hClass} border rounded-md bg-gray-50"></div>`;
         } else if (q.type === 'image_choice') {
@@ -383,56 +210,52 @@
             inner = `<div id="em-${q.id}" class="w-full ${hClass} overflow-y-auto border rounded-md bg-gray-50"></div>`;
         } else if (q.type === 'matrix') {
             inner = `<div id="mx-${q.id}" class="w-full ${hClass} overflow-y-auto p-1"></div>`;
-        } else if (q.type === 'scatter') {
-            inner = `<div class="${hClass} relative"><canvas id="sc-${q.id}"></canvas></div>`;
         } else {
             inner = `<div class="${hClass} relative"><canvas id="cv-${q.id}"></canvas></div>`;
         }
-        return `<div id="cap-${q.id}">${captionFor(q, s)}</div>` + inner + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
+        return `<div id="cap-${q.id}">${R.captionHTML(q.type, s)}</div>` + inner
+            + `<p id="cnt-${q.id}" class="text-sm text-gray-600 mt-2">Total responses: ${total}</p>`;
     }
 
-    // Instantiate / refresh the chart or cloud for a question that's currently in the DOM.
+    // Draw a question into the host elements whose ids start with `prefix`
+    // ('' for the in-page views, 'ov-' for the enlarge overlay).
+    function draw(q, s, ids) {
+        // Image choice, emoji, matrix and scatter render at zero votes too, so
+        // latecomers see the options and axes before anyone has answered.
+        if (q.type === 'image_choice') {
+            const el = document.getElementById(ids.ic); if (el) el.innerHTML = R.imageChoiceHTML(q.options, s);
+        } else if (q.type === 'emoji') {
+            const el = document.getElementById(ids.em); if (el) el.innerHTML = R.emojiHTML(q.options, s);
+        } else if (q.type === 'matrix') {
+            const el = document.getElementById(ids.mx); if (el) el.innerHTML = R.matrixHTML(q.options, s);
+        } else if (q.type === 'scatter') {
+            if (document.getElementById(ids.cv)) {
+                const cfg = R.scatterConfig(q.options, s, SCATTER_COLORS);
+                initChart(ids.cv, cfg.type, cfg.data, cfg.options);
+            }
+        } else if (!s) {
+            return;
+        } else if (q.type === 'short_answer') {
+            R.populateShortAnswer(ids.sa, s);
+        } else if (q.type === 'word_cloud') {
+            if (document.getElementById(ids.wc) && s.results) initWordCloud(ids.wc, s.results);
+        } else if (document.getElementById(ids.cv) && s.results) {
+            const cfg = R.barConfig(q.type, s);
+            initChart(ids.cv, cfg.type, cfg.data, cfg.options);
+        }
+    }
+
+    // Instantiate / refresh the result for a question that's currently in the DOM.
     function instantiate(qid) {
         const q = QUESTIONS.find(x => x.id == qid);
+        if (!q) return;
         const s = stats[qid];
         const cnt = document.getElementById('cnt-' + qid);
         if (cnt) cnt.textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const cap = document.getElementById('cap-' + qid);
-        if (cap) cap.innerHTML = captionFor(q, s);
-        // Image choice renders its images even before any votes arrive; the
-        // emoji and matrix options are likewise worth showing at zero votes,
-        // and the scatter plot draws its axes so latecomers see the question.
-        if (q.type === 'image_choice') {
-            const el = document.getElementById('ic-' + qid);
-            if (el) el.innerHTML = imageChoiceHTML(q, s);
-            return;
-        }
-        if (q.type === 'emoji') {
-            const el = document.getElementById('em-' + qid);
-            if (el) el.innerHTML = emojiHTML(q, s);
-            return;
-        }
-        if (q.type === 'matrix') {
-            const el = document.getElementById('mx-' + qid);
-            if (el) el.innerHTML = matrixHTML(q, s);
-            return;
-        }
-        if (q.type === 'scatter') {
-            if (document.getElementById('sc-' + qid)) {
-                const cfg = scatterConfig(q, s);
-                initChart('sc-' + qid, cfg.type, cfg.data, cfg.options);
-            }
-            return;
-        }
-        if (!s) return;
-        if (q.type === 'short_answer') {
-            saPopulate(qid, s);
-        } else if (q.type === 'word_cloud') {
-            if (document.getElementById('wc-' + qid) && s.results) initWordCloud('wc-' + qid, s.results);
-        } else if (document.getElementById('cv-' + qid) && s.results) {
-            const cfg = chartConfig(q, s);
-            initChart('cv-' + qid, cfg.type, cfg.data, cfg.options);
-        }
+        if (cap) cap.innerHTML = R.captionHTML(q.type, s);
+        draw(q, s, { ic: 'ic-' + qid, em: 'em-' + qid, mx: 'mx-' + qid, cv: 'cv-' + qid,
+                     sa: 'sa-' + qid, wc: 'wc-' + qid });
     }
 
     function destroyVisibleCharts() {
@@ -441,12 +264,11 @@
         });
     }
 
-    // Called when new results arrive — update whatever is on screen for that question.
+    // Called when new results arrive: update whatever is on screen for that question.
     function refresh(qid) {
-        if (document.getElementById('cv-' + qid) || document.getElementById('wc-' + qid) || document.getElementById('sa-list-' + qid) || document.getElementById('ic-' + qid) || document.getElementById('em-' + qid) || document.getElementById('mx-' + qid) || document.getElementById('sc-' + qid)) instantiate(qid);
+        if (document.getElementById('cnt-' + qid)) instantiate(qid);
         if (overlayQid === qid) instantiateOverlay(qid);
     }
-
     // --- View renderers ---
     function renderView() {
         document.querySelectorAll('.pv-btn').forEach(b => {
@@ -480,15 +302,20 @@
             content.innerHTML = `<p class="text-sm text-gray-500 mb-3">Overview — click any card to enlarge</p>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">${
                 QUESTIONS.map(q => `
-                    <button type="button" data-open="${q.id}" class="text-left bg-white rounded-lg shadow hover:shadow-lg hover:ring-2 hover:ring-indigo-400 transition overflow-hidden">
+                    <div role="button" tabindex="0" data-open="${q.id}" aria-label="Enlarge: ${esc(q.title)}"
+                         class="cursor-pointer text-left bg-white rounded-lg shadow hover:shadow-lg hover:ring-2 hover:ring-indigo-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400 transition overflow-hidden">
                         <div class="h-1 bg-brand-gradient"></div>
                         <div class="p-4">
                             <h3 class="text-sm font-semibold text-gray-800 mb-1 truncate">${esc(q.title)}</h3>
-                            ${hostMarkup(q, 'h-40')}
+                            ${hostMarkup(q, 'h-40', { compact: true })}
                         </div>
-                    </button>`).join('')}</div>`;
+                    </div>`).join('')}</div>`;
             QUESTIONS.forEach(q => instantiate(q.id));
-            content.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openOverlay(parseInt(b.dataset.open, 10))));
+            content.querySelectorAll('[data-open]').forEach(card => {
+                const open = () => openOverlay(parseInt(card.dataset.open, 10));
+                card.addEventListener('click', open);
+                card.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); open(); } });
+            });
 
         } else { // focus
             const q = QUESTIONS[focusIdx];
@@ -517,66 +344,29 @@
 
     function fnav(d) { focusIdx = (focusIdx + d + QUESTIONS.length) % QUESTIONS.length; renderView(); }
 
+    // The enlarge overlay reuses the same renderers with 'ov-' host ids. Its
+    // markup is built once per opened question, so a live update redraws the
+    // result without resetting the Answers/Cloud toggle.
     function instantiateOverlay(qid) {
         const q = QUESTIONS.find(x => x.id == qid);
+        if (!q) return;
         const s = stats[qid];
         document.getElementById('ov-title').textContent = q.title;
         document.getElementById('ov-cnt').textContent = `Total responses: ${s ? (s.total_responses || 0) : 0}`;
         const host = document.getElementById('ov-host');
-        if (q.type === 'short_answer') {
-            host.innerHTML = captionFor(q, s)
-                + `<div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
-                     <button type="button" data-ov-sa-view="list" class="ov-sa-btn px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
-                     <button type="button" data-ov-sa-view="cloud" class="ov-sa-btn px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
-                   </div>
-                   <div id="ov-sa-list" class="w-full h-[58vh] overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
-                   <div id="ov-sa-cloud" class="hidden w-full h-[58vh] border rounded-md bg-gray-50"></div>`;
-            if (s) {
-                const items = Array.isArray(s.results) ? s.results : [];
-                const listEl = document.getElementById('ov-sa-list');
-                if (listEl) listEl.innerHTML = items.length
-                    ? items.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${esc(a && a.text != null ? a.text : a)}</div>`).join('')
-                    : `<p class="text-sm text-gray-400 italic">No answers yet.</p>`;
-                if (s.cloud) initWordCloud('ov-sa-cloud', s.cloud);
-                document.querySelectorAll('.ov-sa-btn').forEach(b => b.addEventListener('click', () => {
-                    const v = b.dataset.ovSaView;
-                    document.getElementById('ov-sa-list').classList.toggle('hidden', v !== 'list');
-                    document.getElementById('ov-sa-cloud').classList.toggle('hidden', v !== 'cloud');
-                    document.querySelectorAll('.ov-sa-btn').forEach(x => {
-                        const on = x.dataset.ovSaView === v;
-                        x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
-                        x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
-                    });
-                }));
-            }
-            return;
+        if (host.dataset.qid !== String(qid)) {
+            host.dataset.qid = String(qid);
+            let inner;
+            if (q.type === 'short_answer') inner = R.shortAnswerHTML('ov-sa', 'h-[58vh]', true);
+            else if (q.type === 'word_cloud') inner = '<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>';
+            else if (q.type === 'image_choice') inner = '<div id="ov-ic" class="h-[62vh] overflow-y-auto"></div>';
+            else if (q.type === 'emoji') inner = '<div id="ov-em" class="h-[62vh] overflow-y-auto border rounded-md bg-gray-50"></div>';
+            else if (q.type === 'matrix') inner = '<div id="ov-mx" class="h-[62vh] overflow-y-auto p-1"></div>';
+            else inner = '<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>';
+            host.innerHTML = '<div id="ov-cap"></div>' + inner;
         }
-        if (q.type === 'image_choice') {
-            host.innerHTML = `<div class="h-[62vh] overflow-y-auto">${imageChoiceHTML(q, s)}</div>`;
-            return;
-        }
-        if (q.type === 'emoji') {
-            host.innerHTML = `<div class="h-[62vh] overflow-y-auto border rounded-md bg-gray-50">${emojiHTML(q, s)}</div>`;
-            return;
-        }
-        if (q.type === 'matrix') {
-            host.innerHTML = `<div class="h-[62vh] overflow-y-auto p-1">${matrixHTML(q, s)}</div>`;
-            return;
-        }
-        if (q.type === 'scatter') {
-            host.innerHTML = `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`;
-            const cfg = scatterConfig(q, s);
-            initChart('ov-cv', cfg.type, cfg.data, cfg.options);
-            return;
-        }
-        const isCloud = (q.type === 'word_cloud');
-        host.innerHTML = captionFor(q, s) + (isCloud
-            ? `<div id="ov-wc" class="w-full h-[62vh] border rounded-md bg-gray-50"></div>`
-            : `<div class="h-[62vh] relative"><canvas id="ov-cv"></canvas></div>`);
-        if (s && s.results) {
-            if (isCloud) initWordCloud('ov-wc', s.results);
-            else { const cfg = chartConfig(q, s); initChart('ov-cv', cfg.type, cfg.data, cfg.options); }
-        }
+        document.getElementById('ov-cap').innerHTML = R.captionHTML(q.type, s);
+        draw(q, s, { ic: 'ov-ic', em: 'ov-em', mx: 'ov-mx', cv: 'ov-cv', sa: 'ov-sa', wc: 'ov-wc' });
     }
 
     function openOverlay(qid) {
@@ -589,6 +379,7 @@
         if (!ov) return;
         const cv = ov.querySelector('canvas'); if (cv) { const ch = Chart.getChart(cv); if (ch) ch.destroy(); }
         ov.classList.add('hidden');
+        document.getElementById('ov-host').dataset.qid = '';
         overlayQid = null;
     }
 

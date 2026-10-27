@@ -174,8 +174,9 @@ def test_present_mode_includes_image_urls(app, client):
 
 
 def test_question_results_page_shows_images(app, client):
-    # The standalone results page renders image_choice server-side as an image
-    # grid with tallies (exercises the percentage/leader math with a real vote).
+    # The standalone results page draws image_choice client-side with the
+    # shared renderer (static/js/results.js), so the image URLs and the tally
+    # must both ship in the page's data.
     uid = create_user(app, 'alice')
     sid = create_session(app, uid)
     with app.app_context():
@@ -193,7 +194,8 @@ def test_question_results_page_shows_images(app, client):
     assert resp.status_code == 200
     assert b'/uploads/1/aaa.jpg' in resp.data
     assert b'/uploads/1/bbb.jpg' in resp.data
-    assert b'100%' in resp.data  # the single vote is 100% for its option
+    assert b'"hacker": 1' in resp.data
+    assert b'js/results.js' in resp.data
 
 
 def test_delete_removes_uploads_even_with_responses(app, client):

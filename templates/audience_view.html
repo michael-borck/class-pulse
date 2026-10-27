@@ -166,39 +166,48 @@
             {% endfor %}
             </div>
         {% elif q.type == 'matrix' %}
-            {# Tap-one-cell grid. Row 1 renders at the top; the presenter-facing
-               heatmap uses the same orientation, so both sides see the same picture. #}
+            {# Tap-one-cell grid, laid out like a chart: Y runs low (bottom) to
+               high (top), X runs low (left) to high (right) along the bottom, so
+               the low/low corner is bottom-left. Row 1 is stored as the top row.
+               The presenter-facing heatmap (static/js/results.js) draws the same
+               frame, so both sides see the same picture. #}
             {% set cfg = q.options | fromjson %}
             {% set ncols = cfg.get('cols', 2) | int %}
             {% set nrows = cfg.get('rows', 2) | int %}
+            {% set has_x = cfg.get('x_label') or cfg.get('x_low') or cfg.get('x_high') %}
+            {% set has_y = cfg.get('y_label') or cfg.get('y_low') or cfg.get('y_high') %}
+            {% set labels = cell_labels.get(q.id, {}) %}
             <div class="mb-3 select-none">
-                {% if cfg.get('x_label') or cfg.get('x_low') or cfg.get('x_high') %}
-                <div class="flex justify-between items-baseline text-xs text-gray-500 mb-1 gap-2">
-                    <span>{{ cfg.get('x_low', '') }}</span>
-                    <span class="font-semibold text-gray-700 text-center">{{ cfg.get('x_label', '') }}</span>
-                    <span>{{ cfg.get('x_high', '') }}</span>
-                </div>
-                {% endif %}
-                <div class="flex gap-2 items-stretch">
-                    {% if cfg.get('y_label') or cfg.get('y_low') or cfg.get('y_high') %}
-                    <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 w-5 shrink-0">
+                <div class="grid gap-x-2 gap-y-1" style="grid-template-columns: {{ 'auto minmax(0, 1fr)' if has_y else 'minmax(0, 1fr)' }};">
+                    {% if has_y %}
+                    <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 min-w-[1.25rem] max-w-[4.5rem] break-words" aria-hidden="true">
                         <span class="text-center">{{ cfg.get('y_high', '') }}</span>
                         <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ cfg.get('y_label', '') }}</span>
                         <span class="text-center">{{ cfg.get('y_low', '') }}</span>
                     </div>
                     {% endif %}
-                    <div class="grid gap-1.5 flex-grow" style="grid-template-columns: repeat({{ ncols }}, minmax(0, 1fr));">
+                    <div class="grid gap-1.5" role="radiogroup" aria-label="{{ q.title }}"
+                         style="grid-template-columns: repeat({{ ncols }}, minmax(0, 1fr));">
                     {% for r in range(1, nrows + 1) %}
                         {% for c in range(1, ncols + 1) %}
                         {% set cell = c ~ ',' ~ r %}
-                        <label class="mx-cell cursor-pointer rounded-md border-2 border-gray-200 bg-gray-50 h-16 sm:h-20 flex items-center justify-center transition hover:border-indigo-400">
+                        <label class="mx-cell cp-tile cursor-pointer rounded-md border-2 border-gray-200 bg-gray-50 h-16 sm:h-20 flex items-center justify-center transition hover:border-indigo-400">
                             <input type="radio" name="{{ input_name }}" value="{{ cell }}" required
+                                   aria-label="{{ labels.get(cell, cell) }}"
                                    class="mx-radio sr-only" {{ 'checked' if cell == previous_answer }}>
                             <span class="mx-dot w-3 h-3 rounded-full bg-gray-300"></span>
                         </label>
                         {% endfor %}
                     {% endfor %}
                     </div>
+                    {% if has_x %}
+                    {% if has_y %}<div></div>{% endif %}
+                    <div class="flex justify-between items-baseline text-xs text-gray-500 gap-2" aria-hidden="true">
+                        <span>{{ cfg.get('x_low', '') }}</span>
+                        <span class="font-semibold text-gray-700 text-center">{{ cfg.get('x_label', '') }}</span>
+                        <span>{{ cfg.get('x_high', '') }}</span>
+                    </div>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-400 mt-1">Tap a cell to answer.</p>
             </div>
@@ -209,19 +218,30 @@
             {% set cfg = q.options | fromjson %}
             {% set prev = (previous_answer | fromjson) if previous_answer else none %}
             <div class="mb-3">
-                <div class="flex justify-between items-baseline text-xs text-gray-500 mb-1 gap-2">
-                    <span>0</span>
-                    <span class="font-semibold text-gray-700 text-center">{{ cfg.get('x_label', '') }}</span>
-                    <span>100</span>
+                {# Same chart frame as the results plot: Y up the left, X along the bottom. #}
+                <div class="grid gap-x-2 gap-y-1" style="grid-template-columns: auto minmax(0, 1fr);">
+                    <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 w-5" aria-hidden="true">
+                        <span>100</span>
+                        <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ cfg.get('y_label', '') }}</span>
+                        <span>0</span>
+                    </div>
+                    <div class="sc-pad relative border-2 border-gray-200 rounded-md cursor-crosshair touch-none focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400"
+                         data-qid="{{ q.id }}" tabindex="0" role="application"
+                         aria-label="Plot for {{ q.title }}. Use the arrow keys to move your point; hold Shift for bigger steps."
+                         style="aspect-ratio: 4/3; background-color: #fff; background-image: linear-gradient(#f3f4f6 1px, transparent 1px), linear-gradient(90deg, #f3f4f6 1px, transparent 1px); background-size: 10% 10%;">
+                        <div id="sc-dot-{{ q.id }}"
+                             class="absolute rounded-full bg-indigo-600 border-2 border-white shadow -translate-x-1/2 translate-y-1/2 pointer-events-none {{ 'hidden' if not prev }} {{ 'w-3 h-3' if prev and prev.get('s') == 'sm' else 'w-6 h-6' if prev and prev.get('s') == 'lg' else 'w-4 h-4' }}"
+                             {% if prev %}style="left: {{ prev.x }}%; bottom: {{ prev.y }}%;{{ ' background-color: ' ~ scatter_colors[prev.c] ~ ';' if prev.get('c') and scatter_colors.get(prev.c) }}"{% endif %}></div>
+                    </div>
+                    <div></div>
+                    <div class="flex justify-between items-baseline text-xs text-gray-500 gap-2" aria-hidden="true">
+                        <span>0</span>
+                        <span class="font-semibold text-gray-700 text-center">{{ cfg.get('x_label', '') }}</span>
+                        <span>100</span>
+                    </div>
                 </div>
-                <div class="sc-pad relative border-2 border-gray-200 rounded-md cursor-crosshair touch-none"
-                     data-qid="{{ q.id }}"
-                     style="aspect-ratio: 4/3; background-color: #fff; background-image: linear-gradient(#f3f4f6 1px, transparent 1px), linear-gradient(90deg, #f3f4f6 1px, transparent 1px); background-size: 10% 10%;">
-                    <div id="sc-dot-{{ q.id }}"
-                         class="absolute rounded-full bg-indigo-600 border-2 border-white shadow -translate-x-1/2 translate-y-1/2 pointer-events-none {{ 'hidden' if not prev }} {{ 'w-3 h-3' if prev and prev.get('s') == 'sm' else 'w-6 h-6' if prev and prev.get('s') == 'lg' else 'w-4 h-4' }}"
-                         {% if prev %}style="left: {{ prev.x }}%; bottom: {{ prev.y }}%;{{ ' background-color: ' ~ scatter_colors[prev.c] ~ ';' if prev.get('c') and scatter_colors.get(prev.c) }}"{% endif %}></div>
-                </div>
-                <p class="text-xs text-gray-400 mt-1">Tap the plot to place your point (up = {{ cfg.get('y_label') or 'high' }}).</p>
+                <p class="text-xs text-gray-400 mt-1">Tap the plot to place your point.</p>
+                <p id="sc-live-{{ q.id }}" class="sr-only" aria-live="polite"></p>
                 <input type="hidden" name="response-{{ q.id }}-x" id="sc-x-{{ q.id }}" value="{{ prev.x if prev else '' }}">
                 <input type="hidden" name="response-{{ q.id }}-y" id="sc-y-{{ q.id }}" value="{{ prev.y if prev else '' }}">
                 {% if cfg.get('allow_color') %}

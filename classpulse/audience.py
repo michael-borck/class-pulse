@@ -17,7 +17,7 @@ from .extensions import limiter
 from .extensions import db
 from .models import Question, Response, Session
 from .models import utcnow_iso
-from .questions import SCATTER_COLORS, SCATTER_SIZES, response_display_label
+from .questions import SCATTER_COLORS, SCATTER_SIZES, parsed_options, response_display_label
 from .sockets import broadcast_results
 from .utils import normalize_session_code, session_code_match
 
@@ -276,8 +276,23 @@ def init_app(app):
         previous_responses = {r.question_id: r.response_value for r in previous_responses_db}
         # Raw stored values like "2,1" or scatter JSON mean nothing to a human;
         # precompute friendly labels for the "you chose …" status lines.
-        previous_labels = {q.id: response_display_label(q.type, previous_responses.get(q.id))
+        previous_labels = {q.id: response_display_label(q.type, previous_responses.get(q.id),
+                                                        parsed_options(q))
                            for q in active_questions if q.id in previous_responses}
+        # Screen readers announce each matrix cell by its axis position
+        # ("Impact: high, Likelihood: low") rather than a bare coordinate.
+        cell_labels = {}
+        for q in active_questions:
+            if q.type != 'matrix':
+                continue
+            cfg = parsed_options(q)
+            cfg = cfg if isinstance(cfg, dict) else {}
+            try:
+                cols, rows = int(cfg.get('cols', 2)), int(cfg.get('rows', 2))
+            except (ValueError, TypeError):
+                cols = rows = 2
+            cell_labels[q.id] = {f'{c},{r}': response_display_label('matrix', f'{c},{r}', cfg)
+                                 for c in range(1, cols + 1) for r in range(1, rows + 1)}
 
         return _with_respondent_cookie(
             make_response(render_template('audience_view.html',
@@ -285,6 +300,7 @@ def init_app(app):
                                           questions=active_questions,
                                           active_question_ids=[q.id for q in active_questions],
                                           previous_labels=previous_labels,
+                                          cell_labels=cell_labels,
                                           scatter_colors=SCATTER_COLORS,
                                           scatter_sizes=SCATTER_SIZES,
                                           previous_responses=previous_responses)),
@@ -347,7 +363,8 @@ def init_app(app):
                 "success": True,
                 "message": "Your response was submitted!",
                 "response_value": response_value,
-                "response_label": response_display_label(question.type, response_value),
+                "response_label": response_display_label(question.type, response_value,
+                                                         parsed_options(question)),
             })
         flash("Your response was submitted!", "success")
         return redirect(url_for('audience_view', code=question.session.code))

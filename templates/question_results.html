@@ -39,100 +39,19 @@
         </div>
     {% elif stats.type == 'short_answer' %}
         <h4 class="text-lg font-semibold mb-2">Short Answer Results</h4>
-        <div class="mb-2 inline-flex rounded-md border border-gray-300 overflow-hidden text-xs">
-            <button type="button" data-sa-view="list" class="sa-btn px-3 py-1 bg-indigo-600 text-white">📝 Answers</button>
-            <button type="button" data-sa-view="cloud" class="sa-btn px-3 py-1 bg-white text-gray-700">☁ Cloud</button>
-        </div>
-        <div id="sa-list" class="w-full h-64 md:h-96 overflow-y-auto border rounded-md bg-gray-50 p-3 space-y-2"></div>
-        <div id="sa-cloud" class="hidden w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
+        <div id="result-host"></div>
     {% elif stats.type == 'word_cloud' %}
         <h4 class="text-lg font-semibold mb-2">Word Cloud Results</h4>
         <div id="wordcloud-{{ question.id }}" class="w-full h-64 md:h-96 border rounded-md bg-gray-50"></div>
     {% elif stats.type == 'image_choice' %}
-        {# Static snapshot: render the images + tallies server-side (no live socket here). #}
         <h4 class="text-lg font-semibold mb-2">Image Choice Results</h4>
-        {% set options = question.options | fromjson %}
-        {% set total = stats.total_responses or 0 %}
-        {% set ns = namespace(max=0) %}
-        {% for item in options %}
-            {% set c = stats.results.get(item.label, 0) %}
-            {% if c > ns.max %}{% set ns.max = c %}{% endif %}
-        {% endfor %}
-        <div class="grid gap-4 content-start" style="grid-template-columns:repeat({{ [options|length, 3]|min }},minmax(0,1fr));">
-        {% for item in options %}
-            {% set c = stats.results.get(item.label, 0) %}
-            {% set pct = ((c / total * 100) | round | int) if total else 0 %}
-            {% set leading = c > 0 and c == ns.max %}
-            <div class="rounded-lg border {{ 'border-indigo-500 ring-2 ring-indigo-300' if leading else 'border-gray-200' }} bg-white overflow-hidden flex flex-col">
-                <div class="bg-gray-100 flex items-center justify-center" style="aspect-ratio:4/3;">
-                    <img src="{{ item.url }}" alt="{{ item.label }}" class="w-full h-full object-contain" loading="lazy">
-                </div>
-                <div class="p-3">
-                    <div class="flex items-baseline justify-between gap-2">
-                        <span class="font-semibold text-gray-800 truncate">{{ item.label }}</span>
-                        <span class="text-sm text-gray-600 shrink-0">{{ c }} ({{ pct }}%)</span>
-                    </div>
-                    <div class="mt-2 h-2 rounded-full bg-gray-200 overflow-hidden">
-                        <div class="h-full {{ 'bg-indigo-600' if leading else 'bg-indigo-400' }}" style="width:{{ pct }}%"></div>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-        </div>
+        <div id="result-host"></div>
     {% elif stats.type == 'emoji' %}
-        {# Static snapshot of the sized-emoji view used in present mode. #}
         <h4 class="text-lg font-semibold mb-2">Emoji Poll Results</h4>
-        {% set total = stats.total_responses or 0 %}
-        {% set ns = namespace(max=0) %}
-        {% for em in stats.options %}
-            {% set c = stats.results.get(em, 0) %}
-            {% if c > ns.max %}{% set ns.max = c %}{% endif %}
-        {% endfor %}
-        <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-6 p-4 border rounded-md bg-gray-50 min-h-40">
-        {% for em in stats.options %}
-            {% set c = stats.results.get(em, 0) %}
-            {% set pct = ((c / total * 100) | round | int) if total else 0 %}
-            {% set size = 2 + (c / ns.max * 3 if ns.max else 0) %}
-            <div class="flex flex-col items-center gap-1">
-                <span style="font-size: {{ '%.2f' | format(size) }}rem; line-height: 1.1;">{{ em }}</span>
-                <span class="text-sm font-semibold {{ 'text-indigo-700' if c > 0 and c == ns.max else 'text-gray-500' }}">{{ c }} ({{ pct }}%)</span>
-            </div>
-        {% endfor %}
-        </div>
+        <div id="result-host" class="border rounded-md bg-gray-50 min-h-40"></div>
     {% elif stats.type == 'matrix' %}
-        {# Same orientation as the audience grid and the present-mode heatmap. #}
         <h4 class="text-lg font-semibold mb-2">Grid Results</h4>
-        {% set grid = stats.grid %}
-        {% set ns = namespace(max=0) %}
-        {% for v in stats.results.values() %}{% if v > ns.max %}{% set ns.max = v %}{% endif %}{% endfor %}
-        {% if grid.get('x_label') or grid.get('x_low') or grid.get('x_high') %}
-        <div class="flex justify-between items-baseline text-xs text-gray-500 mb-1 gap-2">
-            <span>{{ grid.get('x_low', '') }}</span>
-            <span class="font-semibold text-gray-700 text-center">{{ grid.get('x_label', '') }}</span>
-            <span>{{ grid.get('x_high', '') }}</span>
-        </div>
-        {% endif %}
-        <div class="flex gap-2 items-stretch">
-            {% if grid.get('y_label') or grid.get('y_low') or grid.get('y_high') %}
-            <div class="flex flex-col justify-between items-center text-xs text-gray-500 py-1 w-6 shrink-0">
-                <span class="text-center">{{ grid.get('y_high', '') }}</span>
-                <span class="font-semibold text-gray-700 whitespace-nowrap" style="writing-mode: vertical-rl; transform: rotate(180deg);">{{ grid.get('y_label', '') }}</span>
-                <span class="text-center">{{ grid.get('y_low', '') }}</span>
-            </div>
-            {% endif %}
-            <div class="grid gap-1.5 flex-grow" style="grid-template-columns: repeat({{ grid.cols }}, minmax(0, 1fr));">
-            {% for r in range(1, grid.rows + 1) %}
-                {% for c in range(1, grid.cols + 1) %}
-                {% set n = stats.results.get(c ~ ',' ~ r, 0) %}
-                {% set strength = (n / ns.max) if ns.max else 0 %}
-                <div class="rounded-md border border-gray-200 {{ '' if n else 'bg-gray-50' }} min-h-16 md:min-h-24 flex items-center justify-center"
-                     {% if n %}style="background-color: rgba(79,70,229,{{ 0.15 + 0.85 * strength }});"{% endif %}>
-                    <span class="text-xl md:text-3xl font-bold {{ 'text-white' if strength > 0.45 else 'text-gray-700' }}">{{ n or '' }}</span>
-                </div>
-                {% endfor %}
-            {% endfor %}
-            </div>
-        </div>
+        <div id="result-host"></div>
     {% elif stats.type == 'scatter' %}
         <h4 class="text-lg font-semibold mb-2">Scatter Plot Results</h4>
         <div class="h-64 md:h-96 relative">
@@ -147,127 +66,43 @@
 {% endblock %}
 
 {% block scripts %}
+{# Static snapshot (no live socket here); drawn by the same renderers as
+   Present mode, so both pages show the same picture. #}
+<script src="{{ url_for('static', filename='js/results.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const statsData = {{ stats | tojson }}; // Pass stats data from Flask
+        const R = window.CPResults;
+        const statsData = {{ stats | tojson }};
+        const options = {{ question.options | fromjson | tojson }};
         const questionId = {{ question.id }};
+        const SCATTER_COLORS = {{ (scatter_colors or {}) | tojson }};
+        const host = document.getElementById('result-host');
 
         if (!statsData || statsData.error) {
             console.error("Error loading stats data:", statsData);
             return;
         }
+        const t = statsData.type;
 
-        // Common chart options
-        const chartOptions = {
-            responsive: true,
-            maintainAspectRatio: false, // Allow chart to fill container height
-        };
-
-         // Specific options for bar charts
-        const barChartOptions = {
-            ...chartOptions, // Inherit common options
-            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-             plugins: { legend: { display: true } } // Show legend for MC
-        };
-
-        // Specific options for horizontal bar charts (rating)
-        const horizontalBarChartOptions = {
-             ...chartOptions, // Inherit common options
-             indexAxis: 'y', // Make it horizontal
-             scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }, // X-axis starts at 0
-             plugins: {
-                 legend: { display: false }, // Hide legend for rating
-                 tooltip: { // Customize tooltips if desired
-                     callbacks: {
-                         label: function(context) {
-                             let label = context.dataset.label || '';
-                             if (label) {
-                                 label += ': ';
-                             }
-                             if (context.parsed.x !== null) {
-                                 // Add a star emoji for rating tooltips
-                                 label += `${context.parsed.x} ⭐`;
-                             }
-                             return label;
-                         }
-                     }
-                 }
-             }
-        };
-
-
-        if (['multiple_choice','multi_select','ranking','numeric','multiple_choice_other'].includes(statsData.type) && statsData.results) {
-            const canvasId = `chart-mc-${questionId}`;
-            const labels = statsData.options || Object.keys(statsData.results);
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Votes',
-                    data: labels.map(label => statsData.results[label] || 0),
-                    backgroundColor: 'rgba(79, 70, 229, 0.7)' // Indigo
-                }]
-            };
-            initChart(canvasId, 'bar', chartData, barChartOptions);
-        } else if (statsData.type === 'rating' && statsData.results) {
-            const canvasId = `chart-rating-${questionId}`;
-            const maxRating = statsData.max_rating || 5;
-            const labels = Array.from({ length: maxRating }, (_, i) => `${i + 1} ⭐`); // Add star to labels
-            const chartData = {
-                labels: labels,
-                datasets: [{
-                    label: 'Ratings',
-                    data: labels.map((_, i) => statsData.results[String(i + 1)] || 0),
-                    backgroundColor: 'rgba(249, 115, 22, 0.7)' // Orange
-                }]
-            };
-            initChart(canvasId, 'bar', chartData, horizontalBarChartOptions); // Use horizontal options
-        } else if (statsData.type === 'word_cloud' && statsData.results) {
+        if (R.usesBarChart(t) && statsData.results) {
+            const cfg = R.barConfig(t, statsData);
+            initChart(t === 'rating' ? `chart-rating-${questionId}` : `chart-mc-${questionId}`,
+                      cfg.type, cfg.data, cfg.options);
+        } else if (t === 'word_cloud' && statsData.results) {
             initWordCloud(`wordcloud-${questionId}`, statsData.results);
-        } else if (statsData.type === 'scatter') {
-            const SCATTER_COLORS = {{ (scatter_colors or {}) | tojson }};
-            const SCATTER_RADII = { sm: 4, md: 7, lg: 11 };
-            const cfg = statsData.config || {};
-            initChart(`chart-scatter-${questionId}`, 'scatter', {
-                datasets: [{
-                    label: 'Responses',
-                    data: statsData.points || [],
-                    pointRadius: (ctx) => SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7,
-                    pointHoverRadius: (ctx) => (SCATTER_RADII[(ctx.raw && ctx.raw.s) || 'md'] || 7) + 2,
-                    pointBackgroundColor: (ctx) => SCATTER_COLORS[(ctx.raw && ctx.raw.c)] || 'rgba(79,70,229,0.7)',
-                }]
-            }, {
-                ...chartOptions,
-                scales: {
-                    x: { min: 0, max: 100, title: { display: !!cfg.x_label, text: cfg.x_label || '' } },
-                    y: { min: 0, max: 100, title: { display: !!cfg.y_label, text: cfg.y_label || '' } },
-                },
-                plugins: { legend: { display: false },
-                    tooltip: { callbacks: { label: (ctx) => {
-                        const p = ctx.raw || {};
-                        const extras = [p.c, p.s].filter(Boolean).join(', ');
-                        return ` (${Math.round(p.x)}, ${Math.round(p.y)})${extras ? ' — ' + extras : ''}`;
-                    } } } },
-            });
-        } else if (statsData.type === 'short_answer') {
-            const saItems = Array.isArray(statsData.results) ? statsData.results : [];
-            const saList = document.getElementById('sa-list');
-            const escTxt = t => String(t == null ? '' : t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-            if (saList) saList.innerHTML = saItems.length
-                ? saItems.map(a => `<div class="bg-white border rounded px-3 py-2 text-sm text-gray-800">${escTxt(a && a.text != null ? a.text : a)}</div>`).join('')
-                : '<p class="text-sm text-gray-400 italic">No answers yet.</p>';
-            if (statsData.cloud) initWordCloud('sa-cloud', statsData.cloud);
-            document.querySelectorAll('.sa-btn').forEach(b => b.addEventListener('click', () => {
-                const v = b.dataset.saView;
-                document.getElementById('sa-list').classList.toggle('hidden', v !== 'list');
-                document.getElementById('sa-cloud').classList.toggle('hidden', v !== 'cloud');
-                document.querySelectorAll('.sa-btn').forEach(x => {
-                    const on = x.dataset.saView === v;
-                    x.classList.toggle('bg-indigo-600', on); x.classList.toggle('text-white', on);
-                    x.classList.toggle('bg-white', !on); x.classList.toggle('text-gray-700', !on);
-                });
-            }));
+        } else if (t === 'scatter') {
+            const cfg = R.scatterConfig(statsData.config, statsData, SCATTER_COLORS);
+            initChart(`chart-scatter-${questionId}`, cfg.type, cfg.data, cfg.options);
+        } else if (t === 'image_choice') {
+            host.innerHTML = R.imageChoiceHTML(options, statsData);
+        } else if (t === 'emoji') {
+            host.innerHTML = R.emojiHTML(statsData.options, statsData);
+        } else if (t === 'matrix') {
+            host.innerHTML = R.matrixHTML(statsData.grid, statsData);
+        } else if (t === 'short_answer') {
+            host.innerHTML = R.shortAnswerHTML('sa', 'h-64 md:h-96', true);
+            R.populateShortAnswer('sa', statsData);
         }
     });
 </script>
 {% endblock %}
-
