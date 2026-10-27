@@ -1,4 +1,4 @@
-.PHONY: setup setup-prod format lint test coverage clean run dev prod docker-build docker-up docker-down build-css watch-css db-init help
+.PHONY: lock setup setup-prod format lint test coverage clean run dev prod docker-build docker-up docker-down build-css watch-css db-init help
 
 # Variables
 PYTHON = python3
@@ -10,6 +10,7 @@ WSGI_PORT = 5000
 
 help:
 	@echo "Available commands:"
+	@echo "  lock          Re-pin requirements.txt from requirements.in (needs uv)"
 	@echo "  setup         Install dependencies and set up development environment"
 	@echo "  setup-prod    Install production dependencies"
 	@echo "  format        Format code with ruff"
@@ -26,6 +27,11 @@ help:
 	@echo "  build-css     Compile Tailwind CSS to static/css/tailwind.css (minified)"
 	@echo "  watch-css     Rebuild Tailwind CSS on change (dev)"
 	@echo "  db-init       Initialize the database"
+
+# requirements.txt pins every package, transitive ones included, so Docker and
+# CI install exactly the same set. Edit requirements.in, then run this.
+lock:
+	uv pip compile requirements.in --universal --python-version 3.11 -o requirements.txt --custom-compile-command "make lock"
 
 setup:
 	$(PYTHON) -m venv $(VENV)
