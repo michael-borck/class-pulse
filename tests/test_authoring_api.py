@@ -211,3 +211,21 @@ def test_legacy_sessions_url_redirects_to_dashboard(app, client):
     login(client, 'alice')
     resp = client.get('/sessions')
     assert resp.status_code == 302 and '/dashboard' in resp.headers['Location']
+
+
+def test_dashboard_session_list_carries_sort_data(app, client):
+    import re
+    alice = create_user(app, 'alice')
+    old = create_session(app, alice, code='OLD111', name='Old one')
+    create_session(app, alice, code='NEW222', name='New one')
+    with app.app_context():
+        db.session.get(Session, old).created_at = '2026-01-01T00:00:00+00:00'
+        db.session.commit()
+    qid = create_question(app, old)
+    add_response(app, qid, old, 'Red', 'r1')  # used just now, though created long ago
+    login(client, 'alice')
+    html = client.get('/dashboard').get_data(as_text=True)
+    assert 'id="session-sort"' in html
+    row = re.search(r'data-id="%d"[^>]*data-created="([^"]*)" data-used="([^"]*)"' % old, html)
+    created, used = row.groups()
+    assert created.startswith('2026-01-01') and used > created

@@ -10,9 +10,18 @@
         <button id="new-session" class="js-new-session btn btn-primary w-full mb-3">+ New session</button>
         <input id="session-search" placeholder="Search sessions…"
                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
-        <div class="flex gap-2 text-xs mb-3">
+        <div class="flex items-center gap-2 text-xs mb-3">
             <button data-tab="active" class="tab-btn px-2 py-1 rounded bg-indigo-600 text-white">Active</button>
             <button data-tab="archived" class="tab-btn px-2 py-1 rounded bg-white border">Archived</button>
+            <label class="ml-auto flex items-center gap-1 text-gray-500">
+                <span class="sr-only">Sort sessions</span>
+                <select id="session-sort" class="border border-gray-300 rounded px-1 py-1 text-xs bg-white">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name">Name A–Z</option>
+                    <option value="recent">Recently used</option>
+                </select>
+            </label>
         </div>
         {# One bordered surface with flat rows — the list reads as a navigator,
            distinct from the card stack in the detail panel on the right. #}
@@ -20,9 +29,10 @@
             {% for s in sessions %}
             <a href="{{ url_for('manage_session', session_id=s.id) }}"
                class="session-row block px-3 py-2.5 border-l-4 hover:bg-gray-50 {{ 'border-indigo-500 bg-indigo-50' if selected and selected.id == s.id else 'border-transparent' }}"
-               data-name="{{ s.name|lower }}" data-archived="{{ '1' if s.archived else '0' }}">
+               data-id="{{ s.id }}" data-name="{{ s.name|lower }}" data-archived="{{ '1' if s.archived else '0' }}"
+               data-created="{{ s.created_at }}" data-used="{{ s.last_used }}">
                 <div class="flex items-center justify-between">
-                    <span class="font-medium text-gray-800 truncate">{{ s.name }}</span>
+                    <span class="session-title font-medium text-gray-800 truncate">{{ s.name }}</span>
                     {% if s.active %}<span class="shrink-0 ml-2 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">LIVE</span>{% endif %}
                 </div>
                 <div class="text-xs text-gray-500 mt-0.5">{{ s.question_count }} question{{ '' if s.question_count == 1 else 's' }} · {{ s.code }}</div>
@@ -209,6 +219,31 @@ function filterList() {
     }
 }
 document.getElementById('session-search')?.addEventListener('input', filterList);
+
+// Sort the list in place; the choice is remembered in this browser.
+const SORT_KEY = 'cp_session_sort';
+function sortList() {
+    const list = document.getElementById('session-list');
+    const sel = document.getElementById('session-sort');
+    if (!list || !sel) return;
+    const mode = sel.value;
+    const rows = [...list.querySelectorAll('.session-row')];
+    const by = {
+        newest: (a, b) => b.dataset.created.localeCompare(a.dataset.created),
+        oldest: (a, b) => a.dataset.created.localeCompare(b.dataset.created),
+        name: (a, b) => a.dataset.name.localeCompare(b.dataset.name, undefined, { numeric: true }),
+        recent: (a, b) => b.dataset.used.localeCompare(a.dataset.used),
+    }[mode] || (() => 0);
+    rows.sort(by).forEach(r => list.insertBefore(r, document.getElementById('list-empty')));
+}
+(function () {
+    const sel = document.getElementById('session-sort');
+    if (!sel) return;
+    const saved = localStorage.getItem(SORT_KEY);
+    if (saved && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+    sel.addEventListener('change', () => { localStorage.setItem(SORT_KEY, sel.value); sortList(); });
+    sortList();
+})();
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
     tab = b.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(x => {
@@ -222,16 +257,52 @@ filterList();
 
 document.querySelectorAll('.js-new-session').forEach(btn => btn.addEventListener('click', async () => {
     const { ok, data } = await api('{{ url_for("api_create_session") }}', { name: 'Untitled session' });
-    if (ok && data.success) window.location.href = '/sessions/' + data.session.id;
+    // ?new=1 puts the cursor in the title so it can be named straight away.
+    if (ok && data.success) window.location.href = '/sessions/' + data.session.id + '?new=1';
     else alert((data && data.message) || 'Could not create session.');
 }));
 
 /* ---------- per-session actions ---------- */
 if (SID !== null) {
-    document.getElementById('session-name').addEventListener('change', async (e) => {
-        const name = e.target.value.trim();
-        if (name) await api(`/api/sessions/${SID}/rename`, { name });
+    // The title saves as you type (after a short pause) and the session list
+    // follows along, so a new session never sits there as "Untitled".
+    const nameInput = document.getElementById('session-name');
+    const row = document.querySelector(`.session-row[data-id="${SID}"]`);
+    let savedName = nameInput.value;
+    let saveTimer = null;
+    function showName(name) {
+        if (!row) return;
+        row.querySelector('.session-title').textContent = name || 'Untitled session';
+        row.dataset.name = (name || 'untitled session').toLowerCase();
+    }
+    async function saveName() {
+        clearTimeout(saveTimer);
+        const name = nameInput.value.trim();
+        if (!name || name === savedName) return;
+        const { ok, data } = await api(`/api/sessions/${SID}/rename`, { name });
+        if (ok && data.success) {
+            savedName = data.name;
+            const s = SESSIONS.find(x => x.id === SID);
+            if (s) s.name = data.name;
+        }
+    }
+    nameInput.addEventListener('input', () => {
+        showName(nameInput.value.trim());
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveName, 600);
     });
+    nameInput.addEventListener('change', async () => {
+        // An emptied title isn't saved; put the last saved name back.
+        if (!nameInput.value.trim()) { nameInput.value = savedName; showName(savedName); }
+        await saveName();
+        sortList();
+    });
+    nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameInput.blur(); });
+    if (new URLSearchParams(location.search).get('new') === '1') {
+        nameInput.focus();
+        nameInput.select();
+        history.replaceState(null, '', location.pathname);  // don't re-select on reload
+    }
     document.getElementById('pill-activate').addEventListener('click', async () => {
         const { ok, data } = await api(`/api/sessions/${SID}/toggle`);
         if (ok && data.success) window.location.reload(); else alert((data && data.message) || 'Failed.');

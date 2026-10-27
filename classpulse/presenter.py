@@ -13,6 +13,8 @@ from .accounts import purge_session
 from .ai import generate_question_with_ai
 from .auth import login_required
 from .extensions import db, limiter
+from sqlalchemy import func
+
 from .models import Proposal, Question, Response, Session
 from .questions import (
     SCATTER_COLORS, build_answer, parse_question_payload, parsed_options, question_to_dict,
@@ -51,7 +53,23 @@ def _render_dashboard(selected_id=None):
     # Include archived (client filters via the Active/Archived tabs).
     user_sessions = Session.query.filter_by(user_id=user_id) \
         .order_by(Session.created_at.desc()).all()
-    sessions_data = [session_to_dict(s) for s in user_sessions]
+    # "Recently used" sort: the newest question or response in each session,
+    # falling back to its creation time. Two grouped queries, not one per row.
+    ids = [s.id for s in user_sessions]
+    last = {}
+    if ids:
+        for model in (Question, Response):
+            rows = db.session.query(model.session_id, func.max(model.created_at)) \
+                .filter(model.session_id.in_(ids)).group_by(model.session_id).all()
+            for sid, ts in rows:
+                if ts and ts > last.get(sid, ''):
+                    last[sid] = ts
+    sessions_data = []
+    for s in user_sessions:
+        d = session_to_dict(s)
+        d['created_at'] = s.created_at or ''
+        d['last_used'] = max(last.get(s.id, ''), d['created_at'])
+        sessions_data.append(d)
     selected = None
     if selected_id is not None:
         sel = next((s for s in user_sessions if s.id == selected_id), None)
