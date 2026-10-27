@@ -1,6 +1,7 @@
 """Per-question result statistics used by the live views and exports."""
 
 import json
+import math
 from typing import Any, Dict
 
 from .extensions import db
@@ -119,9 +120,13 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         vals = []
         for resp in all_responses:
             try:
-                vals.append(float(resp.response_value))
+                v = float(resp.response_value)
             except (ValueError, TypeError):
-                pass
+                continue
+            # Skip NaN/inf stored before the audience route rejected them:
+            # one would make the average NaN, which isn't valid JSON.
+            if math.isfinite(v):
+                vals.append(v)
         try:
             cfg = json.loads(question.options) if question.options else {}
         except (json.JSONDecodeError, TypeError):
@@ -131,6 +136,8 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
             try:
                 lo, hi = float(cfg['min']), float(cfg['max'])
             except (ValueError, TypeError):
+                lo = hi = None
+            if lo is not None and not (math.isfinite(lo) and math.isfinite(hi)):
                 lo = hi = None
         if lo is None and vals:
             lo, hi = min(vals), max(vals)

@@ -1,6 +1,7 @@
 """Question option parsing/validation and serialization shared by routes."""
 
 import json
+import math
 
 from .models import Response
 
@@ -50,6 +51,9 @@ def build_options(q_type, src):
         if isinstance(opts, str):
             opts = opts.splitlines()
         opts = [str(o).strip()[:MAX_OPTION_LEN] for o in opts if str(o).strip()]
+        # Duplicates make a ranking question unanswerable (two options would
+        # share one rank slot) and split votes elsewhere, so drop repeats.
+        opts = list(dict.fromkeys(opts))
         if len(opts) < 2:
             return (None, 'Add at least two options.')
         if len(opts) > MAX_OPTIONS:
@@ -79,9 +83,13 @@ def build_options(q_type, src):
             v = src.get(k)
             if v not in (None, ''):
                 try:
-                    cfg[k] = float(v)
+                    f = float(v)
                 except (ValueError, TypeError):
-                    pass
+                    continue
+                if math.isfinite(f):  # "nan"/"inf" parse but aren't usable bounds
+                    cfg[k] = f
+        if 'min' in cfg and 'max' in cfg and cfg['min'] > cfg['max']:
+            return (None, 'The minimum must not be greater than the maximum.')
         return (cfg, None)
     if q_type == 'rating':
         try:

@@ -76,6 +76,9 @@ class Question(db.Model):
     responses = db.relationship('Response', backref='question', lazy=True)
 
 
+RESPONSE_UNIQUE_INDEX = 'uq_response_question_respondent'
+
+
 class Response(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question_id = db.Column(db.Integer, db.ForeignKey('question.id'), nullable=False)
@@ -83,6 +86,11 @@ class Response(db.Model):
     response_value = db.Column(db.Text, nullable=False)
     respondent_id = db.Column(db.String(36), nullable=False)  # anonymous UUID
     created_at = db.Column(db.String, default=utcnow_iso)
+    # One answer per respondent per question; a resubmission replaces it.
+    # An index (not a table constraint) so the startup migration can add it
+    # to existing databases with CREATE UNIQUE INDEX (see create_app).
+    __table_args__ = (db.Index(RESPONSE_UNIQUE_INDEX, 'question_id', 'respondent_id',
+                               unique=True),)
 
 
 # Statuses a Proposal moves through. Flagged proposals are hidden from the

@@ -7,11 +7,14 @@ respondent cookie must be a well-formed UUID.
 """
 
 import json
+import math
 import uuid
 
 from flask import (
     flash, jsonify, make_response, redirect, render_template, request, url_for
 )
+
+from sqlalchemy.exc import IntegrityError
 
 from .extensions import limiter
 from .extensions import db
@@ -126,6 +129,11 @@ def _extract_response_value(question):
             value = float(raw)
         except (TypeError, ValueError):
             return None, "Please enter a valid number."
+        # float() also accepts "nan" and "inf". NaN slips past every min/max
+        # comparison, and either one turns the stats average into a value
+        # JSON can't carry, which breaks the presenter's live view.
+        if not math.isfinite(value):
+            return None, "Please enter a valid number."
         cfg = _question_options(question)
         if isinstance(cfg, dict):
             try:
@@ -207,6 +215,30 @@ def _extract_response_value(question):
     if len(text) > cap:
         return None, f"Answers are limited to {cap} characters."
     return text, None
+
+
+def _save_response(question, respondent_id, value):
+    """Insert or replace this respondent's answer to the question.
+
+    A unique index on (question_id, respondent_id) backs this up: if a double
+    tap races two inserts, the loser hits IntegrityError and updates the row
+    the winner wrote, so the vote still counts once.
+    """
+    for _ in range(2):
+        existing = Response.query.filter_by(question_id=question.id,
+                                            respondent_id=respondent_id).first()
+        if existing:
+            existing.response_value = value
+            existing.created_at = utcnow_iso()
+        else:
+            db.session.add(Response(question_id=question.id, session_id=question.session_id,
+                                    response_value=value, respondent_id=respondent_id))
+        try:
+            db.session.commit()
+            return
+        except IntegrityError:
+            db.session.rollback()
+    raise RuntimeError("Could not save response after a concurrent insert")
 
 
 def init_app(app):
@@ -336,24 +368,7 @@ def init_app(app):
             flash(err_msg, "warning")
             return redirect(url_for('audience_view', code=question.session.code))
 
-        # Check for existing response and update, or create new
-        existing_response = Response.query.filter_by(
-            question_id=question_id,
-            respondent_id=respondent_id
-        ).first()
-
-        if existing_response:
-            existing_response.response_value = response_value
-            existing_response.created_at = utcnow_iso()
-        else:
-            db.session.add(Response(
-                question_id=question_id,
-                session_id=question.session_id,
-                response_value=response_value,
-                respondent_id=respondent_id,
-            ))
-
-        db.session.commit()
+        _save_response(question, respondent_id, response_value)
 
         # Notify presenters via WebSocket
         broadcast_results(question_id)

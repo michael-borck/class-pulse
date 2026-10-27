@@ -282,7 +282,9 @@ def create_app(test_config: dict = None) -> Flask:
 # never alters tables, so each entry here is applied with a plain
 # ALTER TABLE ... ADD COLUMN (works on SQLite and PostgreSQL) when missing.
 _ADDITIVE_COLUMNS = [
-    ('session', 'allow_proposals', 'BOOLEAN NOT NULL DEFAULT 0'),
+    # FALSE, not 0: PostgreSQL rejects an integer default on a boolean column.
+    # SQLite has accepted the FALSE keyword since 3.23.
+    ('session', 'allow_proposals', 'BOOLEAN NOT NULL DEFAULT FALSE'),
     ('user', 'session_token', 'VARCHAR(32)'),
 ]
 
@@ -299,3 +301,30 @@ def _apply_additive_migrations(app):
             db.session.execute(text(f'ALTER TABLE "{table}" ADD COLUMN {column} {ddl_type}'))
             db.session.commit()
             app.logger.info(f"Schema migration: added {table}.{column}")
+    _ensure_response_unique_index(app, inspector)
+
+
+def _ensure_response_unique_index(app, inspector):
+    """Add the one-answer-per-respondent index to databases created before it.
+
+    Older databases may already hold duplicate rows from double-tapped
+    submissions, which would make CREATE UNIQUE INDEX fail, so keep only the
+    newest row (highest id) per (question, respondent) first.
+    """
+    from sqlalchemy import text
+    from .models import RESPONSE_UNIQUE_INDEX
+    try:
+        names = {ix['name'] for ix in inspector.get_indexes('response')}
+    except Exception:
+        return
+    if RESPONSE_UNIQUE_INDEX in names:
+        return
+    removed = db.session.execute(text(
+        'DELETE FROM response WHERE id NOT IN '
+        '(SELECT MAX(id) FROM response GROUP BY question_id, respondent_id)')).rowcount
+    db.session.execute(text(
+        f'CREATE UNIQUE INDEX IF NOT EXISTS {RESPONSE_UNIQUE_INDEX} '
+        'ON response (question_id, respondent_id)'))
+    db.session.commit()
+    app.logger.info(f"Schema migration: added {RESPONSE_UNIQUE_INDEX} "
+                    f"(removed {removed} duplicate responses)")

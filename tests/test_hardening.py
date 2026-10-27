@@ -55,3 +55,35 @@ def test_export_escapes_formula_responses(app, client):
     assert resp.status_code == 200
     assert b"'=cmd" in resp.data
     assert b'\n=cmd' not in resp.data and b',=cmd' not in resp.data
+
+
+def test_migration_dedupes_responses_and_adds_unique_index(tmp_path):
+    # Simulate a database from before the unique index: duplicate rows exist.
+    import sqlite3
+    db_path = tmp_path / 'old.db'
+    app = make_app({'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}'})
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    qid = create_question(app, sid)
+    con = sqlite3.connect(db_path)
+    con.execute('DROP INDEX uq_response_question_respondent')
+    for value in ('Red', 'Blue'):
+        con.execute('INSERT INTO response (question_id, session_id, response_value, '
+                    'respondent_id) VALUES (?, ?, ?, ?)', (qid, sid, value, 'r1'))
+    con.commit()
+    con.close()
+
+    make_app({'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}'})  # runs migrations
+
+    con = sqlite3.connect(db_path)
+    rows = con.execute('SELECT response_value FROM response').fetchall()
+    names = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='index'")]
+    con.close()
+    assert rows == [('Blue',)]
+    assert 'uq_response_question_respondent' in names
+
+
+def test_additive_migration_ddl_is_postgres_safe():
+    from classpulse import _ADDITIVE_COLUMNS
+    ddl = {(t, c): d for t, c, d in _ADDITIVE_COLUMNS}
+    assert ddl[('session', 'allow_proposals')].endswith('DEFAULT FALSE')

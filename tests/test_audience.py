@@ -210,3 +210,70 @@ def test_audience_view_replaces_a_malformed_respondent_cookie(app, client):
     issued = client.get_cookie('classpulse_respondent').value
     assert issued != 'not-a-uuid; DROP TABLE'
     uuid.UUID(issued)  # raises if the server didn't mint a real UUID
+
+
+# ---------- audit fixes ----------
+
+def test_numeric_rejects_nan_and_infinity(app, client):
+    # NaN slips past min/max comparisons and turns the stats average into a
+    # value JSON can't carry, which would break the presenter's live view.
+    _, qid = setup_live(app, q_type='numeric', options={'min': 0, 'max': 10})
+    join_session(client)
+    for bad in ('nan', 'NaN', 'inf', '-Infinity'):
+        assert _respond(client, qid, bad).status_code == 400, bad
+    assert _respond(client, qid, '7').status_code == 200
+
+
+def test_numeric_stats_ignore_stored_nan(app):
+    import json
+    from classpulse.stats import get_question_stats
+    from conftest import add_response
+    sid, qid = setup_live(app, q_type='numeric', options={})
+    add_response(app, qid, sid, 'nan', 'r1')
+    add_response(app, qid, sid, '4', 'r2')
+    with app.app_context():
+        stats = get_question_stats(qid)
+    assert stats['average'] == 4.0
+    json.dumps(stats, allow_nan=False)  # raises if anything non-finite leaked
+
+
+def test_one_response_row_per_respondent(app, client):
+    from sqlalchemy.exc import IntegrityError
+    from classpulse.extensions import db
+    sid, qid = setup_live(app)
+    join_session(client)
+    _respond(client, qid, 'Red')
+    _respond(client, qid, 'Blue')
+    with app.app_context():
+        rows = Response.query.filter_by(question_id=qid).all()
+        assert [r.response_value for r in rows] == ['Blue']
+        # The database itself refuses a second row (double-tap race).
+        db.session.add(Response(question_id=qid, session_id=sid, response_value='Green',
+                                respondent_id=rows[0].respondent_id))
+        try:
+            db.session.commit()
+            raised = False
+        except IntegrityError:
+            db.session.rollback()
+            raised = True
+        assert raised
+
+
+def test_choice_options_are_deduplicated(app, client):
+    from conftest import login
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    login(client, 'alice')
+    resp = client.post(f'/api/sessions/{sid}/questions',
+                       json={'type': 'ranking', 'title': 'Rank', 'options': 'A\nB\nA'})
+    assert resp.get_json()['question']['options'] == ['A', 'B']
+
+
+def test_numeric_min_above_max_rejected(app, client):
+    from conftest import login
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    login(client, 'alice')
+    resp = client.post(f'/api/sessions/{sid}/questions',
+                       json={'type': 'numeric', 'title': 'N', 'min': 10, 'max': 1})
+    assert resp.status_code == 400
