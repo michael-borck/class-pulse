@@ -2,6 +2,8 @@
 
 # Variables
 PYTHON = python3
+# Use the existing virtualenv: .venv if present, else venv (what start.sh makes).
+VENV ?= $(if $(wildcard .venv),.venv,venv)
 APP_NAME = classpulse
 PORT = 5000
 WSGI_PORT = 5000
@@ -26,31 +28,31 @@ help:
 	@echo "  db-init       Initialize the database"
 
 setup:
-	$(PYTHON) -m venv venv
-	./venv/bin/pip install --upgrade pip
-	./venv/bin/pip install -r requirements.txt
-	./venv/bin/pip install pytest pytest-cov ruff
+	$(PYTHON) -m venv $(VENV)
+	./$(VENV)/bin/pip install --upgrade pip
+	./$(VENV)/bin/pip install -r requirements.txt
+	./$(VENV)/bin/pip install pytest pytest-cov ruff
 	@echo "Creating instance directory..."
 	mkdir -p instance
 
 setup-prod:
-	$(PYTHON) -m venv venv
-	./venv/bin/pip install --upgrade pip
-	./venv/bin/pip install -r requirements.txt
+	$(PYTHON) -m venv $(VENV)
+	./$(VENV)/bin/pip install --upgrade pip
+	./$(VENV)/bin/pip install -r requirements.txt
 	@echo "Creating instance directory..."
 	mkdir -p instance
 
 format:
-	./venv/bin/ruff format classpulse tests
+	./$(VENV)/bin/ruff format classpulse tests
 
 lint:
-	./venv/bin/ruff check classpulse tests app.py wsgi.py
+	./$(VENV)/bin/ruff check classpulse tests app.py wsgi.py
 
 test:
-	./venv/bin/pytest -q
+	./$(VENV)/bin/pytest -q
 
 coverage:
-	./venv/bin/pytest --cov=classpulse --cov-report=term-missing
+	./$(VENV)/bin/pytest --cov=classpulse --cov-report=term-missing
 
 clean:
 	@echo "Removing Python cache files..."
@@ -87,7 +89,7 @@ dev: format lint test
 # Single worker: Socket.IO long-polling is stateful and broadcasts don't cross
 # gunicorn workers without a message queue (SOCKETIO_MESSAGE_QUEUE).
 prod:
-	./venv/bin/gunicorn --workers=1 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=gthread --threads=16 --timeout=60 'wsgi:application'
+	./$(VENV)/bin/gunicorn --workers=1 --bind=0.0.0.0:$(WSGI_PORT) --worker-class=gthread --threads=$${GUNICORN_THREADS:-64} --timeout=60 'wsgi:application'
 
 docker-build:
 	docker build -t classpulse:latest .

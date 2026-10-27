@@ -237,7 +237,8 @@ def init_app(app):
         if request.method == 'POST':
             username = (request.form.get('username') or '').strip()
             email = (request.form.get('email') or '').strip()
-            display_name = (request.form.get('display_name') or '').strip() or username
+            # The column is 100 chars; cap here so the insert can't fail on PostgreSQL.
+            display_name = ((request.form.get('display_name') or '').strip() or username)[:100]
             password = request.form.get('password')
             confirm_password = request.form.get('confirm_password')
 

@@ -89,6 +89,30 @@ def test_only_failed_code_lookups_count_toward_the_join_limit():
     assert 429 in statuses
 
 
+def test_non_object_json_bodies_are_rejected_cleanly(app, client):
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    login(client, 'alice')
+    for body in ([1, 2], "text", 7):
+        assert client.post(f'/api/sessions/{sid}/questions', json=body).status_code == 400
+        assert client.post(f'/api/sessions/{sid}/rename', json=body).status_code == 400
+        assert client.post(f'/api/sessions/{sid}/questions/reorder', json=body).status_code == 200
+    assert client.post(f'/api/sessions/{sid}/questions',
+                       json={'type': 'emoji', 'title': 'T', 'options': 5}).status_code == 400
+    assert client.post(f'/api/sessions/{sid}/questions',
+                       json={'type': 'multiple_choice', 'title': ['x']}).status_code == 400
+
+
+def test_email_escapes_display_name(monkeypatch):
+    from classpulse import email as email_mod
+    sent = {}
+    monkeypatch.setattr(email_mod, 'send_email',
+                        lambda to, subject, html, text: sent.update(html=html) or True)
+    email_mod.send_verification_email('a@example.com', '<a href="http://evil">x</a>',
+                                      '123456', 30)
+    assert '<a href' not in sent['html'] and '&lt;a href' in sent['html']
+
+
 def test_migration_dedupes_responses_and_adds_unique_index(tmp_path):
     # Simulate a database from before the unique index: duplicate rows exist.
     import sqlite3

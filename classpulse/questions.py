@@ -40,6 +40,14 @@ SCATTER_COLORS = {
 SCATTER_SIZES = ('sm', 'md', 'lg')
 
 
+def _option_lines(raw, split=str.splitlines):
+    """Options arrive as one string (split it) or a list; anything else
+    (a number, an object from a malformed JSON body) counts as none."""
+    if isinstance(raw, str):
+        return split(raw)
+    return list(raw) if isinstance(raw, (list, tuple)) else []
+
+
 def build_options(q_type, src):
     """Build the options JSON value for a question from a dict-like source.
 
@@ -47,9 +55,7 @@ def build_options(q_type, src):
     'min'/'max'/'step'. Returns (options_value, error_or_None).
     """
     if q_type in ('multiple_choice', 'multi_select', 'ranking', 'multiple_choice_other'):
-        opts = src.get('options') or []
-        if isinstance(opts, str):
-            opts = opts.splitlines()
+        opts = _option_lines(src.get('options'))
         opts = [str(o).strip()[:MAX_OPTION_LEN] for o in opts if str(o).strip()]
         # Duplicates make a ranking question unanswerable (two options would
         # share one rank slot) and split votes elsewhere, so drop repeats.
@@ -60,9 +66,7 @@ def build_options(q_type, src):
             return (None, f'Too many options (max {MAX_OPTIONS}).')
         return (opts, None)
     if q_type == 'image_choice':
-        raw = src.get('options') or []
-        if isinstance(raw, str):
-            raw = raw.splitlines()
+        raw = _option_lines(src.get('options'))
         items = []
         for i, line in enumerate([str(line).strip() for line in raw if str(line).strip()], 1):
             if '|' in line:
@@ -98,10 +102,8 @@ def build_options(q_type, src):
             mx = 5
         return ({'max_rating': max(2, min(10, mx))}, None)
     if q_type == 'emoji':
-        raw = src.get('options') or []
-        if isinstance(raw, str):
-            # Split on any whitespace — presenters paste emojis space-separated.
-            raw = raw.split()
+        # Split on any whitespace: presenters paste emojis space-separated.
+        raw = _option_lines(src.get('options'), split=str.split)
         emojis = []
         for e in raw:
             e = str(e).strip()[:MAX_EMOJI_LEN]
@@ -141,10 +143,13 @@ def parse_question_payload(data):
     """Validate/normalise an add/edit question payload.
 
     Returns (error_message_or_None, q_type, title, options_value)."""
+    if not isinstance(data, dict):
+        return ('Invalid request body.', None, None, None)
     q_type = data.get('type')
-    if q_type not in VALID_QUESTION_TYPES:
+    if not isinstance(q_type, str) or q_type not in VALID_QUESTION_TYPES:
         return ('Invalid question type.', None, None, None)
-    title = (data.get('title') or '').strip()
+    title = data.get('title')
+    title = title.strip() if isinstance(title, str) else ''
     if not title:
         return ('Question title is required.', None, None, None)
     if len(title) > MAX_TITLE_LEN:

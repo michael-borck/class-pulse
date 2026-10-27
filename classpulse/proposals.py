@@ -15,7 +15,7 @@ from .models import Proposal, ProposalVote, Question, Session
 from .moderation import moderate_proposal
 from .questions import parse_question_payload, question_to_dict
 from .sockets import broadcast_proposals_changed, broadcast_questions_changed
-from .utils import has_joined_session, session_code_match
+from .utils import has_joined_session, request_json_object, session_code_match
 
 # Types the audience may propose. Deliberately narrower than
 # VALID_QUESTION_TYPES: no image_choice (anonymous users supplying image URLs
@@ -34,7 +34,7 @@ def _live_session_by_code(code):
     # reached via one spelling of a code would 404 its own proposals API.
     return Session.query.filter(
         session_code_match(code), Session.active.is_(True),
-        Session.archived.is_(False), Session.deleted.is_(False)).first()
+        Session.archived.is_(False)).first()
 
 
 # Like the response route, only browsers that opened the session's page (which
@@ -119,7 +119,7 @@ def init_app(app):
         if not respondent_id or not has_joined_session(s.id):
             return jsonify(_REJOIN[0]), _REJOIN[1]
 
-        data = request.get_json(silent=True) or {}
+        data = request_json_object()
         if data.get('type') not in PROPOSAL_TYPES:
             return jsonify({"success": False, "message": "Invalid question type."}), 400
         err, q_type, title, opts = parse_question_payload(data)
@@ -199,7 +199,7 @@ def init_app(app):
     @login_required
     def api_toggle_proposals(session_id):
         s = Session.query.filter_by(id=session_id, user_id=session['user_id']).first_or_404()
-        if s.archived or s.deleted:
+        if s.archived:
             return jsonify({"success": False, "message": "Cannot modify this session."}), 400
         s.allow_proposals = not s.allow_proposals
         db.session.commit()
@@ -231,12 +231,12 @@ def init_app(app):
         if err:
             return err
         s = p.session
-        if s.archived or s.deleted:
+        if s.archived:
             return jsonify({"success": False, "message": "Cannot modify this session."}), 400
         if p.status == 'approved':
             return jsonify({"success": False, "message": "Already approved."}), 400
 
-        data = request.get_json(silent=True) or {}
+        data = request_json_object()
         if not data.get('title'):
             try:
                 opts = json.loads(p.options) if p.options else []
@@ -287,8 +287,7 @@ def init_app(app):
         p, err = _owned_proposal_or_error(proposal_id)
         if err:
             return err
-        data = request.get_json(silent=True) or {}
-        target_id = data.get('into') or p.similar_to_id
+        target_id = request_json_object().get('into') or p.similar_to_id
         try:
             target_id = int(target_id)
         except (TypeError, ValueError):

@@ -53,8 +53,17 @@ export FLASK_ENV=production
 echo "Starting ClassPulse application..."
 # --threads caps concurrent Socket.IO connections (one per connected audience
 # page in threading async mode), so it caps class size. See the Dockerfile.
+#
+# Behind a reverse proxy (TRUST_PROXY > 0) listen on localhost only: the app
+# then believes X-Forwarded-For, so anyone reaching port 5000 directly could
+# forge it and dodge the rate limits. Set BIND to override either default.
+if [ "${TRUST_PROXY:-0}" != "0" ]; then
+    DEFAULT_BIND="127.0.0.1:5000"
+else
+    DEFAULT_BIND="0.0.0.0:5000"
+fi
 exec "$VENV_DIR/bin/gunicorn" \
-    --bind 0.0.0.0:5000 \
+    --bind "${BIND:-$DEFAULT_BIND}" \
     --workers 1 \
     --worker-class gthread \
     --threads "${GUNICORN_THREADS:-64}" \

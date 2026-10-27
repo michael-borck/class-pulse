@@ -13,7 +13,6 @@ import uuid
 from flask import (
     abort, flash, jsonify, make_response, redirect, render_template, request, url_for
 )
-
 from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 
@@ -44,14 +43,6 @@ def _valid_respondent_id(value):
         return None
 
 
-def _question_options(question):
-    try:
-        parsed = json.loads(question.options) if question.options else []
-    except (json.JSONDecodeError, TypeError):
-        parsed = []
-    return parsed
-
-
 def respondent_rate_key():
     """Rate-limit key for audience writes: the respondent cookie when present.
 
@@ -72,7 +63,7 @@ def _extract_response_value(question):
     field = f'response-{question.id}'
 
     if q_type == 'multiple_choice':
-        options = [str(o) for o in _question_options(question)]
+        options = [str(o) for o in parsed_options(question)]
         chosen = request.form.get(field)
         if chosen is None:
             return None, "No response value submitted."
@@ -81,7 +72,7 @@ def _extract_response_value(question):
         return chosen, None
 
     if q_type == 'multi_select':
-        options = [str(o) for o in _question_options(question)]
+        options = [str(o) for o in parsed_options(question)]
         chosen = [v for v in request.form.getlist(field) if v.strip()]
         if not chosen:
             return None, "Please select at least one option."
@@ -91,7 +82,7 @@ def _extract_response_value(question):
         return "\n".join(dict.fromkeys(chosen)), None
 
     if q_type == 'ranking':
-        opts = [str(o) for o in _question_options(question)]
+        opts = [str(o) for o in parsed_options(question)]
         assigned, ok = {}, True
         for idx, opt in enumerate(opts):
             raw_rank = request.form.get(f'rank-{question.id}-{idx}')
@@ -106,7 +97,7 @@ def _extract_response_value(question):
         return "\n".join(ordered), None
 
     if q_type == 'multiple_choice_other':
-        options = [str(o) for o in _question_options(question)]
+        options = [str(o) for o in parsed_options(question)]
         chosen = request.form.get(field)
         if chosen == '__other__':
             other = request.form.get(f'{field}-other', '').strip()
@@ -123,9 +114,8 @@ def _extract_response_value(question):
 
     if q_type == 'rating':
         try:
-            config = json.loads(question.options) if question.options else {}
-            max_rating = int(config.get('max_rating', 5))
-        except (json.JSONDecodeError, AttributeError, ValueError, TypeError):
+            max_rating = int(parsed_options(question).get('max_rating', 5))
+        except (AttributeError, ValueError, TypeError):
             max_rating = 5
         raw = request.form.get(field)
         try:
@@ -147,7 +137,7 @@ def _extract_response_value(question):
         # JSON can't carry, which breaks the presenter's live view.
         if not math.isfinite(value):
             return None, "Please enter a valid number."
-        cfg = _question_options(question)
+        cfg = parsed_options(question)
         if isinstance(cfg, dict):
             try:
                 if 'min' in cfg and value < float(cfg['min']):
@@ -159,7 +149,7 @@ def _extract_response_value(question):
         return raw.strip(), None
 
     if q_type == 'image_choice':
-        items = _question_options(question)
+        items = parsed_options(question)
         labels = [str(it.get('label', '')) for it in items] if isinstance(items, list) else []
         chosen = request.form.get(field)
         if chosen is None:
@@ -169,7 +159,7 @@ def _extract_response_value(question):
         return chosen, None
 
     if q_type == 'emoji':
-        emojis = _question_options(question)
+        emojis = parsed_options(question)
         if not isinstance(emojis, list):
             emojis = []
         chosen = request.form.get(field)
@@ -180,7 +170,7 @@ def _extract_response_value(question):
         return chosen, None
 
     if q_type == 'matrix':
-        cfg = _question_options(question)
+        cfg = parsed_options(question)
         if not isinstance(cfg, dict):
             cfg = {}
         try:
@@ -194,7 +184,7 @@ def _extract_response_value(question):
         return f"{col},{row}", None
 
     if q_type == 'scatter':
-        cfg = _question_options(question)
+        cfg = parsed_options(question)
         if not isinstance(cfg, dict):
             cfg = {}
         try:
@@ -233,8 +223,7 @@ def _extract_response_value(question):
 def _live_session(code):
     """The audience-visible session for a typed/scanned code, or None."""
     return Session.query.filter(session_code_match(code), Session.active.is_(True),
-                                Session.archived.is_(False),
-                                Session.deleted.is_(False)).first()
+                                Session.archived.is_(False)).first()
 
 
 def _save_response(question, respondent_id, value):

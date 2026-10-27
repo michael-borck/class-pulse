@@ -14,9 +14,9 @@ broadcasts do not cross process boundaries without one.
 
 import os
 
-from classpulse import create_app
+from classpulse import create_app, is_debug
 
-debug = os.environ.get('FLASK_ENV') == 'development'
+debug = is_debug()
 
 application = create_app()
 
@@ -27,7 +27,9 @@ if not debug:
     if not os.path.exists('logs'):
         os.mkdir('logs')
 
-    file_handler = RotatingFileHandler('logs/classpulse.log', maxBytes=10240, backupCount=10)
+    # 5 MB x 10 files; at 10 KB a busy class rotated its history away in minutes.
+    file_handler = RotatingFileHandler('logs/classpulse.log', maxBytes=5 * 1024 * 1024,
+                                       backupCount=10)
     file_handler.setFormatter(logging.Formatter(
         '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
     ))

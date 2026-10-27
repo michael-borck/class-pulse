@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from .extensions import db
 from .models import Question, Response
+from .questions import parsed_options
 
 # Basic English stop words list (can be expanded)
 STOP_WORDS = frozenset([
@@ -36,6 +37,18 @@ def _word_counts(responses):
     return words
 
 
+def _options_list(question):
+    """The question's options as a list (choice-style types), or []."""
+    parsed = parsed_options(question)
+    return parsed if isinstance(parsed, list) else []
+
+
+def _options_dict(question):
+    """The question's config as a dict (rating/numeric/matrix/scatter), or {}."""
+    parsed = parsed_options(question)
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def get_question_stats(question_id: int) -> Dict[str, Any]:
     """Gets statistics for a question based on its type."""
     question = db.session.get(Question, question_id)
@@ -48,13 +61,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                              "type": question.type, "title": question.title}
 
     if question.type == 'multiple_choice':
-        try:
-            options = json.loads(question.options)
-            if not isinstance(options, list):
-                options = []
-        except json.JSONDecodeError:
-            options = []
-        options = [str(opt) for opt in options]
+        options = [str(opt) for opt in _options_list(question)]
         results = dict.fromkeys(options, 0)
         for resp in all_responses:
             if str(resp.response_value) in results:
@@ -67,9 +74,8 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
 
     elif question.type == 'rating':
         try:
-            config = json.loads(question.options)
-            max_rating = int(config.get('max_rating', 5))
-        except (json.JSONDecodeError, AttributeError, ValueError):
+            max_rating = int(_options_dict(question).get('max_rating', 5))
+        except (ValueError, TypeError):
             max_rating = 5
         results = {str(i): 0 for i in range(1, max_rating + 1)}
         for resp in all_responses:
@@ -79,10 +85,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["max_rating"] = max_rating
 
     elif question.type == 'multi_select':
-        try:
-            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
-        except (json.JSONDecodeError, TypeError):
-            options = []
+        options = [str(o) for o in _options_list(question)]
         results = dict.fromkeys(options, 0)
         for resp in all_responses:
             for sel in str(resp.response_value).split('\n'):
@@ -103,10 +106,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                           for w, c in _word_counts(all_responses).items()]  # for the cloud toggle
 
     elif question.type == 'ranking':
-        try:
-            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
-        except (json.JSONDecodeError, TypeError):
-            options = []
+        options = [str(o) for o in _options_list(question)]
         sums, counts = dict.fromkeys(options, 0.0), dict.fromkeys(options, 0)
         for resp in all_responses:
             for pos, opt in enumerate(str(resp.response_value).split('\n'), 1):
@@ -127,12 +127,9 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
             # one would make the average NaN, which isn't valid JSON.
             if math.isfinite(v):
                 vals.append(v)
-        try:
-            cfg = json.loads(question.options) if question.options else {}
-        except (json.JSONDecodeError, TypeError):
-            cfg = {}
+        cfg = _options_dict(question)
         lo = hi = None
-        if isinstance(cfg, dict) and 'min' in cfg and 'max' in cfg:
+        if 'min' in cfg and 'max' in cfg:
             try:
                 lo, hi = float(cfg['min']), float(cfg['max'])
             except (ValueError, TypeError):
@@ -158,11 +155,8 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
             stats["average"] = round(sum(vals) / len(vals), 2)
 
     elif question.type == 'image_choice':
-        try:
-            items = json.loads(question.options) if question.options else []
-        except (json.JSONDecodeError, TypeError):
-            items = []
-        labels = [str(it.get('label', '')) for it in items] if isinstance(items, list) else []
+        labels = [str(it.get('label', '')) for it in _options_list(question)
+                  if isinstance(it, dict)]
         results = dict.fromkeys(labels, 0)
         for resp in all_responses:
             v = str(resp.response_value)
@@ -172,10 +166,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["options"] = labels
 
     elif question.type == 'emoji':
-        try:
-            emojis = [str(e) for e in (json.loads(question.options) if question.options else [])]
-        except (json.JSONDecodeError, TypeError):
-            emojis = []
+        emojis = [str(e) for e in _options_list(question)]
         results = dict.fromkeys(emojis, 0)
         for resp in all_responses:
             v = str(resp.response_value)
@@ -185,12 +176,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
         stats["options"] = emojis
 
     elif question.type == 'matrix':
-        try:
-            cfg = json.loads(question.options) if question.options else {}
-        except (json.JSONDecodeError, TypeError):
-            cfg = {}
-        if not isinstance(cfg, dict):
-            cfg = {}
+        cfg = _options_dict(question)
         try:
             cols = max(1, min(10, int(cfg.get('cols', 2))))
             rows = max(1, min(10, int(cfg.get('rows', 2))))
@@ -208,12 +194,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                             if cfg.get(k)}}
 
     elif question.type == 'scatter':
-        try:
-            cfg = json.loads(question.options) if question.options else {}
-        except (json.JSONDecodeError, TypeError):
-            cfg = {}
-        if not isinstance(cfg, dict):
-            cfg = {}
+        cfg = _options_dict(question)
         points = []
         for resp in all_responses:
             try:
@@ -234,10 +215,7 @@ def get_question_stats(question_id: int) -> Dict[str, Any]:
                            "allow_size": bool(cfg.get("allow_size"))}
 
     elif question.type == 'multiple_choice_other':
-        try:
-            options = [str(o) for o in (json.loads(question.options) if question.options else [])]
-        except (json.JSONDecodeError, TypeError):
-            options = []
+        options = [str(o) for o in _options_list(question)]
         labels = options + ['Other']
         results = dict.fromkeys(labels, 0)
         for resp in all_responses:

@@ -241,7 +241,9 @@ python app.py
 # Production server with gunicorn
 # Single worker: Socket.IO long-polling is stateful and broadcasts don't
 # cross gunicorn workers without a message queue (SOCKETIO_MESSAGE_QUEUE).
-gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=16 --timeout=60 wsgi:application
+# Threads cap concurrent students (one per connected audience page); 64 suits a
+# normal class. Behind a reverse proxy, bind 127.0.0.1 instead of 0.0.0.0.
+gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=64 --timeout=60 wsgi:application
 ```
 
 ## Email (registration verification & password reset)
@@ -308,7 +310,9 @@ Ensure the user specified in the service file has:
 
 If port 5000 is already in use, either:
 1. Stop the conflicting service
-2. Change the port in start.sh (modify the `--bind` parameter)
+2. Set `BIND` for start.sh, e.g. `BIND=127.0.0.1:5050` (in `.env` or the
+   service file). By default start.sh listens on `127.0.0.1:5000` when
+   `TRUST_PROXY` is set and on `0.0.0.0:5000` otherwise.
 
 ## Updating the Application
 

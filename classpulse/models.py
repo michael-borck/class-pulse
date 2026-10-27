@@ -49,7 +49,10 @@ class Session(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     active = db.Column(db.Boolean, default=True, nullable=False)
     archived = db.Column(db.Boolean, default=False, nullable=False)
-    deleted = db.Column(db.Boolean, default=False, nullable=False)  # soft delete
+    # Legacy soft-delete flag. Deleting a session now purges it outright
+    # (accounts.purge_session), so this is always False; the column stays only
+    # because existing databases have it as NOT NULL without a DB default.
+    deleted = db.Column(db.Boolean, default=False, nullable=False)
     # Cohort mode: audience members may propose questions (see proposals.py).
     # server_default so the additive migration in create_app can backfill.
     allow_proposals = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
@@ -61,7 +64,7 @@ class Session(db.Model):
     @property
     def is_live(self) -> bool:
         """Visible/joinable by the audience."""
-        return self.active and not self.archived and not self.deleted
+        return self.active and not self.archived
 
 
 class Question(db.Model):

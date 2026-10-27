@@ -18,7 +18,7 @@ from .questions import (
     SCATTER_COLORS, parse_question_payload, question_to_dict, session_to_dict
 )
 from .sockets import broadcast_questions_changed
-from .utils import create_qr_code_data, csv_safe, generate_session_code
+from .utils import create_qr_code_data, csv_safe, generate_session_code, request_json_object
 
 
 def _owned_session_or_404(session_id):
@@ -30,8 +30,8 @@ def _render_dashboard(selected_id=None):
     selection) and /sessions/<id> (a session selected, which doubles as the
     deep link)."""
     user_id = session['user_id']
-    # Include archived (client filters via the Active/Archived tabs); exclude deleted.
-    user_sessions = Session.query.filter_by(user_id=user_id, deleted=False) \
+    # Include archived (client filters via the Active/Archived tabs).
+    user_sessions = Session.query.filter_by(user_id=user_id) \
         .order_by(Session.created_at.desc()).all()
     sessions_data = [session_to_dict(s) for s in user_sessions]
     selected = None
@@ -94,10 +94,7 @@ def init_app(app):
     def manage_session(session_id):
         # The session builder is the unified dashboard with this session selected;
         # this URL is also the shareable deep link.
-        current_session = _owned_session_or_404(session_id)
-        if current_session.deleted:
-            flash("This session has been deleted.", "warning")
-            return redirect(url_for('dashboard'))
+        _owned_session_or_404(session_id)
         return _render_dashboard(selected_id=session_id)
 
     @app.route('/present/<int:session_id>')
@@ -107,9 +104,6 @@ def init_app(app):
         if current_session.archived:
             flash("Cannot present an archived session.", "warning")
             return redirect(url_for('manage_session', session_id=session_id))
-        if current_session.deleted:
-            flash("Cannot present a deleted session.", "warning")
-            return redirect(url_for('dashboard'))
 
         active_questions = [q for q in current_session.questions if q.active]
         join_url = url_for('audience_view', code=current_session.code, _external=True)
@@ -132,9 +126,6 @@ def init_app(app):
         """Post-hoc results view — same Focus/Grid/Stack layouts as Present, over
         all questions, available even when the session is no longer active."""
         current_session = _owned_session_or_404(session_id)
-        if current_session.deleted:
-            flash("This session has been deleted.", "warning")
-            return redirect(url_for('dashboard'))
         return render_template('present_mode.html',
                                current_session=current_session,
                                active_questions=list(current_session.questions),
@@ -194,8 +185,8 @@ def init_app(app):
           - refine:   {"mode":"refine","type":"...","title":"...","options":[...],"hint":"..."}
         """
         try:
-            data = request.get_json() or {}
-            mode = (data.get("mode") or "generate").strip().lower()
+            data = request_json_object()
+            mode = str(data.get("mode") or "generate").strip().lower()
             if mode == "refine":
                 result = generate_question_with_ai(
                     mode="refine",
@@ -220,10 +211,10 @@ def init_app(app):
     @login_required
     def api_create_session():
         """Create a new (inactive) session and return it for the builder."""
-        data = request.get_json(silent=True) or {}
-        name = (data.get('name') or 'Untitled session').strip()[:100] or 'Untitled session'
+        name = str(request_json_object().get('name') or 'Untitled session').strip()[:100] \
+            or 'Untitled session'
         s = Session(name=name, code=generate_session_code(), user_id=session['user_id'],
-                    active=False, archived=False, deleted=False)
+                    active=False, archived=False)
         db.session.add(s)
         db.session.commit()
         return jsonify({"success": True, "session": session_to_dict(s, include_questions=True)})
@@ -232,7 +223,7 @@ def init_app(app):
     @login_required
     def api_rename_session(session_id):
         s = _owned_session_or_404(session_id)
-        name = ((request.get_json(silent=True) or {}).get('name') or '').strip()[:100]
+        name = str(request_json_object().get('name') or '').strip()[:100]
         if not name:
             return jsonify({"success": False, "message": "Name is required."}), 400
         s.name = name
@@ -245,8 +236,6 @@ def init_app(app):
         current_session = _owned_session_or_404(session_id)
         if current_session.archived:
             return jsonify({"success": False, "message": "Cannot toggle archived session."}), 400
-        if current_session.deleted:
-            return jsonify({"success": False, "message": "Cannot toggle deleted session."}), 400
         current_session.active = not current_session.active
         db.session.commit()
         # Notify audience members so an inactive session boots them out live
@@ -259,8 +248,6 @@ def init_app(app):
     def api_archive_session(session_id):
         """Toggle session archive status."""
         current_session = _owned_session_or_404(session_id)
-        if current_session.deleted:
-            return jsonify({"success": False, "message": "Cannot archive a deleted session."}), 400
         current_session.archived = not current_session.archived
         if current_session.archived:
             current_session.active = False
@@ -278,9 +265,7 @@ def init_app(app):
         Results are disposable (no recovery use-case), so there is no trash to
         move to — responses, questions, proposals, and uploads all go.
         """
-        current_session = _owned_session_or_404(session_id)
-        if current_session.deleted:
-            return jsonify({"success": False, "message": "Session is already deleted."}), 400
+        _owned_session_or_404(session_id)
         purge_session(session_id)
         return jsonify({"success": True, "message": "Session permanently deleted."})
 
@@ -294,10 +279,10 @@ def init_app(app):
             return jsonify({"success": True,
                             "questions": [question_to_dict(q) for q in s.questions]})
         # POST: create
-        if s.archived or s.deleted:
+        if s.archived:
             return jsonify({"success": False,
                             "message": "Cannot add questions to this session."}), 400
-        err, q_type, title, opts = parse_question_payload(request.get_json(silent=True) or {})
+        err, q_type, title, opts = parse_question_payload(request_json_object())
         if err:
             return jsonify({"success": False, "message": err}), 400
         next_order = max([q.order for q in s.questions], default=0) + 1
@@ -317,9 +302,6 @@ def init_app(app):
         if question.session.archived:
             return jsonify({"success": False,
                             "message": "Cannot toggle question in archived session."}), 400
-        if question.session.deleted:
-            return jsonify({"success": False,
-                            "message": "Cannot toggle question in deleted session."}), 400
         question.active = not question.active
         db.session.commit()
         # Push the new active-question set to any audience members watching live
@@ -333,9 +315,9 @@ def init_app(app):
         q = Question.query.get_or_404(question_id)
         if q.session.user_id != session['user_id']:
             return jsonify({"success": False, "message": "Permission denied."}), 403
-        if q.session.archived or q.session.deleted:
+        if q.session.archived:
             return jsonify({"success": False, "message": "Cannot edit this question."}), 400
-        err, q_type, title, opts = parse_question_payload(request.get_json(silent=True) or {})
+        err, q_type, title, opts = parse_question_payload(request_json_object())
         if err:
             return jsonify({"success": False, "message": err}), 400
         # Title can always change; structural edits are blocked once responses exist
@@ -362,7 +344,7 @@ def init_app(app):
         q = Question.query.get_or_404(question_id)
         if q.session.user_id != session['user_id']:
             return jsonify({"success": False, "message": "Permission denied."}), 403
-        if q.session.archived or q.session.deleted:
+        if q.session.archived:
             return jsonify({"success": False, "message": "Cannot modify this session."}), 400
         next_order = max([x.order for x in q.session.questions], default=0) + 1
         c = Question(session_id=q.session_id, type=q.type, title=f"{q.title} (copy)"[:255],
@@ -379,9 +361,9 @@ def init_app(app):
         question = Question.query.get_or_404(question_id)
         if question.session.user_id != session['user_id']:
             return jsonify({"success": False, "message": "Permission denied."}), 403
-        if question.session.archived or question.session.deleted:
+        if question.session.archived:
             return jsonify({"success": False,
-                            "message": "Cannot delete question in archived or deleted session."}), 400
+                            "message": "Cannot delete question in an archived session."}), 400
         response_count = Response.query.filter_by(question_id=question_id).count()
         if response_count > 0:
             return jsonify({
@@ -400,8 +382,10 @@ def init_app(app):
     @login_required
     def api_reorder_questions(session_id):
         s = _owned_session_or_404(session_id)
-        order = (request.get_json(silent=True) or {}).get('order') or []
-        pos = {qid: i for i, qid in enumerate(order)}
+        order = request_json_object().get('order')
+        if not isinstance(order, list):
+            order = []
+        pos = {qid: i for i, qid in enumerate(order) if isinstance(qid, int)}
         for q in s.questions:
             if q.id in pos:
                 q.order = pos[q.id]

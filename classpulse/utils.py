@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 import qrcode as qr_code_lib
-from flask import current_app, session as flask_session
+from flask import current_app, request, session as flask_session
 from PIL import Image
 from sqlalchemy import func
 
@@ -65,6 +65,16 @@ def session_code_match(code: str):
     for src, dst in _CODE_CONFUSABLES.items():
         col = func.replace(col, src, dst)
     return col == normalize_session_code(code)
+
+
+def request_json_object() -> dict:
+    """The request's JSON body if it is an object, else {}.
+
+    `get_json(silent=True) or {}` lets a list, string or number through, and
+    the caller's next `.get()` then raises a 500.
+    """
+    data = request.get_json(silent=True)
+    return data if isinstance(data, dict) else {}
 
 
 # --- Audience access ---------------------------------------------------------

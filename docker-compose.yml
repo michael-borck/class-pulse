@@ -14,11 +14,14 @@ services:
       # here explicitly to reach the container at all.
       - TRUST_PROXY=${TRUST_PROXY:-0}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
+      # Threads cap concurrent students (one per connected audience page);
+      # the Dockerfile's CMD reads this. See the comment there.
+      - GUNICORN_THREADS=${GUNICORN_THREADS:-64}
     volumes:
       # The container runs as UID 1000; make sure ./instance is writable by it
       # (sudo chown -R 1000:1000 instance) if your host user isn't UID 1000.
       - ./instance:/app/instance
     restart: unless-stopped
-    # Single worker + threads: Socket.IO broadcasts don't cross gunicorn
-    # workers without a message queue (see SOCKETIO_MESSAGE_QUEUE).
-    command: gunicorn --workers=1 --bind=0.0.0.0:5000 --worker-class=gthread --threads=16 --timeout=60 'wsgi:application'
+    # No `command:` override: the Dockerfile's CMD runs gunicorn with a single
+    # worker (Socket.IO broadcasts don't cross workers without a message queue)
+    # and GUNICORN_THREADS threads.

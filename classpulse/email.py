@@ -10,6 +10,7 @@ Ported (and Flask-adapted) from the sibling the-ai-exchange project.
 
 import logging
 import os
+from html import escape as html_escape
 import smtplib
 from abc import ABC, abstractmethod
 from email.mime.multipart import MIMEMultipart
@@ -219,7 +220,9 @@ def _wrap_html(heading: str, intro: str, code: str, footer: str) -> str:
 def send_verification_email(to_email: str, display_name: str, code: str,
                             ttl_minutes: int) -> bool:
     subject = "Verify your ClassPulse account"
-    intro = (f"Hi {display_name}, welcome to ClassPulse. Enter this code on the "
+    # display_name is user-chosen; escape it for the HTML body or a registrant
+    # could send attacker-written markup from our sender address.
+    intro = (f"Hi {html_escape(display_name or '')}, welcome to ClassPulse. Enter this code on the "
              f"verification page to activate your account:")
     footer = f"This code expires in {ttl_minutes} minutes. If you didn't register, ignore this email."
     text = (f"Hi {display_name},\n\nWelcome to ClassPulse. Your verification code is:\n\n"
@@ -232,7 +235,7 @@ def send_verification_email(to_email: str, display_name: str, code: str,
 def send_password_reset_email(to_email: str, display_name: str, code: str,
                               ttl_minutes: int) -> bool:
     subject = "Reset your ClassPulse password"
-    intro = (f"Hi {display_name}, we received a request to reset your ClassPulse "
+    intro = (f"Hi {html_escape(display_name or '')}, we received a request to reset your ClassPulse "
              f"password. Enter this code on the reset page:")
     footer = (f"This code expires in {ttl_minutes} minutes. If you didn't request a "
               f"reset, ignore this email — your password stays unchanged.")
