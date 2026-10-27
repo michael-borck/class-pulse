@@ -69,8 +69,8 @@
 
 {# Persistent overlay used by the Grid view #}
 <div id="overlay" class="hidden fixed inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 relative">
-        <button type="button" id="ov-close" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 relative" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+        <button type="button" id="ov-close" aria-label="Close" class="absolute top-3 right-4 text-gray-400 hover:text-gray-700 text-3xl leading-none">&times;</button>
         <h3 id="ov-title" class="text-2xl font-semibold mb-1 text-gray-800 pr-8"></h3>
         <p id="ov-cnt" class="text-sm text-gray-500 mb-4"></p>
         <div id="ov-host"></div>
@@ -273,6 +273,7 @@
     function renderView() {
         document.querySelectorAll('.pv-btn').forEach(b => {
             const on = b.dataset.view === view;
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
             b.classList.toggle('bg-indigo-600', on);
             b.classList.toggle('text-white', on);
             b.classList.toggle('bg-white', !on);

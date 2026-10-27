@@ -81,6 +81,14 @@ body { font-family: 'Inter', sans-serif; }
     }
     .cp-input:focus { @apply outline-none ring-2 ring-indigo-500 border-indigo-500; }
 
+    /* Tap-to-choose tiles (image, emoji, matrix cell, colour swatch) hide their
+       radio with sr-only, so the radio's own focus ring is invisible. Draw it
+       on the tile instead, for keyboard focus only (not on tap). */
+    .cp-tile:has(input:focus-visible) {
+        outline: 3px solid #6366f1;
+        outline-offset: 2px;
+    }
+
     /* Brand mark dot — pair with the `animate-pulse-dot` utility. */
     .pulse-dot {
         @apply inline-block w-[0.6rem] h-[0.6rem] rounded-full bg-pink-500;

@@ -133,7 +133,7 @@
             {% set options = q.options | fromjson %}
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
             {% for item in options %}
-                <label class="ic-card relative block cursor-pointer rounded-lg border-2 border-gray-200 bg-white overflow-hidden transition hover:border-indigo-400">
+                <label class="ic-card cp-tile relative block cursor-pointer rounded-lg border-2 border-gray-200 bg-white overflow-hidden transition hover:border-indigo-400">
                     <input type="radio" name="{{ input_name }}" value="{{ item.label }}" required
                            class="ic-radio sr-only peer"
                            {{ 'checked' if item.label == previous_answer }}>
@@ -157,7 +157,7 @@
             {% set options = q.options | fromjson %}
             <div class="flex flex-wrap gap-2 mb-3">
             {% for em in options %}
-                <label class="em-card cursor-pointer rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-4xl leading-none transition hover:border-indigo-400">
+                <label class="em-card cp-tile cursor-pointer rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-4xl leading-none transition hover:border-indigo-400">
                     <input type="radio" name="{{ input_name }}" value="{{ em }}" required
                            class="em-radio sr-only"
                            {{ 'checked' if em == previous_answer }}>
@@ -248,8 +248,9 @@
                 <div class="flex items-center gap-2 mt-3 flex-wrap">
                     <span class="text-xs text-gray-500">Colour:</span>
                     {% for name, hex in scatter_colors.items() %}
-                    <label class="cursor-pointer">
+                    <label class="cp-tile cursor-pointer rounded-full" title="{{ name | capitalize }}">
                         <input type="radio" name="response-{{ q.id }}-color" value="{{ name }}" required
+                               aria-label="{{ name | capitalize }}"
                                class="sc-color-radio sr-only" data-qid="{{ q.id }}" data-hex="{{ hex }}"
                                {{ 'checked' if prev and prev.get('c') == name }}>
                         <span class="sc-swatch block w-7 h-7 rounded-full border-2 border-white shadow transition"
@@ -297,7 +298,7 @@
             </div>
         {% endif %}
 
-        <button type="submit" class="mt-4 bg-brand-gradient text-white font-bold py-1 px-3 rounded text-sm shadow-brand">
+        <button type="submit" class="mt-4 bg-brand-gradient text-white font-bold py-3 px-5 rounded-md text-sm shadow-brand">
             {{ 'Update Answer' if previous_answer is not none else 'Submit Answer' }}
         </button>
         <div class="response-status mt-2 text-sm font-medium {{ 'text-green-600' if previous_answer is not none else '' }}">
@@ -739,20 +740,43 @@
         const DOT_SIZES = { sm: ['w-3', 'h-3'], md: ['w-4', 'h-4'], lg: ['w-6', 'h-6'] };
         function dot(qid) { return document.getElementById('sc-dot-' + qid); }
 
+        // Keep the dot fully inside the pad, hence the 2..98 clamp.
+        const clamp = v => Math.min(98, Math.max(2, v));
+        function place(qid, x, y) {
+            x = clamp(x); y = clamp(y);
+            document.getElementById('sc-x-' + qid).value = x.toFixed(1);
+            document.getElementById('sc-y-' + qid).value = y.toFixed(1);
+            const d = dot(qid);
+            d.classList.remove('hidden');
+            d.style.left = x + '%';
+            d.style.bottom = y + '%';
+            const live = document.getElementById('sc-live-' + qid);
+            if (live) live.textContent = `Your point: ${Math.round(x)} across, ${Math.round(y)} up.`;
+            const form = d.closest('form');
+            if (form) form.dataset.dirty = 'true';
+        }
+
         document.querySelectorAll('.sc-pad').forEach(pad => {
+            const qid = pad.dataset.qid;
             pad.addEventListener('pointerdown', e => {
                 e.preventDefault();
+                pad.focus({ preventScroll: true });
                 const rect = pad.getBoundingClientRect();
-                // Keep the dot fully inside the pad, hence the 2..98 clamp.
-                const x = Math.min(98, Math.max(2, (e.clientX - rect.left) / rect.width * 100));
-                const y = Math.min(98, Math.max(2, 100 - (e.clientY - rect.top) / rect.height * 100));
-                const qid = pad.dataset.qid;
-                document.getElementById('sc-x-' + qid).value = x.toFixed(1);
-                document.getElementById('sc-y-' + qid).value = y.toFixed(1);
-                const d = dot(qid);
-                d.classList.remove('hidden');
-                d.style.left = x + '%';
-                d.style.bottom = y + '%';
+                place(qid, (e.clientX - rect.left) / rect.width * 100,
+                      100 - (e.clientY - rect.top) / rect.height * 100);
+            });
+            // Keyboard: arrows nudge the point (Shift for big steps); the first
+            // press drops it in the middle so there's something to move.
+            pad.addEventListener('keydown', e => {
+                const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+                const m = moves[e.key];
+                if (!m) return;
+                e.preventDefault();
+                const xs = document.getElementById('sc-x-' + qid).value;
+                const ys = document.getElementById('sc-y-' + qid).value;
+                if (xs === '' || ys === '') return place(qid, 50, 50);
+                const stepSize = e.shiftKey ? 10 : 2;
+                place(qid, parseFloat(xs) + m[0] * stepSize, parseFloat(ys) + m[1] * stepSize);
             });
         });
 
