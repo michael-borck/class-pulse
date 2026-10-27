@@ -612,6 +612,7 @@
                     <p class="text-[11px] ${p.status === 'rejected' ? 'text-red-600' : p.status === 'merged' ? 'text-gray-500' : 'text-amber-700'}">
                         ${p.status === 'rejected' ? 'Not approved by the presenter.'
                           : p.status === 'merged' ? 'Merged into a similar question — your vote carried over.'
+                          : p.checking ? 'Getting a quick automatic check — it will appear in the list in a moment.'
                           : 'Awaiting presenter approval — hidden from the public list.'}</p>
                 </div>`).join('');
 
@@ -653,7 +654,7 @@
             if (r.ok && d.success) {
                 document.getElementById('pp-title').value = '';
                 const o = document.getElementById('pp-options'); if (o) o.value = '';
-                ppStatus(d.proposal && d.proposal.status === 'flagged' ? 'warn' : 'ok', d.message);
+                ppStatus(d.proposal && d.proposal.status === 'flagged' && !d.proposal.checking ? 'warn' : 'ok', d.message);
                 loadProposals();
             } else {
                 ppStatus('err', d.message || 'Could not submit your question.');

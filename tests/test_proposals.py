@@ -2,7 +2,7 @@
 
 from classpulse import moderation
 from classpulse.extensions import db
-from classpulse.models import Session
+from classpulse.models import Proposal, Session
 
 from conftest import create_session, create_user, join_session, login
 
@@ -167,6 +167,50 @@ def test_llm_ok_stays_visible(app, client, monkeypatch):
     setup_cohort(app)
     join_session(client)
     assert propose(client).get_json()['proposal']['status'] == 'visible'
+
+
+def _defer_background(monkeypatch):
+    """Capture background tasks instead of running them; returns the queue."""
+    queued = []
+    monkeypatch.setattr(moderation, 'run_in_background',
+                        lambda fn, *args: queued.append((fn, args)))
+    return queued
+
+
+def test_llm_check_runs_after_the_request(app, client, monkeypatch):
+    # The student's request returns before the AI answers; meanwhile the
+    # proposal is hidden, and the finished check publishes it.
+    monkeypatch.setattr(moderation.ai, 'AI_ENABLED', True)
+    monkeypatch.setattr(moderation.ai, 'call_ai', lambda prompt: {
+        "success": True, "response": '{"ok": true, "reason": null}'})
+    queued = _defer_background(monkeypatch)
+    setup_cohort(app)
+    join_session(client)
+    body = propose(client).get_json()
+    assert body['proposal']['status'] == 'flagged' and body['proposal']['checking']
+    assert 'automatic check' in body['message']
+    assert client.get('/audience/ABC123/proposals').get_json()['proposals'] == []
+
+    fn, args = queued.pop()
+    fn(*args)
+    listing = client.get('/audience/ABC123/proposals').get_json()
+    assert [p['status'] for p in listing['proposals']] == ['visible']
+
+
+def test_presenter_decision_beats_a_late_llm_check(app, client, monkeypatch):
+    monkeypatch.setattr(moderation.ai, 'AI_ENABLED', True)
+    monkeypatch.setattr(moderation.ai, 'call_ai', lambda prompt: {
+        "success": True, "response": '{"ok": true, "reason": null}'})
+    queued = _defer_background(monkeypatch)
+    setup_cohort(app)
+    join_session(client)
+    pid = propose(client).get_json()['proposal']['id']
+    login(client, 'alice')
+    assert client.post(f'/api/proposals/{pid}/reject').status_code == 200
+    fn, args = queued.pop()
+    fn(*args)  # the AI says ok, but the presenter already rejected it
+    with app.app_context():
+        assert db.session.get(Proposal, pid).status == 'rejected'
 
 
 # ---------- voting ----------

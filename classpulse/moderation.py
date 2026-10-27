@@ -8,22 +8,35 @@ presenter approves or rejects it — the presenter always has the final say.
    extendable one-term-per-line via instance/moderation_keywords.txt.
 2. Similarity — flags nothing; attaches a "similar to #N" hint so voters and
    the presenter can spot near-duplicates.
-3. LLM check — only when AI is configured (reuses the ai.py adapter). If the
-   AI call errors, the proposal is flagged (not rejected) with a clear reason,
-   so a broken provider never lets content through unreviewed.
+3. LLM check — only when AI is configured (reuses the ai.py adapter). It runs
+   as a background task, not in the student's request: a slow provider (up to
+   the AI timeout) would otherwise tie up a server thread per proposal. Until
+   it finishes the proposal is flagged as AI_PENDING_REASON, so it is never
+   shown unreviewed, and the presenter can approve or reject it meanwhile. If
+   the AI call errors, the proposal stays flagged with a clear reason, so a
+   broken provider never lets content through.
 """
 
 import json
 import os
 import re
+import threading
 from difflib import SequenceMatcher
 from typing import Optional, Tuple
 
 from flask import current_app
 
 from . import ai
+from .extensions import db, socketio
 from .models import Proposal
+from .sockets import broadcast_proposals_changed
 from .stats import STOP_WORDS
+
+AI_PENDING_REASON = "Waiting for the AI check"
+
+# At most this many LLM checks in flight; more queue up. Keeps a burst of
+# proposals from opening a thread and a provider request each.
+_AI_SLOTS = threading.BoundedSemaphore(2)
 
 # Unambiguous profanity/slurs only — subject terms that could appear in a real
 # lesson (anatomy, drugs, war, ...) deliberately stay off this list; the LLM
@@ -140,7 +153,9 @@ def llm_flag(title: str, options_text: str) -> Tuple[bool, Optional[str]]:
 
 
 def moderate_proposal(session_id: int, title: str, options_text: str) -> dict:
-    """Run the pipeline. Returns {'status', 'flag_reason', 'similar_to_id'}."""
+    """Run the instant tiers. Returns {'status', 'flag_reason', 'similar_to_id',
+    'needs_ai'}; when needs_ai is true, save the proposal and then call
+    schedule_ai_check() with its id."""
     full_text = f"{title}\n{options_text or ''}"
     similar_to_id, _score = find_similar(session_id, title)
 
@@ -148,11 +163,42 @@ def moderate_proposal(session_id: int, title: str, options_text: str) -> dict:
     if matched:
         return {'status': 'flagged',
                 'flag_reason': f'keyword filter matched "{matched}"',
-                'similar_to_id': similar_to_id}
+                'similar_to_id': similar_to_id, 'needs_ai': False}
 
-    ok, reason = llm_flag(title, options_text)
-    if not ok:
-        return {'status': 'flagged', 'flag_reason': reason,
-                'similar_to_id': similar_to_id}
+    if ai.AI_ENABLED:
+        return {'status': 'flagged', 'flag_reason': AI_PENDING_REASON,
+                'similar_to_id': similar_to_id, 'needs_ai': True}
 
-    return {'status': 'visible', 'flag_reason': None, 'similar_to_id': similar_to_id}
+    return {'status': 'visible', 'flag_reason': None, 'similar_to_id': similar_to_id,
+            'needs_ai': False}
+
+
+def run_in_background(fn, *args):
+    """Start `fn(*args)` off the request. Tests replace this to run inline."""
+    socketio.start_background_task(fn, *args)
+
+
+def schedule_ai_check(proposal_id: int, title: str, options_text: str) -> None:
+    app = current_app._get_current_object()
+    run_in_background(_ai_check_task, app, proposal_id, title, options_text)
+
+
+def _ai_check_task(app, proposal_id: int, title: str, options_text: str) -> None:
+    with app.app_context():
+        try:
+            with _AI_SLOTS:
+                ok, reason = llm_flag(title, options_text)
+        except Exception:
+            app.logger.exception("Proposal LLM check crashed")
+            ok, reason = False, "AI check failed: needs manual review"
+        p = db.session.get(Proposal, proposal_id)
+        # The presenter may have approved, rejected or merged it while the
+        # check ran; their decision wins.
+        if p is None or p.status != 'flagged' or p.flag_reason != AI_PENDING_REASON:
+            return
+        if ok:
+            p.status, p.flag_reason = 'visible', None
+        else:
+            p.flag_reason = reason
+        db.session.commit()
+        broadcast_proposals_changed(p.session_id)

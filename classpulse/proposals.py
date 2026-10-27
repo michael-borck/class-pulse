@@ -12,7 +12,7 @@ from .audience import RESPONDENT_COOKIE_NAME, _valid_respondent_id, respondent_r
 from .auth import login_required
 from .extensions import db, limiter
 from .models import Proposal, ProposalVote, Question, Session
-from .moderation import moderate_proposal
+from .moderation import AI_PENDING_REASON, moderate_proposal, schedule_ai_check
 from .questions import parse_question_payload, question_to_dict
 from .sockets import broadcast_proposals_changed, broadcast_questions_changed
 from .utils import has_joined_session, request_json_object, session_code_match
@@ -24,6 +24,9 @@ PROPOSAL_TYPES = ('multiple_choice', 'multi_select', 'short_answer', 'word_cloud
 
 # Per-respondent cap per session; rejected ones don't count against it.
 MAX_PROPOSALS_PER_RESPONDENT = 5
+
+CHECKING_MESSAGE = ("Submitted! It's getting a quick automatic check and will "
+                    "appear in the list in a moment.")
 
 FLAGGED_MESSAGE = ("Based on this session's filters, your question needs presenter "
                    "approval before it appears in the public list.")
@@ -59,6 +62,8 @@ def proposal_to_dict(p, respondent_id=None):
                                               for v in p.votes)),
         'mine': bool(respondent_id and p.respondent_id == respondent_id),
         'flag_reason': p.flag_reason,
+        # Hidden only until the background AI check finishes (moderation.py).
+        'checking': p.status == 'flagged' and p.flag_reason == AI_PENDING_REASON,
         'similar_to_id': p.similar_to_id,
         'created_at': p.created_at,
     }
@@ -142,9 +147,14 @@ def init_app(app):
         db.session.add(p)
         db.session.commit()
         broadcast_proposals_changed(s.id)
+        if verdict['needs_ai']:
+            schedule_ai_check(p.id, title, options_text)
+            db.session.refresh(p)  # the check may already have finished
 
         body = {"success": True, "proposal": proposal_to_dict(p, respondent_id)}
-        if p.status == 'flagged':
+        if p.status == 'flagged' and p.flag_reason == AI_PENDING_REASON:
+            body["message"] = CHECKING_MESSAGE
+        elif p.status == 'flagged':
             body["message"] = FLAGGED_MESSAGE
         elif p.similar_to_id:
             body["message"] = ("Submitted! Heads up — a similar question already exists; "

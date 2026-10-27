@@ -23,6 +23,14 @@ def make_app(extra_config=None):
     return create_app(config)
 
 
+@pytest.fixture(autouse=True)
+def inline_background_tasks(monkeypatch):
+    """Run moderation's background AI checks inline, so tests see the result
+    without racing a thread. Tests of the deferred path override this."""
+    from classpulse import moderation
+    monkeypatch.setattr(moderation, 'run_in_background', lambda fn, *args: fn(*args))
+
+
 @pytest.fixture()
 def app():
     app = make_app()
