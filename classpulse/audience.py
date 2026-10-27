@@ -11,18 +11,20 @@ import math
 import uuid
 
 from flask import (
-    flash, jsonify, make_response, redirect, render_template, request, url_for
+    abort, flash, jsonify, make_response, redirect, render_template, request, url_for
 )
 
+from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 
-from .extensions import limiter
-from .extensions import db
+from .extensions import db, limiter
 from .models import Question, Response, Session
 from .models import utcnow_iso
 from .questions import SCATTER_COLORS, SCATTER_SIZES, parsed_options, response_display_label
 from .sockets import broadcast_results
-from .utils import normalize_session_code, session_code_match
+from .utils import (
+    has_joined_session, mark_session_joined, normalize_session_code, session_code_match
+)
 
 RESPONDENT_COOKIE_NAME = "classpulse_respondent"
 
@@ -48,6 +50,17 @@ def _question_options(question):
     except (json.JSONDecodeError, TypeError):
         parsed = []
     return parsed
+
+
+def respondent_rate_key():
+    """Rate-limit key for audience writes: the respondent cookie when present.
+
+    A class usually sits behind one school NAT address, so per-IP limits would
+    make 60 students share one bucket. Each route pairs this with a much
+    higher per-IP limit as a backstop against cookie-cycling.
+    """
+    rid = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
+    return f'respondent:{rid}' if rid else get_remote_address()
 
 
 def _extract_response_value(question):
@@ -217,6 +230,13 @@ def _extract_response_value(question):
     return text, None
 
 
+def _live_session(code):
+    """The audience-visible session for a typed/scanned code, or None."""
+    return Session.query.filter(session_code_match(code), Session.active.is_(True),
+                                Session.archived.is_(False),
+                                Session.deleted.is_(False)).first()
+
+
 def _save_response(question, respondent_id, value):
     """Insert or replace this respondent's answer to the question.
 
@@ -257,18 +277,21 @@ def init_app(app):
         )
         return response
 
+    # Code lookups (typed or in the URL) only count failures against the
+    # limit: a whole class joining from one NAT address is normal, but a run
+    # of wrong codes is someone guessing.
     @app.route('/join', methods=['GET', 'POST'])
-    @limiter.limit("30 per minute", methods=["POST"])
+    @limiter.limit("60 per minute", methods=["POST"],
+                   deduct_when=lambda response: response.status_code != 302)
     def join():
         if request.method == 'POST':
             code = normalize_session_code(request.form.get('code'))
             current_session = None
             if len(code) == 6 and code.isalnum():
-                current_session = Session.query.filter(
-                    session_code_match(code), Session.active.is_(True),
-                    Session.archived.is_(False), Session.deleted.is_(False)).first()
+                current_session = _live_session(code)
 
             if current_session:
+                mark_session_joined(current_session.id)
                 respondent_id = _valid_respondent_id(
                     request.cookies.get(RESPONDENT_COOKIE_NAME)) or str(uuid.uuid4())
                 # Redirect to the stored spelling, not what was typed, so the
@@ -286,13 +309,14 @@ def init_app(app):
                                code=normalize_session_code(request.args.get('code')))
 
     @app.route('/audience/<code>')
+    @limiter.limit("60 per minute",
+                   deduct_when=lambda response: response.status_code != 200)
     def audience_view(code):
-        current_session = Session.query.filter(
-            session_code_match(code), Session.active.is_(True),
-            Session.archived.is_(False), Session.deleted.is_(False)).first()
+        current_session = _live_session(code)
         if not current_session:
             flash("Session not found, is inactive, archived, or has been deleted.", "warning")
             return redirect(url_for('join'))
+        mark_session_joined(current_session.id)
 
         # This route is where a QR scan or a shared join link lands, so most
         # first-time visitors arrive with no cookie. Mint one rather than
@@ -339,14 +363,16 @@ def init_app(app):
             respondent_id)
 
     @app.route('/audience/respond/<int:question_id>', methods=['POST'])
-    @limiter.limit("60 per minute")
+    @limiter.limit("30 per minute", key_func=respondent_rate_key)
+    @limiter.limit("1200 per minute")
     def process_response(question_id):
         # Audience view submits via fetch() with this header; fall back to the
         # classic redirect/flash flow for non-JS clients.
         wants_json = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        question = Question.query.get_or_404(question_id)
-        if (not question.active or not question.session.active
-                or question.session.archived or question.session.deleted):
+        question = db.session.get(Question, question_id)
+        if question is None:
+            abort(404)
+        if not question.active or not question.session.is_live:
             msg = "Sorry, this question or session is no longer active."
             if wants_json:
                 return jsonify({"success": False, "message": msg, "inactive": True}), 409
@@ -354,7 +380,9 @@ def init_app(app):
             return redirect(url_for('audience_view', code=question.session.code))
 
         respondent_id = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
-        if not respondent_id:
+        # The session code is the credential: answers are only accepted from a
+        # browser that opened this session's page (which records the join).
+        if not respondent_id or not has_joined_session(question.session_id):
             msg = "Could not identify you. Please try rejoining the session."
             if wants_json:
                 return jsonify({"success": False, "message": msg, "needs_rejoin": True}), 400

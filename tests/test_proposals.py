@@ -72,6 +72,14 @@ def test_proposal_requires_respondent_cookie(app, client):
     assert resp.status_code == 400 and resp.get_json()['needs_rejoin']
 
 
+def test_proposals_require_having_opened_the_session(app, client):
+    # A respondent cookie alone isn't enough; the browser must have loaded the
+    # session's page with its code (which records the join).
+    setup_cohort(app)
+    client.set_cookie('classpulse_respondent', '00000000-0000-4000-8000-000000000001')
+    assert propose(client).status_code == 400
+
+
 def test_proposal_type_restrictions(app, client):
     setup_cohort(app)
     join_session(client)

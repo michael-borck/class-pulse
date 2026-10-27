@@ -4,31 +4,33 @@ Handlers are registered at import time on the shared `socketio` instance (not
 inside create_app) so repeated factory calls — e.g. in tests — don't register
 duplicates.
 
-Authorization: question/session rooms carry live results, including verbatim
-short-answer text, so a client may only join a room if the content is publicly
-live (active question in an active, visible session) or the client is the
-authenticated owner. IDs are sequential integers — without this check anyone
-could enumerate and stream every session's results.
+Authorization. IDs are sequential integers, so every room checks who's asking:
+  - question_<id> rooms stream live results, including verbatim short answers.
+    Only the session's owner may join (Present mode and the Results views).
+  - session_<id> rooms carry "the question list changed" nudges. The owner may
+    join, and so may an audience member who loaded the session's page with its
+    code (see utils.mark_session_joined) while it is live.
+Socket events skip Flask's before_request hooks, so _is_owner repeats the
+login checks itself: a cookie revoked by a password reset, or belonging to a
+blocked account, gets nothing.
 """
 
 from flask import current_app, request, session as http_session
 
 from .extensions import db, socketio
-from .models import Question, Session
+from .models import Question, Session, User
 from .stats import get_question_stats
-from flask_socketio import emit, join_room, leave_room
+from .utils import has_joined_session
+from flask_socketio import emit, join_room
 
 
 def _is_owner(db_session) -> bool:
     uid = http_session.get('user_id')
-    return uid is not None and db_session.user_id == uid
-
-
-def _can_watch_question(question) -> bool:
-    if question is None:
+    if uid is None or db_session.user_id != uid:
         return False
-    s = question.session
-    return _is_owner(s) or (question.active and s.is_live)
+    user = db.session.get(User, uid)
+    return (user is not None and not user.is_archived
+            and http_session.get('session_token') == user.session_token)
 
 
 def broadcast_results(question_id: int):
@@ -79,7 +81,9 @@ def handle_disconnect():
 @socketio.on('join')
 def handle_join_room(data):
     """Client requests to join a room for a specific question."""
-    question_id = (data or {}).get('question_id')
+    if not isinstance(data, dict):
+        return
+    question_id = data.get('question_id')
     if question_id is None:
         return
     try:
@@ -88,7 +92,7 @@ def handle_join_room(data):
         current_app.logger.warning(f"Invalid question_id received for join: {question_id!r}")
         return
     question = db.session.get(Question, q_id)
-    if not _can_watch_question(question):
+    if question is None or not _is_owner(question.session):
         current_app.logger.info(f"Refused join to question_{q_id} for {request.sid}")
         return
     room_name = f'question_{q_id}'
@@ -102,7 +106,9 @@ def handle_join_room(data):
 def handle_join_session(data):
     """Audience clients join a room scoped to the whole session so they get
     notified when the presenter activates/deactivates questions."""
-    session_id = (data or {}).get('session_id')
+    if not isinstance(data, dict):
+        return
+    session_id = data.get('session_id')
     if session_id is None:
         return
     try:
@@ -111,20 +117,7 @@ def handle_join_session(data):
         current_app.logger.warning(f"Invalid session_id received for join_session: {session_id!r}")
         return
     s = db.session.get(Session, s_id)
-    if s is None or not (_is_owner(s) or s.is_live):
+    if s is None or not (_is_owner(s) or (s.is_live and has_joined_session(s.id))):
         current_app.logger.info(f"Refused join to session_{s_id} for {request.sid}")
         return
     join_room(f'session_{s_id}')
-
-
-@socketio.on('leave')
-def handle_leave_room(data):
-    """Client requests to leave a room."""
-    question_id = (data or {}).get('question_id')
-    if question_id is None:
-        return
-    try:
-        q_id = int(question_id)
-    except (ValueError, TypeError):
-        return
-    leave_room(f'question_{q_id}')

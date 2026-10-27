@@ -6,15 +6,16 @@ overrides moderation flags. See moderation.py for the filtering pipeline.
 import json
 
 from flask import jsonify, request, session
+from sqlalchemy.exc import IntegrityError
 
-from .audience import RESPONDENT_COOKIE_NAME, _valid_respondent_id
+from .audience import RESPONDENT_COOKIE_NAME, _valid_respondent_id, respondent_rate_key
 from .auth import login_required
 from .extensions import db, limiter
 from .models import Proposal, ProposalVote, Question, Session
 from .moderation import moderate_proposal
 from .questions import parse_question_payload, question_to_dict
 from .sockets import broadcast_proposals_changed, broadcast_questions_changed
-from .utils import session_code_match
+from .utils import has_joined_session, session_code_match
 
 # Types the audience may propose. Deliberately narrower than
 # VALID_QUESTION_TYPES: no image_choice (anonymous users supplying image URLs
@@ -34,6 +35,12 @@ def _live_session_by_code(code):
     return Session.query.filter(
         session_code_match(code), Session.active.is_(True),
         Session.archived.is_(False), Session.deleted.is_(False)).first()
+
+
+# Like the response route, only browsers that opened the session's page (which
+# records the join) may read or write its proposals; the code is the credential.
+_REJOIN = ({"success": False, "needs_rejoin": True,
+            "message": "Could not identify you. Please rejoin the session."}, 400)
 
 
 def proposal_to_dict(p, respondent_id=None):
@@ -82,6 +89,8 @@ def init_app(app):
         if not s or not s.allow_proposals:
             return jsonify({"success": False, "enabled": False,
                             "message": "Proposals are not open for this session."}), 404
+        if not has_joined_session(s.id):
+            return jsonify(_REJOIN[0]), _REJOIN[1]
         respondent_id = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
         proposals = Proposal.query.filter_by(session_id=s.id).all()
         public = [proposal_to_dict(p, respondent_id) for p in proposals
@@ -99,16 +108,16 @@ def init_app(app):
                         "mine_hidden": mine_hidden, "remaining": remaining})
 
     @app.route('/audience/<code>/proposals', methods=['POST'])
-    @limiter.limit("5 per minute")
+    @limiter.limit("5 per minute", key_func=respondent_rate_key)
+    @limiter.limit("200 per minute")
     def audience_create_proposal(code):
         s = _live_session_by_code(code)
         if not s or not s.allow_proposals:
             return jsonify({"success": False,
                             "message": "Proposals are not open for this session."}), 404
         respondent_id = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
-        if not respondent_id:
-            return jsonify({"success": False, "needs_rejoin": True,
-                            "message": "Could not identify you. Please rejoin the session."}), 400
+        if not respondent_id or not has_joined_session(s.id):
+            return jsonify(_REJOIN[0]), _REJOIN[1]
 
         data = request.get_json(silent=True) or {}
         if data.get('type') not in PROPOSAL_TYPES:
@@ -145,7 +154,8 @@ def init_app(app):
         return jsonify(body)
 
     @app.route('/audience/proposals/<int:proposal_id>/vote', methods=['POST'])
-    @limiter.limit("30 per minute")
+    @limiter.limit("30 per minute", key_func=respondent_rate_key)
+    @limiter.limit("1200 per minute")
     def audience_vote_proposal(proposal_id):
         p = Proposal.query.get_or_404(proposal_id)
         s = p.session
@@ -156,9 +166,8 @@ def init_app(app):
             return jsonify({"success": False,
                             "message": "This question can't be voted on."}), 400
         respondent_id = _valid_respondent_id(request.cookies.get(RESPONDENT_COOKIE_NAME))
-        if not respondent_id:
-            return jsonify({"success": False, "needs_rejoin": True,
-                            "message": "Could not identify you. Please rejoin the session."}), 400
+        if not respondent_id or not has_joined_session(s.id):
+            return jsonify(_REJOIN[0]), _REJOIN[1]
 
         existing = ProposalVote.query.filter_by(proposal_id=p.id,
                                                 respondent_id=respondent_id).first()
@@ -168,7 +177,12 @@ def init_app(app):
         else:
             db.session.add(ProposalVote(proposal_id=p.id, respondent_id=respondent_id))
             voted = True
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # A double tap raced two inserts; the first one already counted.
+            db.session.rollback()
+            voted = True
         broadcast_proposals_changed(s.id)
         return jsonify({"success": True, "voted": voted,
                         "votes": ProposalVote.query.filter_by(proposal_id=p.id).count()})

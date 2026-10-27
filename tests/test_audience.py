@@ -237,6 +237,21 @@ def test_numeric_stats_ignore_stored_nan(app):
     json.dumps(stats, allow_nan=False)  # raises if anything non-finite leaked
 
 
+def test_respond_requires_having_opened_the_session(app, client):
+    # A self-made respondent cookie plus a guessed question id isn't enough:
+    # the browser must have loaded the session with its code.
+    _, qid = setup_live(app)
+    client.set_cookie('classpulse_respondent', str(uuid.uuid4()))
+    resp = _respond(client, qid, 'Red')
+    assert resp.status_code == 400 and resp.get_json()['needs_rejoin']
+
+
+def test_scanned_link_counts_as_joining(app, client):
+    _, qid = setup_live(app)
+    client.get('/audience/ABC123')
+    assert _respond(client, qid, 'Red').status_code == 200
+
+
 def test_one_response_row_per_respondent(app, client):
     from sqlalchemy.exc import IntegrityError
     from classpulse.extensions import db

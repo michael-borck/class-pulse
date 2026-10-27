@@ -57,6 +57,38 @@ def test_export_escapes_formula_responses(app, client):
     assert b'\n=cmd' not in resp.data and b',=cmd' not in resp.data
 
 
+def test_audience_rate_limit_is_per_respondent_not_per_ip():
+    # A class shares one NAT address; one student's limit must not block the rest.
+    app = make_app({'RATELIMIT_ENABLED': True})
+    alice = create_user(app, 'alice')
+    sid = create_session(app, alice)
+    qid = create_question(app, sid)
+    hdr = {'X-Requested-With': 'XMLHttpRequest'}
+
+    noisy = app.test_client()
+    noisy.post('/join', data={'code': 'ABC123'})
+    statuses = [noisy.post(f'/audience/respond/{qid}', data={f'response-{qid}': 'Red'},
+                           headers=hdr).status_code for _ in range(35)]
+    assert 429 in statuses
+
+    classmate = app.test_client()  # same IP (test client), different respondent
+    classmate.post('/join', data={'code': 'ABC123'})
+    assert classmate.post(f'/audience/respond/{qid}', data={f'response-{qid}': 'Red'},
+                          headers=hdr).status_code == 200
+
+
+def test_only_failed_code_lookups_count_toward_the_join_limit():
+    app = make_app({'RATELIMIT_ENABLED': True})
+    alice = create_user(app, 'alice')
+    create_session(app, alice)
+    client = app.test_client()
+    # A whole class joining from one address is fine...
+    assert all(client.get('/audience/ABC123').status_code == 200 for _ in range(80))
+    # ...but a run of wrong codes is someone guessing.
+    statuses = [client.get('/audience/ZZZ999').status_code for _ in range(65)]
+    assert 429 in statuses
+
+
 def test_migration_dedupes_responses_and_adds_unique_index(tmp_path):
     # Simulate a database from before the unique index: duplicate rows exist.
     import sqlite3

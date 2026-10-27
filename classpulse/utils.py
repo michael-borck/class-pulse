@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 import qrcode as qr_code_lib
-from flask import current_app
+from flask import current_app, session as flask_session
 from PIL import Image
 from sqlalchemy import func
 
@@ -65,6 +65,25 @@ def session_code_match(code: str):
     for src, dst in _CODE_CONFUSABLES.items():
         col = func.replace(col, src, dst)
     return col == normalize_session_code(code)
+
+
+# --- Audience access ---------------------------------------------------------
+# The session code is the audience's only credential. Loading the audience page
+# for a code records that session id in the signed Flask session cookie; the
+# response, proposal and socket endpoints then check for it, so knowing (or
+# guessing) a sequential question/session id isn't enough to post or listen.
+_JOINED_KEY = 'joined_sessions'
+_MAX_JOINED = 20  # keep the cookie small; oldest joins drop off first
+
+
+def mark_session_joined(session_id: int) -> None:
+    joined = [s for s in flask_session.get(_JOINED_KEY, []) if s != session_id]
+    joined.append(session_id)
+    flask_session[_JOINED_KEY] = joined[-_MAX_JOINED:]
+
+
+def has_joined_session(session_id: int) -> bool:
+    return session_id in flask_session.get(_JOINED_KEY, [])
 
 
 def generate_session_code(length: int = 6) -> str:
