@@ -11,13 +11,11 @@
     <div class="flex items-center gap-3">
         {% if is_present %}
         {# The code stays on screen for late joiners; clicking it (or space) brings
-           back the full join screen. #}
+           back the full join screen. The scannable QR lives in the results
+           sidebar — a header-sized QR is too small to scan anyway. #}
         <button type="button" id="open-join"
                 class="flex items-center gap-2 rounded-lg bg-white/15 hover:bg-white/25 px-3 py-1.5 transition"
                 title="Show the join screen (space)">
-            {% if qr_code_data_url %}
-            <img src="{{ qr_code_data_url }}" alt="" class="w-9 h-9 rounded bg-white p-0.5" style="image-rendering: pixelated;">
-            {% endif %}
             <span class="text-2xl font-mono font-bold text-white tracking-widest leading-none">{{ current_session.code }}</span>
         </button>
         {% endif %}
